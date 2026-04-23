@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Georgia",
+    "Noto Serif SC", "Source Han Serif SC", serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #f7f7f5;
+  color: #111;
+  font-family: var(--font-sans);
+}
+
+/* Document preview uses a serif face so the filled form reads like a contract. */
+.doc {
+  font-family: var(--font-serif);
+  color: #111;
+  line-height: 1.6;
+}
+
+.doc h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.doc h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doc h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1rem 0 0.25rem;
+}
+
+.doc p {
+  margin: 0.5rem 0;
+}
+
+.doc ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.doc ol > li {
+  margin-bottom: 0.75rem;
+}
+
+.doc .filled {
+  background: #fff6b8;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+}
+
+.doc .missing {
+  background: #fbe3e3;
+  color: #8a1f1f;
+  font-style: italic;
+  padding: 0 0.25rem;
+  border-radius: 2px;
+}
+
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+
+.doc th,
+.doc td {
+  border: 1px solid #d4d4d4;
+  padding: 0.5rem 0.6rem;
+  vertical-align: top;
+}
+
+.doc th {
+  background: #f3f3f1;
+  text-align: left;
+  font-weight: 600;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  /* Collapse everything except the document tree — `display: none` on siblings
+     lets the document flow naturally across multiple printed pages. */
+  .no-print {
+    display: none !important;
+  }
+
+  [data-print-root] {
+    padding: 0;
+    margin: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .doc .filled {
+    background: transparent;
+  }
+
+  .doc .missing {
+    background: transparent;
+    color: #8a1f1f;
+  }
+}
