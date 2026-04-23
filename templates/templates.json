@@ -1,0 +1,181 @@
+{
+  "schema_version": "1",
+  "source": {
+    "publisher": "Common Paper",
+    "organization_url": "https://commonpaper.com/",
+    "github_org": "https://github.com/CommonPaper",
+    "license": {
+      "spdx_id": "CC-BY-4.0",
+      "name": "Creative Commons Attribution 4.0 International",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    }
+  },
+  "templates": [
+    {
+      "id": "mutual-nda",
+      "title": "Mutual Non-Disclosure Agreement (MNDA)",
+      "description": "Standard bilateral non-disclosure agreement for exchanging confidential information between two parties.",
+      "category": "nda",
+      "path": "mutual-nda",
+      "files": [
+        { "type": "cover_page", "path": "mutual-nda/Mutual-NDA-coverpage.md" },
+        { "type": "standard_terms", "path": "mutual-nda/Mutual-NDA.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/Mutual-NDA",
+        "commit": "2a3068b6c0ab6015c440f541d5b215bc3ac2f4cb",
+        "commit_date": "2022-06-07T18:24:38Z"
+      }
+    },
+    {
+      "id": "cloud-service-agreement",
+      "title": "Cloud Service Agreement (CSA)",
+      "description": "Standard agreement for SaaS/cloud service providers to contract with customers, covering access, data, support, and commercial terms.",
+      "category": "commercial",
+      "path": "cloud-service-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "cloud-service-agreement/CSA.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/CSA",
+        "commit": "4afc1f9d9ebad949a67a9585ed527e19f482492b",
+        "commit_date": "2025-05-20T15:02:43Z"
+      }
+    },
+    {
+      "id": "design-partner-agreement",
+      "title": "Design Partner Agreement",
+      "description": "Agreement for early-stage vendors collaborating with a design partner to co-develop and validate a product.",
+      "category": "commercial",
+      "path": "design-partner-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "design-partner-agreement/design-partner-agreement.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/Design-Partner-Agreement",
+        "commit": "ff8ed1049d5546ea6bd96a17b4c910d831cde3be",
+        "commit_date": "2026-04-10T14:59:49Z"
+      }
+    },
+    {
+      "id": "service-level-agreement",
+      "title": "Service Level Agreement (SLA)",
+      "description": "Service level commitments (uptime, incident response) intended to be attached to a cloud or software agreement.",
+      "category": "commercial-addendum",
+      "path": "service-level-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "service-level-agreement/sla.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/SLA",
+        "commit": "5b0e6336f058a66c4976d70ecabf1f5fb9ef3af4",
+        "commit_date": "2025-05-20T15:02:48Z"
+      }
+    },
+    {
+      "id": "professional-services-agreement",
+      "title": "Professional Services Agreement (PSA)",
+      "description": "Agreement for a service provider delivering professional/consulting services against one or more Statements of Work.",
+      "category": "commercial",
+      "path": "professional-services-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "professional-services-agreement/psa.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/PSA",
+        "commit": "3fb650a72d229f6d6e6d64abebae5e83c6699535",
+        "commit_date": "2025-05-23T13:38:36Z"
+      }
+    },
+    {
+      "id": "data-processing-agreement",
+      "title": "Data Processing Agreement (DPA)",
+      "description": "Controller-to-processor data protection terms covering GDPR / UK GDPR / CCPA obligations, sub-processing, and international transfers.",
+      "category": "privacy-addendum",
+      "path": "data-processing-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "data-processing-agreement/DPA.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/DPA",
+        "commit": "9f1c40d3fb0bb900397a919d058a9c0870f6b0f0",
+        "commit_date": "2025-05-09T21:29:46Z"
+      }
+    },
+    {
+      "id": "software-license-agreement",
+      "title": "Software License Agreement",
+      "description": "Standard agreement licensing on-prem or otherwise installable software, covering scope of license, support, and commercial terms.",
+      "category": "commercial",
+      "path": "software-license-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "software-license-agreement/Software-License-Agreement.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/Software-License-Agreement",
+        "commit": "8ea7de38148a8a0c235b7aaf31487028c2e519ca",
+        "commit_date": "2025-05-20T15:02:27Z"
+      }
+    },
+    {
+      "id": "partnership-agreement",
+      "title": "Partnership Agreement",
+      "description": "Agreement between two companies to jointly market, resell, or refer each other's offerings.",
+      "category": "commercial",
+      "path": "partnership-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "partnership-agreement/Partnership-Agreement.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/Partnership-Agreement",
+        "commit": "6edeb5a285206893cfd0ac482267db44d90f317c",
+        "commit_date": "2025-05-23T13:38:27Z"
+      }
+    },
+    {
+      "id": "pilot-agreement",
+      "title": "Pilot Agreement",
+      "description": "Short-form agreement for a limited paid or free pilot/trial of a product with a prospective customer.",
+      "category": "commercial",
+      "path": "pilot-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "pilot-agreement/Pilot-Agreement.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/Pilot-Agreement",
+        "commit": "5e7cdd4678cd9d6b3178872cce4a01d632f41f14",
+        "commit_date": "2025-07-22T20:13:15Z"
+      }
+    },
+    {
+      "id": "business-associate-agreement",
+      "title": "Business Associate Agreement (BAA)",
+      "description": "HIPAA-required agreement between a covered entity and a business associate that handles protected health information.",
+      "category": "privacy-addendum",
+      "path": "business-associate-agreement",
+      "files": [
+        { "type": "standard_terms", "path": "business-associate-agreement/BAA.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/BAA",
+        "commit": "5f1fd992df1d0c78bf69997e1881e4107fa75695",
+        "commit_date": "2025-05-23T13:38:19Z"
+      }
+    },
+    {
+      "id": "ai-addendum",
+      "title": "AI Addendum",
+      "description": "Addendum layering AI-specific terms (training data, model inputs/outputs, acceptable use) onto an underlying services agreement.",
+      "category": "commercial-addendum",
+      "path": "ai-addendum",
+      "files": [
+        { "type": "standard_terms", "path": "ai-addendum/AI-Addendum.md" }
+      ],
+      "source": {
+        "repo": "https://github.com/CommonPaper/AI-Addendum",
+        "commit": "6d9b044df73a2477c177e5989fca7f8d27df9387",
+        "commit_date": "2025-08-07T16:07:20Z"
+      }
+    }
+  ]
+}
