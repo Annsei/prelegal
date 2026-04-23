@@ -61,8 +61,12 @@ export const STANDARD_TERMS_SECTIONS: { heading: string; body: string }[] = [
   },
 ];
 
-export const ATTRIBUTION =
-  "Common Paper Mutual Non-Disclosure Agreement (Version 1.0) free to use under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).";
+// Upstream versioned page + CC BY 4.0 license — both URLs must appear in the
+// rendered attribution for the PDF to remain license-compliant.
+export const ATTRIBUTION_VERSION_URL =
+  "https://commonpaper.com/standards/mutual-nda/1.0/";
+export const ATTRIBUTION_LICENSE_URL =
+  "https://creativecommons.org/licenses/by/4.0/";
 
 type Segment =
   | { type: "text"; value: string }

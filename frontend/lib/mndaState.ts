@@ -22,9 +22,21 @@ export type MndaState = {
   party2: PartyInfo;
 };
 
+function todayLocalISO(): string {
+  // Same local-calendar construction `formatEffectiveDate` relies on —
+  // `new Date().toISOString()` would be UTC and render as yesterday in any
+  // west-of-UTC timezone after local midnight minus the offset.
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export const INITIAL_STATE: MndaState = {
   purpose: "Evaluating whether to enter into a business relationship with the other party.",
-  effectiveDate: new Date().toISOString().slice(0, 10),
+  effectiveDate: todayLocalISO(),
   mndaTermMode: "expires",
   mndaTermYears: 1,
   confidentialityMode: "years",

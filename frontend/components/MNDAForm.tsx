@@ -52,78 +52,76 @@ export function MNDAForm({ locale, value, onChange }: Props) {
           />
         </Field>
 
-        <Field label={t.labels.mndaTerm}>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="mndaTermMode"
-                checked={value.mndaTermMode === "expires"}
-                onChange={() => setField("mndaTermMode", "expires")}
-              />
-              <span>{t.labels.mndaTermExpires}</span>
-              <input
-                type="number"
-                min={0}
-                className={numberCls}
-                value={value.mndaTermYears}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    mndaTermMode: "expires",
-                    mndaTermYears: toNonNegInt(e),
-                  })
-                }
-              />
-              <span>{t.labels.mndaTermYears}</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="mndaTermMode"
-                checked={value.mndaTermMode === "continues"}
-                onChange={() => setField("mndaTermMode", "continues")}
-              />
-              <span>{t.labels.mndaTermContinues}</span>
-            </label>
-          </div>
-        </Field>
+        <RadioGroup legend={t.labels.mndaTerm}>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="mndaTermMode"
+              checked={value.mndaTermMode === "expires"}
+              onChange={() => setField("mndaTermMode", "expires")}
+            />
+            <span>{t.labels.mndaTermExpires}</span>
+            <input
+              type="number"
+              min={0}
+              aria-label={t.labels.mndaTerm}
+              className={numberCls}
+              value={value.mndaTermYears}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  mndaTermMode: "expires",
+                  mndaTermYears: toNonNegInt(e),
+                })
+              }
+            />
+            <span>{t.labels.mndaTermYears}</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="mndaTermMode"
+              checked={value.mndaTermMode === "continues"}
+              onChange={() => setField("mndaTermMode", "continues")}
+            />
+            <span>{t.labels.mndaTermContinues}</span>
+          </label>
+        </RadioGroup>
 
-        <Field label={t.labels.confidentialityTerm}>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="confidentialityMode"
-                checked={value.confidentialityMode === "years"}
-                onChange={() => setField("confidentialityMode", "years")}
-              />
-              <input
-                type="number"
-                min={0}
-                className={numberCls}
-                value={value.confidentialityYears}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    confidentialityMode: "years",
-                    confidentialityYears: toNonNegInt(e),
-                  })
-                }
-              />
-              <span>{t.labels.confidentialityYears}</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="confidentialityMode"
-                checked={value.confidentialityMode === "perpetual"}
-                onChange={() => setField("confidentialityMode", "perpetual")}
-              />
-              <span>{t.labels.confidentialityPerpetual}</span>
-            </label>
-          </div>
-        </Field>
+        <RadioGroup legend={t.labels.confidentialityTerm}>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="confidentialityMode"
+              checked={value.confidentialityMode === "years"}
+              onChange={() => setField("confidentialityMode", "years")}
+            />
+            <input
+              type="number"
+              min={0}
+              aria-label={t.labels.confidentialityTerm}
+              className={numberCls}
+              value={value.confidentialityYears}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  confidentialityMode: "years",
+                  confidentialityYears: toNonNegInt(e),
+                })
+              }
+            />
+            <span>{t.labels.confidentialityYears}</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="confidentialityMode"
+              checked={value.confidentialityMode === "perpetual"}
+              onChange={() => setField("confidentialityMode", "perpetual")}
+            />
+            <span>{t.labels.confidentialityPerpetual}</span>
+          </label>
+        </RadioGroup>
       </Section>
 
       <Section title={t.sections.governing}>
@@ -297,6 +295,23 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+function RadioGroup({
+  legend,
+  children,
+}: {
+  legend: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset className="border-0 p-0">
+      <legend className="mb-1 block text-sm font-medium text-neutral-800">
+        {legend}
+      </legend>
+      <div className="space-y-2">{children}</div>
+    </fieldset>
   );
 }
 

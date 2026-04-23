@@ -1,7 +1,8 @@
 import type { MndaState, PartyInfo } from "@/lib/mndaState";
 import { formatEffectiveDate } from "@/lib/mndaState";
 import {
-  ATTRIBUTION,
+  ATTRIBUTION_LICENSE_URL,
+  ATTRIBUTION_VERSION_URL,
   type PlaceholderKey,
   STANDARD_TERMS_SECTIONS,
   parseSegments,
@@ -18,7 +19,17 @@ export function MNDAPreview({ value }: Props) {
       <div className="mt-10 border-t border-neutral-300 pt-6">
         <StandardTerms lookup={lookup} />
       </div>
-      <p className="mt-8 text-xs italic text-neutral-600">{ATTRIBUTION}</p>
+      <p className="mt-8 text-xs italic text-neutral-600">
+        Common Paper Mutual Non-Disclosure Agreement{" "}
+        <a href={ATTRIBUTION_VERSION_URL} className="underline">
+          Version 1.0
+        </a>{" "}
+        free to use under{" "}
+        <a href={ATTRIBUTION_LICENSE_URL} className="underline">
+          CC BY 4.0
+        </a>
+        .
+      </p>
     </article>
   );
 }
