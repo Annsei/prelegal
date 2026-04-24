@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp *)",
+      "Bash(git *)",
+      "Bash(gh pr *)",
+      "Bash(/bin/bash *)",
+      "Bash(python3 *)",
+      "Bash(npm -v)",
+      "Bash(npm install *)",
+      "Bash(npm view *)",
+      "Bash(npm audit *)",
+      "Bash(npm test *)",
+      "Bash(npx next *)",
+      "Bash(npx playwright *)",
+      "Bash(wait %1)",
+      "Bash(curl -s https://raw.githubusercontent.com/CommonPaper/Mutual-NDA/main/README.md)",
+      "Bash(curl -fsSL https://api.github.com/repos/CommonPaper/__TRACKED_VAR__/contents/)",
+      "mcp__github__issue_write",
+      "mcp__github__search_repositories",
+      "mcp__github__get_file_contents",
+      "mcp__atlassian__getJiraIssue",
+      "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__getTransitionsForJiraIssue",
+      "mcp__atlassian__transitionJiraIssue"
+    ]
+  }
+}

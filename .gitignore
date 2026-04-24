@@ -191,3 +191,9 @@ $RECYCLE.BIN/
 secrets.yml
 secrets.yaml
 .envrc
+
+# ============================================================
+# Claude Code — share team settings, keep local overrides private
+# ============================================================
+!.claude/
+.claude/settings.local.json
