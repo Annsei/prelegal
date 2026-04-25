@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.db import reset_database
-from app.routes import auth, health
+from app.routes import auth, chat, health
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -31,6 +31,7 @@ def create_app(static_dir: Path = STATIC_DIR) -> FastAPI:
     instance = FastAPI(title="Prelegal", lifespan=lifespan)
     instance.include_router(health.router, prefix="/api")
     instance.include_router(auth.router, prefix="/api")
+    instance.include_router(chat.router, prefix="/api")
 
     if not static_dir.is_dir():
         return instance

@@ -58,6 +58,60 @@ export const INITIAL_STATE: MndaState = {
   },
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+/**
+ * Merge a partial update from the AI into the current state.
+ *
+ * Unknown keys are dropped (the AI's structured output schema constrains the
+ * shape, but we still defend the client). PartyInfo updates are merged
+ * field-by-field so a turn that only learns party1.company doesn't blow away
+ * party1.signerName. Allowed keys are derived from the live `current` object
+ * — there is no parallel allowlist that could drift from the type.
+ */
+export function mergeMndaUpdates(
+  current: MndaState,
+  updates: Record<string, unknown>,
+): MndaState {
+  const next: MndaState = { ...current };
+  for (const [rawKey, value] of Object.entries(updates)) {
+    if (rawKey === "__proto__" || rawKey === "constructor") continue;
+    if (!Object.prototype.hasOwnProperty.call(current, rawKey)) continue;
+    const key = rawKey as keyof MndaState;
+    const currentValue = current[key];
+
+    if (isPlainObject(currentValue)) {
+      // Party fields: deep-merge.
+      if (!isPlainObject(value)) continue;
+      const merged: PartyInfo = { ...currentValue } as PartyInfo;
+      for (const [fk, fv] of Object.entries(value)) {
+        if (
+          fk in merged &&
+          typeof fv === "string" &&
+          fk !== "__proto__"
+        ) {
+          (merged as Record<string, string>)[fk] = fv;
+        }
+      }
+      (next as Record<string, unknown>)[key] = merged;
+      continue;
+    }
+
+    // Top-level scalars — accept the value only if its runtime type matches
+    // the existing state's.
+    if (typeof value === typeof currentValue) {
+      (next as Record<string, unknown>)[key] = value;
+    }
+  }
+  return next;
+}
+
 export function formatEffectiveDate(iso: string): string {
   if (!iso) return "";
   // Parse as a local calendar date — `new Date("2026-04-23")` would be midnight

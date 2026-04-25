@@ -8,6 +8,16 @@ type Dictionary = {
   langToggle: string;
   download: string;
   printHint: string;
+  chat: {
+    tab: string;
+    formTab: string;
+    welcome: string;
+    placeholder: string;
+    send: string;
+    sending: string;
+    error: string;
+    doneBanner: string;
+  };
   sections: {
     agreement: string;
     parties: string;
@@ -54,10 +64,21 @@ type Dictionary = {
 
 const zh: Dictionary = {
   appTitle: "双方保密协议生成器",
-  appSubtitle: "基于 Common Paper Mutual NDA v1.0。填写下方信息，右侧实时预览，完成后点击下载 PDF。",
+  appSubtitle: "基于 Common Paper Mutual NDA v1.0。与 AI 对话生成协议，右侧实时预览，完成后点击下载 PDF。",
   langToggle: "English",
   download: "下载 PDF",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
+  chat: {
+    tab: "AI 对话",
+    formTab: "手动编辑",
+    welcome:
+      "你好！我来帮你起草一份双方保密协议。请告诉我，这份协议的目的是什么？(例如：评估合作机会、尽职调查)",
+    placeholder: "输入消息……",
+    send: "发送",
+    sending: "正在发送…",
+    error: "出错了，请重试。",
+    doneBanner: "协议已就绪，可以在右侧预览并下载 PDF。",
+  },
   sections: {
     agreement: "协议信息",
     parties: "双方信息",
@@ -104,10 +125,21 @@ const zh: Dictionary = {
 
 const en: Dictionary = {
   appTitle: "Mutual NDA Generator",
-  appSubtitle: "Based on Common Paper Mutual NDA v1.0. Fill in the form, preview on the right, and download as PDF.",
+  appSubtitle: "Based on Common Paper Mutual NDA v1.0. Chat with the AI to draft, preview on the right, and download as PDF.",
   langToggle: "中文",
   download: "Download PDF",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
+  chat: {
+    tab: "AI Chat",
+    formTab: "Edit fields",
+    welcome:
+      "Hi! I'm here to help draft a Mutual NDA. To start: what's the purpose of this agreement? (e.g. evaluating a partnership, due diligence)",
+    placeholder: "Type a message…",
+    send: "Send",
+    sending: "Sending…",
+    error: "Something went wrong, please try again.",
+    doneBanner: "Your MNDA is ready — review the preview and download the PDF.",
+  },
   sections: {
     agreement: "Agreement",
     parties: "Parties",

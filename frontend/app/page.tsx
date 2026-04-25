@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { MNDAChat } from "@/components/MNDAChat";
 import { MNDAForm } from "@/components/MNDAForm";
 import { MNDAPreview } from "@/components/MNDAPreview";
 import type { Locale } from "@/lib/i18n";
@@ -10,10 +11,13 @@ import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 import type { User } from "@/lib/api";
 import { clearUser, readUser } from "@/lib/session";
 
+type EditMode = "chat" | "form";
+
 export default function Home() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [state, setState] = useState<MndaState>(INITIAL_STATE);
   const [user, setUser] = useState<User | null>(null);
+  const [mode, setMode] = useState<EditMode>("chat");
   const t = useDictionary(locale);
 
   useEffect(() => {
@@ -75,11 +79,27 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[minmax(320px,420px)_1fr]">
+      <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[minmax(320px,460px)_1fr]">
         <div className="no-print">
-          <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-            <MNDAForm locale={locale} value={state} onChange={setState} />
+          <div role="tablist" className="mb-3 flex gap-2">
+            <ModeTab
+              active={mode === "chat"}
+              onClick={() => setMode("chat")}
+              label={t.chat.tab}
+            />
+            <ModeTab
+              active={mode === "form"}
+              onClick={() => setMode("form")}
+              label={t.chat.formTab}
+            />
           </div>
+          {mode === "chat" ? (
+            <MNDAChat locale={locale} state={state} onStateChange={setState} />
+          ) : (
+            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+              <MNDAForm locale={locale} value={state} onChange={setState} />
+            </div>
+          )}
           <p className="mt-3 text-xs text-neutral-500">{t.printHint}</p>
         </div>
 
@@ -88,5 +108,32 @@ export default function Home() {
         </div>
       </main>
     </div>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className="rounded-md px-3 py-1.5 text-sm font-medium"
+      style={{
+        background: active ? "#209dd7" : "white",
+        color: active ? "white" : "#032147",
+        border: `1px solid ${active ? "#209dd7" : "#d4d4d4"}`,
+      }}
+    >
+      {label}
+    </button>
   );
 }
