@@ -3,6 +3,22 @@ import { expect, test } from "@playwright/test";
 // Most form fields carry an id — prefer id selectors over getByLabel so help-text
 // spans nested inside <label> don't confuse accessible-name matching.
 
+// `/` now requires a session cookie/local-storage entry, otherwise it redirects
+// to /login. Plant a fake user so each test lands directly on the MNDA app.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "prelegal:user",
+      JSON.stringify({
+        id: 1,
+        email: "e2e@example.com",
+        name: "",
+        created_at: "2026-04-25T00:00:00",
+      }),
+    );
+  });
+});
+
 test.describe("Mutual NDA generator", () => {
   test("renders the app with form and preview visible", async ({ page }) => {
     await page.goto("/");
