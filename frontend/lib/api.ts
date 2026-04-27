@@ -62,3 +62,20 @@ export const auth = {
       body: JSON.stringify({ email, name }),
     }),
 };
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+export type ChatResponse = {
+  assistant_message: string;
+  // Partial of the frontend MndaState — only fields the AI just learned.
+  mnda_updates: Record<string, unknown>;
+  done: boolean;
+};
+
+export const chatApi = {
+  send: (messages: ChatTurn[], mndaState: Record<string, unknown>) =>
+    apiFetch<ChatResponse>("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages, mnda_state: mndaState }),
+    }),
+};

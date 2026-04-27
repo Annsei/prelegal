@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
 
 // Most form fields carry an id — prefer id selectors over getByLabel so help-text
 // spans nested inside <label> don't confuse accessible-name matching.
@@ -18,6 +18,12 @@ test.beforeEach(async ({ page }) => {
     );
   });
 });
+
+// Chat is the default editor; tests that interact with form inputs need to
+// click into the manual-edit tab first.
+async function openFormTab(page: Page): Promise<void> {
+  await page.getByRole("tab", { name: /手动编辑|Edit fields/ }).click();
+}
 
 test.describe("Mutual NDA generator", () => {
   test("renders the app with form and preview visible", async ({ page }) => {
@@ -39,6 +45,7 @@ test.describe("Mutual NDA generator", () => {
   test("form input flows through to the live preview", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "English" }).click();
+    await openFormTab(page);
 
     await page.locator("#purpose").fill("Exploring a strategic partnership.");
     await page.locator("#governingLaw").fill("California");
@@ -63,6 +70,7 @@ test.describe("Mutual NDA generator", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "English" }).click();
+    await openFormTab(page);
 
     const doc = page.locator("[data-print-root]");
     await expect(doc).toContainText("1 year(s) from the Effective Date");
@@ -81,6 +89,7 @@ test.describe("Mutual NDA generator", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "English" }).click();
+    await openFormTab(page);
 
     // Switch MNDA term to "continues".
     await page.locator('input[name="mndaTermMode"]').nth(1).check();
@@ -103,6 +112,7 @@ test.describe("Mutual NDA generator", () => {
     page,
   }) => {
     await page.goto("/");
+    await openFormTab(page);
 
     // Default locale is zh. The Purpose label text starts with "目的".
     await expect(page.locator('label[for="purpose"]')).toContainText("目的");
@@ -147,6 +157,7 @@ test.describe("Mutual NDA generator", () => {
     page,
   }) => {
     await page.goto("/");
+    await openFormTab(page);
     await page.emulateMedia({ media: "print" });
 
     const formContainer = page

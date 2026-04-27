@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatEffectiveDate,
   INITIAL_STATE,
+  mergeMndaUpdates,
   type MndaState,
 } from "./mndaState";
 
@@ -67,5 +68,61 @@ describe("INITIAL_STATE", () => {
         noticeAddress: "",
       });
     }
+  });
+});
+
+describe("mergeMndaUpdates", () => {
+  it("merges scalar fields from a partial update", () => {
+    const next = mergeMndaUpdates(INITIAL_STATE, {
+      governingLaw: "California",
+      jurisdiction: "courts located in San Francisco, CA",
+    });
+    expect(next.governingLaw).toBe("California");
+    expect(next.jurisdiction).toBe("courts located in San Francisco, CA");
+    // Untouched fields preserved.
+    expect(next.purpose).toBe(INITIAL_STATE.purpose);
+  });
+
+  it("deep-merges party fields without dropping siblings", () => {
+    const seeded: MndaState = {
+      ...INITIAL_STATE,
+      party1: { ...INITIAL_STATE.party1, company: "Acme, Inc." },
+    };
+    const next = mergeMndaUpdates(seeded, {
+      party1: { signerName: "Jane Doe" },
+    });
+    expect(next.party1).toEqual({
+      company: "Acme, Inc.",
+      signerName: "Jane Doe",
+      signerTitle: "",
+      noticeAddress: "",
+    });
+  });
+
+  it("ignores unknown top-level keys", () => {
+    const next = mergeMndaUpdates(INITIAL_STATE, {
+      // The AI's structured output schema bans unknown keys, but we still
+      // defend the client.
+      bogus: "should-be-dropped",
+      governingLaw: "Delaware",
+    });
+    expect(next).not.toHaveProperty("bogus");
+    expect(next.governingLaw).toBe("Delaware");
+  });
+
+  it("ignores fields whose runtime type doesn't match", () => {
+    const next = mergeMndaUpdates(INITIAL_STATE, {
+      // mndaTermYears is a number — string should be rejected.
+      mndaTermYears: "five",
+      // governingLaw is a string — array should be rejected.
+      governingLaw: ["Delaware"],
+    });
+    expect(next.mndaTermYears).toBe(INITIAL_STATE.mndaTermYears);
+    expect(next.governingLaw).toBe(INITIAL_STATE.governingLaw);
+  });
+
+  it("ignores party updates whose value isn't an object", () => {
+    const next = mergeMndaUpdates(INITIAL_STATE, { party1: "Acme, Inc." });
+    expect(next.party1).toEqual(INITIAL_STATE.party1);
   });
 });
