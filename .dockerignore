@@ -13,6 +13,5 @@ backend/static
 !.env.example
 .claude
 .DS_Store
-templates
 test-results
 playwright-report
