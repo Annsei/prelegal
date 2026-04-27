@@ -57,6 +57,40 @@ test.describe("MNDA chat", () => {
     await expect(page.locator("[data-print-root]")).toContainText("California");
   });
 
+  test("focuses the input on load and returns focus after a turn", async ({
+    page,
+  }) => {
+    await page.route("**/api/chat", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          assistant_message: "Got it. Anything else?",
+          mnda_updates: {},
+          done: false,
+        }),
+      }),
+    );
+
+    await page.goto("/");
+
+    // Focused on initial render (before any user interaction can steal focus)
+    // — the user can start typing immediately after landing on /.
+    const zhInput = page.getByLabel(/输入消息/);
+    await expect(zhInput).toBeFocused();
+
+    await page.getByRole("button", { name: "English" }).click();
+
+    const input = page.getByLabel(/Type a message/i);
+    await input.fill("Hi");
+    await page.getByRole("button", { name: /^Send$/ }).click();
+
+    // After the click moves focus to the button, the chat must restore
+    // focus to the input once the turn completes.
+    await expect(page.getByText(/Got it\. Anything else/)).toBeVisible();
+    await expect(input).toBeFocused();
+  });
+
   test("chat error from the API surfaces inline", async ({ page }) => {
     await page.route("**/api/chat", (route) =>
       route.fulfill({

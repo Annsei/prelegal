@@ -96,6 +96,37 @@ describe("MNDAChat", () => {
     expect(screen.getByText("hi")).toBeInTheDocument();
   });
 
+  it("focuses the input on mount and returns focus to it after sending", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          assistant_message: "What's the effective date?",
+          mnda_updates: {},
+          done: false,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Harness locale="en" />);
+    const input = screen.getByLabelText(/type a message/i);
+    // Focused on first mount — the user can start typing without clicking.
+    expect(input).toHaveFocus();
+
+    // Send a message; focus should land back on the input afterwards so the
+    // user can keep typing without reaching for the mouse.
+    await userEvent.type(input, "We're evaluating a partnership.");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/What's the effective date/i),
+      ).toBeInTheDocument(),
+    );
+    expect(input).toHaveFocus();
+  });
+
   it("shows the done banner when the API reports done: true", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

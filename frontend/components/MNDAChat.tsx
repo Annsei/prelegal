@@ -37,6 +37,13 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus the input on first mount so the user can start typing immediately
+  // after landing on the chat tab.
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   // Re-localize the static welcome message when the user toggles language —
   // but only if it's still the first turn (otherwise we'd rewrite history).
@@ -83,6 +90,10 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
       setError(message);
     } finally {
       setSending(false);
+      // Send focus back to the input so the user can keep typing without
+      // reaching for the mouse — applies whether the turn succeeded, errored,
+      // or completed the MNDA (they may still want to ask questions).
+      textareaRef.current?.focus();
     }
   };
 
@@ -134,6 +145,7 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
       <div className="border-t border-neutral-200 p-3">
         <div className="flex items-end gap-2">
           <textarea
+            ref={textareaRef}
             className="min-h-[44px] flex-1 resize-y rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none"
             rows={2}
             placeholder={t.chat.placeholder}

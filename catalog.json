@@ -1,0 +1,83 @@
+{
+  "schema_version": "1",
+  "description": "Catalog of legal documents the prelegal system can draft. The AI chat uses this index to suggest documents to users and to identify which template to populate. Underlying template files, source repos, and commit pinning live in templates/templates.json.",
+  "documents": [
+    {
+      "id": "mutual-nda",
+      "title": "Mutual Non-Disclosure Agreement (MNDA)",
+      "category": "nda",
+      "use_when": "Two parties need to exchange confidential information bilaterally — e.g. evaluating a partnership, due diligence, or before sharing sensitive data.",
+      "status": "available"
+    },
+    {
+      "id": "cloud-service-agreement",
+      "title": "Cloud Service Agreement (CSA)",
+      "category": "commercial",
+      "use_when": "A SaaS or cloud provider is contracting with a customer for ongoing access to a hosted service. Covers access, data, support, and commercial terms.",
+      "status": "planned"
+    },
+    {
+      "id": "design-partner-agreement",
+      "title": "Design Partner Agreement",
+      "category": "commercial",
+      "use_when": "An early-stage vendor is collaborating with a design partner to co-develop and validate a product, typically pre-GA.",
+      "status": "planned"
+    },
+    {
+      "id": "service-level-agreement",
+      "title": "Service Level Agreement (SLA)",
+      "category": "commercial-addendum",
+      "use_when": "Attach uptime and incident-response commitments to a cloud or software agreement.",
+      "status": "planned"
+    },
+    {
+      "id": "professional-services-agreement",
+      "title": "Professional Services Agreement (PSA)",
+      "category": "commercial",
+      "use_when": "A service provider is delivering professional or consulting work against one or more Statements of Work.",
+      "status": "planned"
+    },
+    {
+      "id": "data-processing-agreement",
+      "title": "Data Processing Agreement (DPA)",
+      "category": "privacy-addendum",
+      "use_when": "Personal data is being processed on a controller's behalf — covers GDPR / UK GDPR / CCPA obligations, sub-processing, and international transfers.",
+      "status": "planned"
+    },
+    {
+      "id": "software-license-agreement",
+      "title": "Software License Agreement",
+      "category": "commercial",
+      "use_when": "Licensing on-prem or otherwise installable software (not SaaS). Covers scope of license, support, and commercial terms.",
+      "status": "planned"
+    },
+    {
+      "id": "partnership-agreement",
+      "title": "Partnership Agreement",
+      "category": "commercial",
+      "use_when": "Two companies want to jointly market, resell, or refer each other's offerings.",
+      "status": "planned"
+    },
+    {
+      "id": "pilot-agreement",
+      "title": "Pilot Agreement",
+      "category": "commercial",
+      "use_when": "Short-form agreement for a limited paid or free pilot/trial of a product with a prospective customer.",
+      "status": "planned"
+    },
+    {
+      "id": "business-associate-agreement",
+      "title": "Business Associate Agreement (BAA)",
+      "category": "privacy-addendum",
+      "use_when": "Required by HIPAA when a vendor (business associate) handles protected health information for a covered entity.",
+      "status": "planned"
+    },
+    {
+      "id": "ai-addendum",
+      "title": "AI Addendum",
+      "category": "commercial-addendum",
+      "use_when": "Layer AI-specific terms (training data, model inputs/outputs, acceptable use) onto an existing services agreement.",
+      "status": "planned"
+    }
+  ]
+}
