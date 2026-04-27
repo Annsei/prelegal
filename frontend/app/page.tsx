@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GenericDocPreview } from "@/components/GenericDocPreview";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { MNDAChat } from "@/components/MNDAChat";
 import { MNDAForm } from "@/components/MNDAForm";
@@ -13,11 +14,39 @@ import { clearUser, readUser } from "@/lib/session";
 
 type EditMode = "chat" | "form";
 
+const MNDA_DOC_ID = "mutual-nda";
+
+function lookupDocTitle(catalog: { id: string; title: string }[], id: string): string {
+  const hit = catalog.find((d) => d.id === id);
+  return hit?.title ?? id;
+}
+
+// Catalog is small and comes from the build-time CLAUDE.md import path.
+// We hardcode the `id → title` pairs the UI needs rather than fetch them,
+// since the catalog itself is already in the LLM prompt server-side.
+const CATALOG_TITLES: { id: string; title: string }[] = [
+  { id: "mutual-nda", title: "Mutual Non-Disclosure Agreement (MNDA)" },
+  { id: "cloud-service-agreement", title: "Cloud Service Agreement (CSA)" },
+  { id: "design-partner-agreement", title: "Design Partner Agreement" },
+  { id: "service-level-agreement", title: "Service Level Agreement (SLA)" },
+  { id: "professional-services-agreement", title: "Professional Services Agreement (PSA)" },
+  { id: "data-processing-agreement", title: "Data Processing Agreement (DPA)" },
+  { id: "software-license-agreement", title: "Software License Agreement" },
+  { id: "partnership-agreement", title: "Partnership Agreement" },
+  { id: "pilot-agreement", title: "Pilot Agreement" },
+  { id: "business-associate-agreement", title: "Business Associate Agreement (BAA)" },
+  { id: "ai-addendum", title: "AI Addendum" },
+];
+
 export default function Home() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [state, setState] = useState<MndaState>(INITIAL_STATE);
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<EditMode>("chat");
+  // The chat starts in MNDA mode by default — that is the only doc with a
+  // full form/preview/PDF flow. The LLM may switch this to any catalog id.
+  const [docId, setDocId] = useState<string>(MNDA_DOC_ID);
+  const [genericFields, setGenericFields] = useState<Record<string, string>>({});
   const t = useDictionary(locale);
 
   useEffect(() => {
@@ -35,6 +64,9 @@ export default function Home() {
     return null;
   }
 
+  const isMnda = docId === MNDA_DOC_ID;
+  const docTitle = lookupDocTitle(CATALOG_TITLES, docId);
+
   return (
     <div className="min-h-screen">
       <header className="no-print border-b border-neutral-200 bg-white">
@@ -44,6 +76,9 @@ export default function Home() {
               {t.appTitle}
             </h1>
             <p className="text-sm text-neutral-600">{t.appSubtitle}</p>
+            <p className="mt-1 text-xs" style={{ color: "#753991" }}>
+              {t.drafting}: <span className="font-medium">{docTitle}</span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <span
@@ -87,14 +122,27 @@ export default function Home() {
               onClick={() => setMode("chat")}
               label={t.chat.tab}
             />
-            <ModeTab
-              active={mode === "form"}
-              onClick={() => setMode("form")}
-              label={t.chat.formTab}
-            />
+            {/* The manual-edit form only knows MNDA fields today; hide it
+                while the user is drafting any other document so we don't
+                let them edit MNDA state behind a CSA preview. */}
+            {isMnda && (
+              <ModeTab
+                active={mode === "form"}
+                onClick={() => setMode("form")}
+                label={t.chat.formTab}
+              />
+            )}
           </div>
-          {mode === "chat" ? (
-            <MNDAChat locale={locale} state={state} onStateChange={setState} />
+          {mode === "chat" || !isMnda ? (
+            <MNDAChat
+              locale={locale}
+              state={state}
+              onStateChange={setState}
+              onDocChange={setDocId}
+              onFieldUpdates={(updates) =>
+                setGenericFields((prev) => ({ ...prev, ...updates }))
+              }
+            />
           ) : (
             <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
               <MNDAForm locale={locale} value={state} onChange={setState} />
@@ -104,7 +152,15 @@ export default function Home() {
         </div>
 
         <div>
-          <MNDAPreview value={state} />
+          {isMnda ? (
+            <MNDAPreview value={state} />
+          ) : (
+            <GenericDocPreview
+              docId={docId}
+              fields={genericFields}
+              locale={locale}
+            />
+          )}
         </div>
       </main>
     </div>

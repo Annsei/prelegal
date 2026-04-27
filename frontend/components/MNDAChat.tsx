@@ -17,6 +17,11 @@ type Props = {
   // a field), the updater form merges against the freshest state instead of
   // a stale snapshot.
   onStateChange: (next: MndaState | ((prev: MndaState) => MndaState)) => void;
+  // Called when the LLM picks (or switches) the target document. Empty
+  // string until intent is clear.
+  onDocChange: (docId: string) => void;
+  // Called when the LLM extracts cover-page-level fields for non-MNDA docs.
+  onFieldUpdates: (updates: Record<string, string>) => void;
 };
 
 /**
@@ -27,7 +32,13 @@ type Props = {
  * is a static welcome string from the i18n dict so the user gets immediate
  * feedback without an LLM round-trip.
  */
-export function MNDAChat({ locale, state, onStateChange }: Props) {
+export function MNDAChat({
+  locale,
+  state,
+  onStateChange,
+  onDocChange,
+  onFieldUpdates,
+}: Props) {
   const t = useDictionary(locale);
   const [history, setHistory] = useState<ChatTurn[]>([
     { role: "assistant", content: t.chat.welcome },
@@ -37,6 +48,13 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus the input on first mount so the user can start typing immediately
+  // after landing on the chat tab.
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   // Re-localize the static welcome message when the user toggles language —
   // but only if it's still the first turn (otherwise we'd rewrite history).
@@ -70,6 +88,13 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
         state as unknown as Record<string, unknown>,
       );
       onStateChange((prev) => mergeMndaUpdates(prev, res.mnda_updates));
+      // The LLM may leave selected_doc_id empty when it isn't yet sure what
+      // the user wants — only propagate non-empty values so we don't reset
+      // a doc the user already locked in.
+      if (res.selected_doc_id) onDocChange(res.selected_doc_id);
+      if (res.field_updates && Object.keys(res.field_updates).length > 0) {
+        onFieldUpdates(res.field_updates);
+      }
       setHistory([
         ...nextHistory,
         { role: "assistant", content: res.assistant_message },
@@ -83,6 +108,10 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
       setError(message);
     } finally {
       setSending(false);
+      // Send focus back to the input so the user can keep typing without
+      // reaching for the mouse — applies whether the turn succeeded, errored,
+      // or completed the MNDA (they may still want to ask questions).
+      textareaRef.current?.focus();
     }
   };
 
@@ -134,6 +163,7 @@ export function MNDAChat({ locale, state, onStateChange }: Props) {
       <div className="border-t border-neutral-200 p-3">
         <div className="flex items-end gap-2">
           <textarea
+            ref={textareaRef}
             className="min-h-[44px] flex-1 resize-y rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none"
             rows={2}
             placeholder={t.chat.placeholder}
