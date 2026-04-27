@@ -32,7 +32,9 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     assistant_message: str
+    selected_doc_id: str = ""
     mnda_updates: dict[str, Any]
+    field_updates: dict[str, str]
     done: bool
 
 
@@ -59,6 +61,8 @@ def chat(payload: ChatRequest) -> ChatResponse:
 
     return ChatResponse(
         assistant_message=result["assistant_message"],
+        selected_doc_id=result.get("selected_doc_id") or "",
         mnda_updates=result.get("mnda_updates") or {},
+        field_updates=result.get("field_updates") or {},
         done=bool(result.get("done", False)),
     )

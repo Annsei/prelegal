@@ -5,12 +5,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MNDAChat } from "./MNDAChat";
 import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 
-function Harness({ locale = "en" as "en" | "zh" }) {
+function Harness({
+  locale = "en" as "en" | "zh",
+  onDocChange = () => {},
+  onFieldUpdates = () => {},
+}: {
+  locale?: "en" | "zh";
+  onDocChange?: (id: string) => void;
+  onFieldUpdates?: (updates: Record<string, string>) => void;
+}) {
   const [state, setState] = useState<MndaState>(INITIAL_STATE);
   return (
     <>
       <div data-testid="state-json">{JSON.stringify(state)}</div>
-      <MNDAChat locale={locale} state={state} onStateChange={setState} />
+      <MNDAChat
+        locale={locale}
+        state={state}
+        onStateChange={setState}
+        onDocChange={onDocChange}
+        onFieldUpdates={onFieldUpdates}
+      />
     </>
   );
 }
@@ -30,7 +44,7 @@ afterEach(() => {
 describe("MNDAChat", () => {
   it("renders the static welcome message in the active locale", () => {
     render(<Harness locale="en" />);
-    expect(screen.getByText(/draft a Mutual NDA/i)).toBeInTheDocument();
+    expect(screen.getByText(/draft a legal agreement/i)).toBeInTheDocument();
   });
 
   it("sends a turn, appends the assistant reply, and merges field updates", async () => {
@@ -94,6 +108,73 @@ describe("MNDAChat", () => {
       expect(screen.getByRole("alert")).toHaveTextContent(/OPENROUTER_API_KEY/),
     );
     expect(screen.getByText("hi")).toBeInTheDocument();
+  });
+
+  it("forwards selected_doc_id and field_updates from the chat response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          assistant_message: "Got it. Anything else?",
+          selected_doc_id: "cloud-service-agreement",
+          mnda_updates: {},
+          field_updates: { Customer: "Acme", Provider: "Globex" },
+          done: false,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onDocChange = vi.fn();
+    const onFieldUpdates = vi.fn();
+    render(
+      <Harness
+        locale="en"
+        onDocChange={onDocChange}
+        onFieldUpdates={onFieldUpdates}
+      />,
+    );
+
+    await userEvent.type(
+      screen.getByLabelText(/type a message/i),
+      "I want a CSA, Acme is the customer.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() =>
+      expect(onDocChange).toHaveBeenCalledWith("cloud-service-agreement"),
+    );
+    expect(onFieldUpdates).toHaveBeenCalledWith({
+      Customer: "Acme",
+      Provider: "Globex",
+    });
+  });
+
+  it("does not call onDocChange when selected_doc_id is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          assistant_message: "Which document?",
+          selected_doc_id: "",
+          mnda_updates: {},
+          field_updates: {},
+          done: false,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onDocChange = vi.fn();
+    render(<Harness locale="en" onDocChange={onDocChange} />);
+
+    await userEvent.type(screen.getByLabelText(/type a message/i), "hi");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Which document/)).toBeInTheDocument(),
+    );
+    expect(onDocChange).not.toHaveBeenCalled();
   });
 
   it("focuses the input on mount and returns focus to it after sending", async () => {

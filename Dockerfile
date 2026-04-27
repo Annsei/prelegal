@@ -31,6 +31,10 @@ COPY --from=frontend /app/frontend/out/ /app/backend/static/
 # app/llm.py: from /app/backend/app/llm.py, parent.parent.parent is /app.
 COPY catalog.json /app/catalog.json
 
+# Templates serve the GET /api/templates/{doc_id} preview endpoint. Path
+# resolution in app/routes/templates.py expects them at /app/templates.
+COPY templates/ /app/templates/
+
 # Final install (places the project itself into the venv).
 RUN uv sync --no-dev
 

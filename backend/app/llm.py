@@ -56,29 +56,48 @@ legal agreements based on Common Paper templates.
 
 ## Supported documents
 
-The catalog below lists every document type we offer. **Only the Mutual NDA \
-is fully generatable in the UI today.** For any other catalog document, \
-acknowledge the user's request, briefly explain that full generation for \
-that document is coming soon, and offer to draft an MNDA instead if that \
-would still be useful. For requests **outside** the catalog (e.g. employment \
-contracts, leases, terms of service), explain that we can't generate that \
-document and recommend the closest available item from the catalog.
+The catalog below lists every document type we offer. **All entries marked \
+`status: "available"` can be drafted; today that is the Mutual NDA only.** \
+Other catalog entries (`status: "planned"`) have their underlying templates \
+loaded and visible in the preview pane, and you can still collect the key \
+terms for them via chat — the user just can't yet download a finished PDF \
+for those. For requests **outside** the catalog (e.g. employment contracts, \
+leases, terms of service), explain that we can't generate that document and \
+recommend the closest available item from the catalog.
 
 Catalog (JSON):
 {CATALOG_JSON}
 
-## Drafting a Mutual NDA
+## Picking a document
 
-Once the user wants an MNDA (or accepts it as a substitute), have a natural \
-conversation. Ask one or two focused questions at a time. Do not dump a \
-checklist of every field at once. As the user answers, extract field values \
-into the structured `mnda_updates` object. Only include fields the user has \
-*just* told you about — never repeat fields already filled in the current \
-MNDA state. Always reply in the same language the user used (if they wrote \
-Chinese, reply in Chinese), but keep field values themselves in English \
-because the legal document stays English.
+The very first thing you must do in any new conversation is figure out \
+which document the user wants and set `selected_doc_id` to the matching \
+catalog id (e.g. "mutual-nda", "cloud-service-agreement"). If the user's \
+intent is ambiguous, ask a clarifying question and leave `selected_doc_id` \
+empty until they answer. Once set, **keep `selected_doc_id` populated on \
+every subsequent turn** so the frontend can keep the preview pane in sync.
 
-Fields you can populate:
+If the user later changes their mind ("actually let's do an SLA instead"), \
+update `selected_doc_id` to the new id.
+
+## Collecting field values
+
+There are two field channels in the response:
+
+- `mnda_updates`: typed MNDA-only fields. Use this **only** when \
+`selected_doc_id == "mutual-nda"`. Leave empty for any other doc.
+- `field_updates`: a flexible string→string map for any document, including \
+MNDA. Use it for any other doc to record cover-page-level data: party \
+names, dates, governing law, key commercial terms, etc. Choose human-\
+readable keys ("Customer", "Provider", "Subscription Period", "Effective \
+Date") matching the labels used in the underlying template.
+
+Only include keys the user has *just* told you about — never repeat values \
+already present in the current state. Always reply in the same language the \
+user used (if they wrote Chinese, reply in Chinese), but keep field values \
+themselves in English because the legal documents stay English.
+
+MNDA-specific typed fields (use `mnda_updates`):
 - purpose: how the parties will use confidential information
 - effectiveDate: ISO date string (YYYY-MM-DD)
 - mndaTermMode: "expires" or "continues"
@@ -95,10 +114,12 @@ Fields you can populate:
 - Whenever `done` is false, your `assistant_message` MUST end with a \
 question (terminated by "?" or "？"). The user should always see what to \
 answer next — never leave the conversation hanging on a statement.
-- When the MNDA looks complete enough to sign, set `done: true` and tell \
-the user they can review the preview and download the PDF.
-- For non-MNDA documents the chat cannot complete the draft, so keep \
-`done: false` and continue offering MNDA or another available alternative.
+- For an MNDA, when the document looks complete enough to sign, set \
+`done: true` and tell the user they can review the preview and download \
+the PDF.
+- For any other document, keep `done: false` (we don't yet emit a final \
+PDF for those). Tell the user the preview shows the underlying template \
+and you'll keep collecting key terms.
 """
 
 
@@ -127,6 +148,13 @@ CHAT_RESPONSE_SCHEMA: dict[str, Any] = {
             "type": "string",
             "description": "Natural-language reply to show the user.",
         },
+        "selected_doc_id": {
+            "type": "string",
+            "description": (
+                "Catalog id of the document the user is drafting. Empty "
+                "string until intent is clear."
+            ),
+        },
         "mnda_updates": {
             "type": "object",
             "properties": {
@@ -143,6 +171,14 @@ CHAT_RESPONSE_SCHEMA: dict[str, Any] = {
                 "party2": _party_schema(),
             },
             "additionalProperties": False,
+        },
+        "field_updates": {
+            "type": "object",
+            "description": (
+                "Free-form key/value updates for any document — used for "
+                "non-MNDA docs that don't yet have a typed schema."
+            ),
+            "additionalProperties": {"type": "string"},
         },
         "done": {
             "type": "boolean",
@@ -269,15 +305,20 @@ def chat_complete(
         # retry is purely about phrasing the reply, not re-discovering data.
         # Without this merge, a user message like "Acme is party 1" would
         # populate party1 on the first call and lose it on the retry.
-        first_updates = result.get("mnda_updates") or {}
+        first_mnda = result.get("mnda_updates") or {}
+        first_fields = result.get("field_updates") or {}
+        first_doc_id = result.get("selected_doc_id") or ""
         retry_system = (
             system
             + "\n\nIMPORTANT: Your previous reply did not end with a question. "
             "While `done` is false, `assistant_message` MUST end with a question."
         )
         result = _call_llm(messages, retry_system, api_key)
-        retry_updates = result.get("mnda_updates") or {}
-        result["mnda_updates"] = {**first_updates, **retry_updates}
+        result["mnda_updates"] = {**first_mnda, **(result.get("mnda_updates") or {})}
+        result["field_updates"] = {**first_fields, **(result.get("field_updates") or {})}
+        # Don't let the retry blank out a doc id the first call established.
+        if not result.get("selected_doc_id") and first_doc_id:
+            result["selected_doc_id"] = first_doc_id
         still_missing = (
             not result.get("done")
             and not _ends_with_question(result.get("assistant_message", ""))

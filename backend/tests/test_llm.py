@@ -144,7 +144,12 @@ def test_chat_complete_retries_when_followup_question_missing(monkeypatch):
         mnda_state={},
     )
 
-    assert result == good
+    # Spot-check the post-merge shape rather than full equality — the merge
+    # adds field_updates={} which was absent from the per-call payloads.
+    assert result["assistant_message"] == good["assistant_message"]
+    assert result["done"] is False
+    assert result["mnda_updates"] == {}
+    assert result["field_updates"] == {}
     assert len(calls) == 2
     # The retry's system prompt should explicitly call out the rule violation.
     retry_system = calls[1]["messages"][0]["content"]
@@ -157,12 +162,16 @@ def test_chat_complete_preserves_first_call_updates_across_retry(monkeypatch):
 
     bad = {
         "assistant_message": "Got it.",
+        "selected_doc_id": "mutual-nda",
         "mnda_updates": {"purpose": "Evaluating a partnership"},
+        "field_updates": {"Customer": "Acme"},
         "done": False,
     }
     good = {
         "assistant_message": "Thanks. What's the effective date?",
+        # Retry leaves selected_doc_id blank — must inherit from first call.
         "mnda_updates": {"governingLaw": "Delaware"},
+        "field_updates": {"Provider": "Globex"},
         "done": False,
     }
     responses = iter([_fake_response(bad), _fake_response(good)])
@@ -179,6 +188,16 @@ def test_chat_complete_preserves_first_call_updates_across_retry(monkeypatch):
         "purpose": "Evaluating a partnership",
         "governingLaw": "Delaware",
     }
+    assert result["field_updates"] == {"Customer": "Acme", "Provider": "Globex"}
+    assert result["selected_doc_id"] == "mutual-nda"
+
+
+def test_chat_response_schema_has_multi_doc_fields():
+    """selected_doc_id and field_updates must be in the JSON schema we send."""
+    props = llm.CHAT_RESPONSE_SCHEMA["properties"]
+    assert "selected_doc_id" in props
+    assert "field_updates" in props
+    assert props["field_updates"]["additionalProperties"] == {"type": "string"}
 
 
 def test_chat_complete_appends_followup_when_retry_also_fails(monkeypatch):

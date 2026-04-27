@@ -8,6 +8,10 @@ type Dictionary = {
   langToggle: string;
   download: string;
   printHint: string;
+  drafting: string;
+  comingSoon: string;
+  templateUnavailable: string;
+  pickDocPrompt: string;
   chat: {
     tab: string;
     formTab: string;
@@ -63,16 +67,20 @@ type Dictionary = {
 };
 
 const zh: Dictionary = {
-  appTitle: "双方保密协议生成器",
-  appSubtitle: "基于 Common Paper Mutual NDA v1.0。与 AI 对话生成协议，右侧实时预览，完成后点击下载 PDF。",
+  appTitle: "法律协议生成器",
+  appSubtitle: "基于 Common Paper 模板。与 AI 对话选择并起草协议，右侧实时预览。",
   langToggle: "English",
   download: "下载 PDF",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
+  drafting: "正在起草",
+  comingSoon: "完整生成与 PDF 下载即将上线，目前仅 MNDA 已完整支持。可继续与 AI 对话收集关键条款，下方为模板预览。",
+  templateUnavailable: "模板未能加载，请稍后重试。",
+  pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
   chat: {
     tab: "AI 对话",
     formTab: "手动编辑",
     welcome:
-      "你好！我来帮你起草一份双方保密协议。请告诉我，这份协议的目的是什么？(例如：评估合作机会、尽职调查)",
+      "你好！我来帮你起草一份法律协议。我们可以做哪一类？例如双方保密协议（MNDA）、云服务协议（CSA）、数据处理协议（DPA）等。",
     placeholder: "输入消息……",
     send: "发送",
     sending: "正在发送…",
@@ -124,16 +132,20 @@ const zh: Dictionary = {
 };
 
 const en: Dictionary = {
-  appTitle: "Mutual NDA Generator",
-  appSubtitle: "Based on Common Paper Mutual NDA v1.0. Chat with the AI to draft, preview on the right, and download as PDF.",
+  appTitle: "Legal Agreement Generator",
+  appSubtitle: "Based on Common Paper templates. Chat with the AI to pick and draft an agreement; preview on the right.",
   langToggle: "中文",
   download: "Download PDF",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
+  drafting: "Drafting",
+  comingSoon: "Full generation and PDF download for this document are coming soon — only the Mutual NDA is fully supported today. The chat keeps collecting key terms; below is the underlying template.",
+  templateUnavailable: "Couldn't load the template — please try again in a moment.",
+  pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
   chat: {
     tab: "AI Chat",
     formTab: "Edit fields",
     welcome:
-      "Hi! I'm here to help draft a Mutual NDA. To start: what's the purpose of this agreement? (e.g. evaluating a partnership, due diligence)",
+      "Hi! I'm here to help draft a legal agreement. Which one — for example a Mutual NDA, Cloud Service Agreement, or Data Processing Agreement?",
     placeholder: "Type a message…",
     send: "Send",
     sending: "Sending…",

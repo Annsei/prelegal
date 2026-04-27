@@ -29,7 +29,7 @@ test.describe("Mutual NDA generator", () => {
   test("renders the app with form and preview visible", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "双方保密协议生成器" }),
+      page.getByRole("heading", { name: "法律协议生成器" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", {

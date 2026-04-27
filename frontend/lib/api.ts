@@ -67,8 +67,12 @@ export type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export type ChatResponse = {
   assistant_message: string;
-  // Partial of the frontend MndaState — only fields the AI just learned.
+  // Catalog id of the document the user is drafting; "" until intent is clear.
+  selected_doc_id: string;
+  // Partial of the frontend MndaState — only MNDA fields the AI just learned.
   mnda_updates: Record<string, unknown>;
+  // Free-form key/value updates for non-MNDA documents (Cover-Page-level data).
+  field_updates: Record<string, string>;
   done: boolean;
 };
 
@@ -78,4 +82,16 @@ export const chatApi = {
       method: "POST",
       body: JSON.stringify({ messages, mnda_state: mndaState }),
     }),
+};
+
+export type TemplateResponse = {
+  doc_id: string;
+  title: string;
+  standard_terms: string;
+  cover_page: string | null;
+};
+
+export const templatesApi = {
+  get: (docId: string) =>
+    apiFetch<TemplateResponse>(`/api/templates/${encodeURIComponent(docId)}`),
 };
