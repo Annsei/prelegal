@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft legal agreements based on templat
 
 @catalog.json
 
-Status: v1 foundation, MNDA generator, and AI chat are all live. The chat is multi-document aware (knows the catalog and routes non-MNDA requests politely back to MNDA), but only the Mutual NDA has a full form/preview/PDF flow today.
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. **Only the MNDA has a typed manual-edit form, bespoke placeholder rendering, and PDF download** today; the other 10 docs read the markdown template through a generic renderer with a Cover Page Summary card on top. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD; drafts auto-save (debounced, 800ms) and show up in a left sidebar. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -58,39 +58,66 @@ Backend available at http://localhost:8000
 ```
 backend/         FastAPI service (uv project)
   app/main.py      app factory + SPA fallback (path-traversal guarded)
-  app/db.py        SQLite bootstrap; reset_database() runs in lifespan startup
+  app/db.py        SQLite bootstrap; reset_database() runs in lifespan startup.
+                   Schema: users (with password_hash), sessions, documents.
+  app/auth.py      bcrypt password helpers + bearer-token `current_user`
+                   FastAPI dependency
   app/llm.py       LiteLLM → OpenRouter → Cerebras client; injects catalog.json
                    into the system prompt; enforces "always ask a follow-up"
-  app/routes/      auth.py (register/login), chat.py (POST /api/chat), health.py
+                   (one retry + localized fallback append)
+  app/routes/      auth.py (register/login/logout/me), chat.py (POST /api/chat),
+                   templates.py (GET /api/templates/{doc_id}),
+                   documents.py (per-user CRUD), health.py
   tests/           pytest
 frontend/        Next.js 15 (static export, output: "export")
-  app/page.tsx     MNDA generator; redirects to /login if no session
-  app/login/       fake login page (email-only, no password)
-  components/      MNDAChat, MNDAForm, MNDAPreview, LanguageToggle
-  lib/api.ts       apiFetch + auth.{login,register} + chatApi.send
+  app/page.tsx     Legal-agreement generator with sidebar / editor / preview
+                   layout. Auto-saves (debounced 800 ms) under the current
+                   bearer token; routes by currentDocId — MNDA →
+                   MNDAForm + MNDAPreview, others → GenericDocPreview.
+                   Redirects to /login if no session.
+  app/login/       Two-column login/register page (marketing left, form right).
+                   Real password auth.
+  components/      MNDAChat (textarea-focus restore + multi-doc callbacks),
+                   MNDAForm, MNDAPreview, GenericDocPreview,
+                   DocumentSidebar, SaveStatus, Disclaimer, LanguageToggle
+  lib/api.ts       apiFetch (Bearer-token aware) + auth + chatApi
+                   + templatesApi + documentsApi
   lib/i18n.ts      zh/en dictionaries (default zh)
   lib/mndaState.ts MndaState type + AI-update merge (drops unknown keys)
   lib/mndaTemplate.ts Common Paper MNDA standard terms with placeholders
-  lib/session.ts   localStorage-backed session under key "prelegal:user"
-  e2e/             Playwright (login, mnda, chat)
+  lib/session.ts   localStorage-backed session ({user, token}) under key
+                   "prelegal:session"
+  e2e/             Playwright (login.spec, mnda.spec, chat.spec, documents.spec
+                   — covers focus-return, non-MNDA doc switching, sidebar +
+                   debounced auto-save with bearer token)
+templates/       11 Common Paper markdown packages (mutual-nda has cover_page
+                 + standard_terms; others have standard_terms only).
+                 templates.json indexes them with provenance commits.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
-                 catalog.json is COPYed into the runtime image at /app
+                 catalog.json and templates/ are COPYed into the runtime image
+                 at /app and /app/templates respectively
 scripts/         start/stop per OS; start scripts forward .env into the container
 ```
 
 ### Backend API
 
 - `GET /api/health` → `{"status":"ok"}`
-- `POST /api/auth/register` → `{id,email,name,created_at}` (409 on duplicate email)
-- `POST /api/auth/login` → finds-or-creates user by email; **no password verification yet**, race-safe against concurrent first logins
-- `POST /api/chat` → `{messages:[{role,content}], mnda_state}` ⇒ `{assistant_message, mnda_updates, done}`. Stateless (frontend keeps history). Returns 502 if `OPENROUTER_API_KEY` missing or the LLM call fails.
+- `POST /api/auth/register` → `{user:{id,email,name,created_at}, token}` (409 on duplicate email; 422 if password < 8 chars)
+- `POST /api/auth/login` → `{user, token}`; 401 for both unknown email and wrong password (don't leak which)
+- `POST /api/auth/logout` → 204; invalidates the bearer token used to make the call
+- `GET /api/auth/me` → `{id,email,name,created_at}`; used by the frontend to validate a stored token after a page reload
+- `POST /api/chat` → `{messages:[{role,content}], mnda_state}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. Stateless (frontend keeps history). `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a free-form `{label: value}` map for non-MNDA docs (cover-page-level data). Returns 502 if `OPENROUTER_API_KEY` missing or the LLM call fails.
+- `GET /api/templates/{doc_id}` → `{doc_id, title, standard_terms, cover_page?}`. Reads from `templates/templates.json` and the markdown files alongside it. 404 on unknown id.
+- `GET/POST/PUT/DELETE /api/documents[/{id}]` → per-user draft CRUD. **All require `Authorization: Bearer <token>`.** A user can only see and modify their own rows; cross-user access returns 404 to avoid leaking existence. State JSON shape is MndaState for `mutual-nda`, free-form `{label: value}` for any other doc.
 - `GET /` and unknown paths → SPA fallback to the Next.js static export (path-traversal refused, falls back to `index.html`)
 
-`users` schema: `id`, `email UNIQUE`, `name`, `created_at`. **No password column** — when real auth is added, this is the place.
+`users` schema: `id`, `email UNIQUE`, `name`, `password_hash` (bcrypt), `created_at`.
+`sessions` schema: `token PRIMARY KEY`, `user_id FK`, `created_at` — DB resets every restart, so tokens are intentionally short-lived.
+`documents` schema: `id, user_id FK, doc_id, title, state_json, created_at, updated_at`.
 
-### Auth model (placeholder)
+### Auth model
 
-The login screen accepts any email and lands the user on `/`. Session is just a `localStorage` blob; the backend has no gate. Real auth (passwords + signed sessions/cookies) is a future task — do not assume any endpoint is protected.
+bcrypt password hashing + bearer-token sessions. Frontend stores `{user, token}` in localStorage under key `prelegal:session` and sends `Authorization: Bearer <token>` on protected calls (`/api/auth/me`, `/api/auth/logout`, all `/api/documents/*`). Tokens vanish when the server restarts (DB resets); the frontend handles 401 from any protected call by clearing the session and bouncing to `/login`. `/api/chat` and `/api/templates/*` remain open today — gating them is a follow-up.
 
 ### Configuration
 

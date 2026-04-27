@@ -44,16 +44,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// The default locale is "zh"; switch to English up front to keep the
+// assertions readable for English speakers and stable against zh copy
+// changes. Returns once the English label is visible.
+async function switchToEnglish(): Promise<void> {
+  await userEvent.click(screen.getByRole("button", { name: /english/i }));
+}
+
 describe("LoginPage", () => {
-  it("calls /api/auth/login on submit and stores the user", async () => {
-    const user = {
-      id: 1,
-      email: "alice@example.com",
-      name: "",
-      created_at: "2026-04-25T00:00:00",
+  it("calls /api/auth/login with password and stores the session", async () => {
+    const session = {
+      user: {
+        id: 1,
+        email: "alice@example.com",
+        name: "",
+        created_at: "2026-04-25T00:00:00",
+      },
+      token: "tok-abc",
     };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(user), {
+      new Response(JSON.stringify(session), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -61,9 +71,14 @@ describe("LoginPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<LoginPage />);
+    await switchToEnglish();
     await userEvent.type(
       screen.getByLabelText(/email/i),
       "alice@example.com",
+    );
+    await userEvent.type(
+      screen.getByLabelText(/password/i),
+      "secretpw1",
     );
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -71,12 +86,16 @@ describe("LoginPage", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/auth/login");
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ email: "alice@example.com" });
+    expect(JSON.parse(init.body)).toEqual({
+      email: "alice@example.com",
+      password: "secretpw1",
+    });
 
     await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/"));
-    expect(window.localStorage.getItem("prelegal:user")).toContain(
-      "alice@example.com",
-    );
+    // Session blob includes both user and token under the new key.
+    const stored = window.localStorage.getItem("prelegal:session");
+    expect(stored).toContain("alice@example.com");
+    expect(stored).toContain("tok-abc");
   });
 
   it("shows an error message when the request fails", async () => {
@@ -89,6 +108,7 @@ describe("LoginPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<LoginPage />);
+    await switchToEnglish();
     // Switch to register so we hit a path that can 409.
     await userEvent.click(
       screen.getByRole("button", { name: /don't have an account/i }),
@@ -96,6 +116,10 @@ describe("LoginPage", () => {
     await userEvent.type(
       screen.getByLabelText(/email/i),
       "bob@example.com",
+    );
+    await userEvent.type(
+      screen.getByLabelText(/password/i),
+      "secretpw1",
     );
     await userEvent.click(
       screen.getByRole("button", { name: /create account/i }),
@@ -107,6 +131,6 @@ describe("LoginPage", () => {
       ),
     );
     expect(assignSpy).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem("prelegal:user")).toBeNull();
+    expect(window.localStorage.getItem("prelegal:session")).toBeNull();
   });
 });

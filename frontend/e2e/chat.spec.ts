@@ -3,15 +3,53 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
-      "prelegal:user",
+      "prelegal:session",
       JSON.stringify({
-        id: 1,
-        email: "e2e@example.com",
-        name: "",
-        created_at: "2026-04-25T00:00:00",
+        user: {
+          id: 1,
+          email: "e2e@example.com",
+          name: "",
+          created_at: "2026-04-25T00:00:00",
+        },
+        token: "e2e-token",
       }),
     );
   });
+  // Stub the documents list/CRUD — the home page calls it on mount and
+  // auto-saves on edit; without these the dev server would 404 and we'd
+  // 401-bounce.
+  const stubDoc = {
+    id: 1,
+    doc_id: "mutual-nda",
+    title: "draft",
+    state: {},
+    created_at: "2026-04-27T00:00:00",
+    updated_at: "2026-04-27T00:00:00",
+  };
+  await page.route("**/api/documents", (route) => {
+    if (route.request().method() === "GET") {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+    } else if (route.request().method() === "POST") {
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(stubDoc),
+      });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route(/\/api\/documents\/\d+$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(stubDoc),
+    }),
+  );
 });
 
 test.describe("MNDA chat", () => {

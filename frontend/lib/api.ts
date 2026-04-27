@@ -13,17 +13,24 @@ export class ApiError extends Error {
   }
 }
 
+type FetchOptions = RequestInit & {
+  // Pass an explicit bearer token on protected calls. Read from the session
+  // helper at the callsite so the api module stays storage-agnostic.
+  token?: string | null;
+};
+
 export async function apiFetch<T>(
   path: string,
-  init: RequestInit = {},
+  init: FetchOptions = {},
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
+  const { token, headers: extraHeaders, ...rest } = init;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(extraHeaders as Record<string, string> | undefined),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...rest, headers });
   if (!res.ok) {
     let detail: unknown;
     try {
@@ -40,6 +47,8 @@ export async function apiFetch<T>(
         : `Request failed with status ${res.status}`;
     throw new ApiError(res.status, message, detail);
   }
+  // 204 No Content: nothing to parse.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -50,28 +59,30 @@ export type User = {
   created_at: string;
 };
 
+export type SessionResponse = { user: User; token: string };
+
 export const auth = {
-  login: (email: string) =>
-    apiFetch<User>("/api/auth/login", {
+  login: (email: string, password: string) =>
+    apiFetch<SessionResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
     }),
-  register: (email: string, name: string) =>
-    apiFetch<User>("/api/auth/register", {
+  register: (email: string, password: string, name: string) =>
+    apiFetch<SessionResponse>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email, password, name }),
     }),
+  logout: (token: string) =>
+    apiFetch<void>("/api/auth/logout", { method: "POST", token }),
+  me: (token: string) => apiFetch<User>("/api/auth/me", { token }),
 };
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export type ChatResponse = {
   assistant_message: string;
-  // Catalog id of the document the user is drafting; "" until intent is clear.
   selected_doc_id: string;
-  // Partial of the frontend MndaState — only MNDA fields the AI just learned.
   mnda_updates: Record<string, unknown>;
-  // Free-form key/value updates for non-MNDA documents (Cover-Page-level data).
   field_updates: Record<string, string>;
   done: boolean;
 };
@@ -94,4 +105,44 @@ export type TemplateResponse = {
 export const templatesApi = {
   get: (docId: string) =>
     apiFetch<TemplateResponse>(`/api/templates/${encodeURIComponent(docId)}`),
+};
+
+export type DocumentSummary = {
+  id: number;
+  doc_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentRecord = DocumentSummary & {
+  state: Record<string, unknown>;
+};
+
+export const documentsApi = {
+  list: (token: string) =>
+    apiFetch<DocumentSummary[]>("/api/documents", { token }),
+  create: (
+    token: string,
+    body: { doc_id: string; title?: string; state?: Record<string, unknown> },
+  ) =>
+    apiFetch<DocumentRecord>("/api/documents", {
+      method: "POST",
+      token,
+      body: JSON.stringify(body),
+    }),
+  get: (token: string, id: number) =>
+    apiFetch<DocumentRecord>(`/api/documents/${id}`, { token }),
+  update: (
+    token: string,
+    id: number,
+    body: { title?: string; state?: Record<string, unknown> },
+  ) =>
+    apiFetch<DocumentRecord>(`/api/documents/${id}`, {
+      method: "PUT",
+      token,
+      body: JSON.stringify(body),
+    }),
+  delete: (token: string, id: number) =>
+    apiFetch<void>(`/api/documents/${id}`, { method: "DELETE", token }),
 };
