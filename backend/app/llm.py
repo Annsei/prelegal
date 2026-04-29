@@ -239,6 +239,33 @@ def _ensure_followup(message: str) -> str:
     return f"{message.rstrip()} {fallback}"
 
 
+def _classify_llm_error(exc: BaseException) -> str:
+    """Map a raw litellm/OpenRouter exception to a short, user-facing message.
+
+    Goal: don't dump the entire stringified exception (which can be a
+    multi-kilobyte HTML or JSON blob) into the chat panel. Instead, show
+    one sentence the user can act on.
+    """
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "ratelimit" in name or "429" in text or "rate-limited" in text:
+        return (
+            "AI service is rate-limited upstream right now. "
+            "Please retry in a moment."
+        )
+    if "authentication" in name or "401" in text or "invalid api key" in text:
+        return "AI service rejected the API key. Check OPENROUTER_API_KEY."
+    if "timeout" in name or "timed out" in text:
+        return "AI service timed out. Please retry."
+    if "403" in text or "blocked" in text:
+        return (
+            "AI provider blocked the request (network or region issue). "
+            "Please retry shortly."
+        )
+    # Fallback: still surface something short rather than the full trace.
+    return "AI service is unavailable right now. Please retry shortly."
+
+
 def _call_llm(
     messages: list[dict[str, str]],
     system: str,
@@ -264,7 +291,7 @@ def _call_llm(
             temperature=0.3,
         )
     except Exception as exc:  # litellm wraps many transport errors
-        raise LLMUnavailableError(f"LLM request failed: {exc}") from exc
+        raise LLMUnavailableError(_classify_llm_error(exc)) from exc
 
     try:
         content = response.choices[0].message.content

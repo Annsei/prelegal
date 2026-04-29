@@ -154,8 +154,9 @@ export function MNDAChat({
       {error && (
         <div
           role="alert"
-          className="border-t border-neutral-200 px-4 py-2 text-sm text-red-600"
+          className="border-t border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
         >
+          <span className="font-medium">⚠ </span>
           {error}
         </div>
       )}
