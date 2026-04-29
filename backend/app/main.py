@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.db import reset_database
+from app.db import init_database
 from app.routes import auth, chat, documents, health, templates
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -23,7 +23,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    reset_database()
+    init_database()
     yield
 
 

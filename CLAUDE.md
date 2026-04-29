@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft legal agreements based on templat
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. **Only the MNDA has a typed manual-edit form, bespoke placeholder rendering, and PDF download** today; the other 10 docs read the markdown template through a generic renderer with a Cover Page Summary card on top. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD; drafts auto-save (debounced, 800ms) and show up in a left sidebar. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. **Only the MNDA has a typed manual-edit form, bespoke placeholder rendering, and PDF download** today; the other 10 docs read the markdown template through a generic renderer with a Cover Page Summary card on top. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD; drafts auto-save (debounced, 800ms), show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -25,7 +25,7 @@ The OpenRouter API key is available in the `.env` file at the project root.
 
 ## Technical design
 
-The entire project should be packaged into a Docker container. The backend should be in `backend/` and be a uv project, using FastAPI. The frontend should be in `frontend/`. Consider statically building the frontend and serving it via FastAPI, if that will work. The database is SQLite, recreated from scratch every time the Docker container starts, with a `users` table supporting registration and login. There should be scripts in `scripts/` for:
+The entire project should be packaged into a Docker container. The backend should be in `backend/` and be a uv project, using FastAPI. The frontend should be in `frontend/`. Consider statically building the frontend and serving it via FastAPI, if that will work. The database is SQLite, persisted across container restarts via a host-mounted volume so registered users and their saved drafts survive `docker rm` (the schema init is idempotent — `CREATE TABLE IF NOT EXISTS`). There should be scripts in `scripts/` for:
 
 ```
 # Mac
@@ -58,8 +58,9 @@ Backend available at http://localhost:8000
 ```
 backend/         FastAPI service (uv project)
   app/main.py      app factory + SPA fallback (path-traversal guarded)
-  app/db.py        SQLite bootstrap; reset_database() runs in lifespan startup.
-                   Schema: users (with password_hash), sessions, documents.
+  app/db.py        SQLite bootstrap; init_database() runs in lifespan startup
+                   (idempotent — preserves existing rows). Schema: users
+                   (with password_hash), sessions, documents.
   app/auth.py      bcrypt password helpers + bearer-token `current_user`
                    FastAPI dependency
   app/llm.py       LiteLLM → OpenRouter → Cerebras client; injects catalog.json
@@ -112,7 +113,7 @@ scripts/         start/stop per OS; start scripts forward .env into the containe
 - `GET /` and unknown paths → SPA fallback to the Next.js static export (path-traversal refused, falls back to `index.html`)
 
 `users` schema: `id`, `email UNIQUE`, `name`, `password_hash` (bcrypt), `created_at`.
-`sessions` schema: `token PRIMARY KEY`, `user_id FK`, `created_at` — DB resets every restart, so tokens are intentionally short-lived.
+`sessions` schema: `token PRIMARY KEY`, `user_id FK`, `created_at`. Tokens persist across server restarts (no TTL yet — adding expiry is a follow-up); explicit logout deletes the row.
 `documents` schema: `id, user_id FK, doc_id, title, state_json, created_at, updated_at`.
 
 ### Auth model
@@ -121,7 +122,7 @@ bcrypt password hashing + bearer-token sessions. Frontend stores `{user, token}`
 
 ### Configuration
 
-- `PRELEGAL_DB_PATH` (backend, default `/tmp/prelegal.sqlite`) — SQLite file path; recreated on every process start.
+- `PRELEGAL_DB_PATH` (backend, default `/data/prelegal.sqlite` in Docker) — SQLite file path. The Docker image declares `/data` as a `VOLUME`, and the start scripts bind `$HOME/.prelegal/data` (or `%USERPROFILE%\.prelegal\data` on Windows) into it so users + drafts persist across `docker rm`. For local non-Docker dev pass any writable path (e.g. `./prelegal-dev.sqlite`).
 - `OPENROUTER_API_KEY` (backend, **required for AI chat**) — read from the project-root `.env`. Without it `/api/chat` returns 502. The `start-{mac,linux,windows}` scripts forward `.env` into the container automatically.
 - `NEXT_PUBLIC_API_BASE_URL` (frontend, default `""`) — set to `http://localhost:8000` for local dev where the Next dev server runs on a different port from FastAPI. Empty in Docker (same origin).
 

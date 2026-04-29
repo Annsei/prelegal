@@ -38,7 +38,14 @@ COPY templates/ /app/templates/
 # Final install (places the project itself into the venv).
 RUN uv sync --no-dev
 
-ENV PRELEGAL_DB_PATH=/tmp/prelegal.sqlite
+# SQLite lives under /data so users and saved drafts persist across
+# container restarts. Declaring it as a VOLUME means even a `docker run`
+# without an explicit mount gets an anonymous volume — better than
+# silently losing data on `docker rm`. The start scripts bind a host
+# directory ($HOME/.prelegal/data) here so the file lives outside the
+# container entirely.
+ENV PRELEGAL_DB_PATH=/data/prelegal.sqlite
+VOLUME ["/data"]
 EXPOSE 8000
 
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

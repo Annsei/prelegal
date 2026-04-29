@@ -114,7 +114,9 @@ def test_logout_invalidates_token(client):
     assert client.get("/api/auth/me", headers=headers).status_code == 401
 
 
-def test_database_resets_between_clients(client):
+def test_database_persists_across_restarts(client):
+    """A second TestClient against the same DB path should still see the
+    user — schema init is idempotent, no data is wiped on lifespan startup."""
     _register(client, "frank@example.com", "secretpw1")
 
     from fastapi.testclient import TestClient
@@ -122,9 +124,16 @@ def test_database_resets_between_clients(client):
     from app.main import app
 
     with TestClient(app) as fresh:
-        # Fresh lifespan run → DB reset → registering frank again should succeed.
-        res = fresh.post(
+        # Re-running lifespan must not drop the row — registering again 409s.
+        dup = fresh.post(
             "/api/auth/register",
             json={"email": "frank@example.com", "password": "secretpw1"},
         )
-        assert res.status_code == 201
+        assert dup.status_code == 409
+        # And the original credentials should still log in.
+        res = fresh.post(
+            "/api/auth/login",
+            json={"email": "frank@example.com", "password": "secretpw1"},
+        )
+        assert res.status_code == 200
+        assert res.json()["user"]["email"] == "frank@example.com"
