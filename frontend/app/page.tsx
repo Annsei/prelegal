@@ -11,6 +11,7 @@ import { MNDAPreview } from "@/components/MNDAPreview";
 import { SaveStatus, type SaveState } from "@/components/SaveStatus";
 import {
   ApiError,
+  type ChatTurn,
   documentsApi,
   type DocumentRecord,
   type DocumentSummary,
@@ -25,6 +26,49 @@ type EditMode = "chat" | "form";
 
 const MNDA_DOC_ID = "mutual-nda";
 const AUTOSAVE_DEBOUNCE_MS = 800;
+// Remembers which draft the user was last editing so a page refresh
+// (within the same server lifetime) drops them back where they were.
+// Stored separately from the session — clearing one shouldn't lose the
+// other.
+const ACTIVE_DOC_KEY = "prelegal:activeDocId";
+
+// Wrapped shape we persist into a document's `state_json` column. The
+// chat history goes in `chat`; the rest is either MndaState (for
+// mutual-nda) or a free-form key/value map (for any other doc). Older
+// rows from before this format existed will be missing `chat` — we
+// treat that as "fresh chat".
+type SavedDocState = {
+  chat?: ChatTurn[];
+  mnda?: Partial<MndaState>;
+  fields?: Record<string, string>;
+};
+
+function isChatTurnArray(value: unknown): value is ChatTurn[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (turn) =>
+        turn !== null &&
+        typeof turn === "object" &&
+        (turn as ChatTurn).role !== undefined &&
+        typeof (turn as ChatTurn).content === "string",
+    )
+  );
+}
+
+function readActiveDocId(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(ACTIVE_DOC_KEY);
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function writeActiveDocId(id: number | null): void {
+  if (typeof window === "undefined") return;
+  if (id == null) window.localStorage.removeItem(ACTIVE_DOC_KEY);
+  else window.localStorage.setItem(ACTIVE_DOC_KEY, String(id));
+}
 
 // Cover-page-style role keys the LLM emits for non-MNDA docs (see the
 // system prompt in backend/app/llm.py). We match the title-derivation
@@ -74,6 +118,7 @@ export default function Home() {
   const [genericFields, setGenericFields] = useState<Record<string, string>>(
     {},
   );
+  const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -127,6 +172,11 @@ export default function Home() {
     if (token) void refreshList();
   }, [token, refreshList]);
 
+  // initialRestoreDone is paired with the restore-effect lower in the
+  // file so that we only attempt to rehydrate the last draft once per
+  // mount; defining the ref here keeps it adjacent to its sibling state.
+  const initialRestoreDone = useRef(false);
+
   // Auto-save: whenever the editable state changes, schedule a debounced
   // POST/PUT. Skipped on initial mount and immediately after loading
   // another draft (lastLoadedKey gating).
@@ -148,12 +198,15 @@ export default function Home() {
       if (activeDocId == null && creating.current) return;
 
       const title = deriveTitle(docId, lookupDocTitle, state, genericFields);
+      // Wrap chat history alongside the document data so refresh and
+      // re-login can restore the conversation, not just the form fields.
+      const wrappedState: SavedDocState =
+        docId === MNDA_DOC_ID
+          ? { chat: chatHistory, mnda: state }
+          : { chat: chatHistory, fields: genericFields };
       const body = {
         title,
-        state:
-          docId === MNDA_DOC_ID
-            ? (state as unknown as Record<string, unknown>)
-            : (genericFields as Record<string, unknown>),
+        state: wrappedState as unknown as Record<string, unknown>,
       };
       setSaveState("saving");
       try {
@@ -165,6 +218,7 @@ export default function Home() {
             state: body.state,
           });
           setActiveDocId(created.id);
+          writeActiveDocId(created.id);
           lastLoadedKey.current = `${docId}|${created.id}`;
         } else {
           await documentsApi.update(token, activeDocId, body);
@@ -190,6 +244,7 @@ export default function Home() {
     docId,
     state,
     genericFields,
+    chatHistory,
     activeDocId,
     refreshList,
     lookupDocTitle,
@@ -203,6 +258,7 @@ export default function Home() {
     (newDocId: string) => {
       if (newDocId !== docId) {
         setActiveDocId(null);
+        writeActiveDocId(null);
         setSaveState("idle");
         lastLoadedKey.current = `${newDocId}|new`;
       }
@@ -215,7 +271,9 @@ export default function Home() {
     setDocId(MNDA_DOC_ID);
     setState(INITIAL_STATE);
     setGenericFields({});
+    setChatHistory([]);
     setActiveDocId(null);
+    writeActiveDocId(null);
     setSaveState("idle");
     // Force the autosave gate to skip the next state-change tick (the
     // resets above) so we don't immediately POST an empty draft.
@@ -223,20 +281,49 @@ export default function Home() {
   }, []);
 
   const loadDraftFromRecord = useCallback((rec: DocumentRecord) => {
+    // Saved state is wrapped: { chat?, mnda?, fields? }. Decode each
+    // piece defensively — bad/missing data falls back to a fresh draft.
+    const saved = (rec.state ?? {}) as SavedDocState;
     setDocId(rec.doc_id);
     if (rec.doc_id === MNDA_DOC_ID) {
-      // Trust the typed shape of MndaState — apiFetch parsed it as a
-      // plain object, runtime validation lives in mergeMndaUpdates.
-      setState({ ...INITIAL_STATE, ...(rec.state as Partial<MndaState>) });
+      setState({ ...INITIAL_STATE, ...(saved.mnda ?? {}) });
       setGenericFields({});
     } else {
       setState(INITIAL_STATE);
-      setGenericFields(rec.state as Record<string, string>);
+      setGenericFields(
+        saved.fields && typeof saved.fields === "object" ? saved.fields : {},
+      );
     }
+    setChatHistory(isChatTurnArray(saved.chat) ? saved.chat : []);
     setActiveDocId(rec.id);
+    writeActiveDocId(rec.id);
     setSaveState("saved");
     lastLoadedKey.current = `${rec.doc_id}|${rec.id}`;
   }, []);
+
+  // After mount, if the user had a draft open before refreshing or
+  // signing back in, fetch it and restore the editor. Runs once per
+  // mount (gated by initialRestoreDone) and silently no-ops if the
+  // remembered id has been deleted on the server.
+  useEffect(() => {
+    if (!token || initialRestoreDone.current) return;
+    initialRestoreDone.current = true;
+    const lastId = readActiveDocId();
+    if (lastId == null) return;
+    void documentsApi
+      .get(token, lastId)
+      .then(loadDraftFromRecord)
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 404) {
+          writeActiveDocId(null);
+          return;
+        }
+        if (err instanceof ApiError && err.status === 401) {
+          clearSession();
+          window.location.replace("/login");
+        }
+      });
+  }, [token, loadDraftFromRecord]);
 
   const onSelectDoc = useCallback(
     async (id: number) => {
@@ -267,6 +354,9 @@ export default function Home() {
       }
     }
     clearSession();
+    // Clear the last-active pointer too, otherwise the next user to log
+    // into the same browser would inherit a stale id and 404 on restore.
+    writeActiveDocId(null);
     window.location.assign("/login");
   }, []);
 
@@ -351,6 +441,10 @@ export default function Home() {
           </div>
           {mode === "chat" || !isMnda ? (
             <MNDAChat
+              // Tear down + remount when the user switches drafts so any
+              // ephemeral chat state (the "done" banner, in-flight errors)
+              // resets without us having to plumb every flag through props.
+              key={activeDocId ?? "new"}
               locale={locale}
               state={state}
               onStateChange={setState}
@@ -358,6 +452,8 @@ export default function Home() {
               onFieldUpdates={(updates) =>
                 setGenericFields((prev) => ({ ...prev, ...updates }))
               }
+              history={chatHistory}
+              onHistoryChange={setChatHistory}
             />
           ) : (
             <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">

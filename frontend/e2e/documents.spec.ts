@@ -160,4 +160,68 @@ test.describe("Documents — sidebar and auto-save", () => {
     // The list refresh after save means we hit GET more than once.
     expect(listCalls).toBeGreaterThanOrEqual(2);
   });
+
+  test("chat history is restored after a page refresh", async ({ page }) => {
+    // Saved draft already contains a back-and-forth — `state` carries
+    // both `chat` (the conversation) and `mnda` (typed fields).
+    const docId = 42;
+    const savedDoc = {
+      id: docId,
+      doc_id: "mutual-nda",
+      title: "Acme × Globex MNDA",
+      state: {
+        chat: [
+          { role: "user", content: "Use Acme as party 1." },
+          { role: "assistant", content: "Got it. Who is party 2?" },
+        ],
+        mnda: {
+          party1: { company: "Acme", signerName: "", signerTitle: "", noticeAddress: "" },
+        },
+      },
+      created_at: "2026-04-27T00:00:00",
+      updated_at: "2026-04-27T01:00:00",
+    };
+
+    await page.route("**/api/documents", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([
+            {
+              id: docId,
+              doc_id: savedDoc.doc_id,
+              title: savedDoc.title,
+              created_at: savedDoc.created_at,
+              updated_at: savedDoc.updated_at,
+            },
+          ]),
+        });
+      } else {
+        route.continue();
+      }
+    });
+    await page.route(new RegExp(`/api/documents/${docId}$`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(savedDoc),
+      }),
+    );
+
+    // Plant the "last active doc id" pointer that page.tsx reads on
+    // mount — same shape the app writes there itself.
+    await page.addInitScript(({ key, id }) => {
+      window.localStorage.setItem(key, String(id));
+    }, { key: "prelegal:activeDocId", id: docId });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "English" }).click();
+
+    // Both turns from the saved chat are replayed.
+    await expect(page.getByText("Use Acme as party 1.")).toBeVisible();
+    await expect(page.getByText("Got it. Who is party 2?")).toBeVisible();
+    // The fresh-chat welcome bubble is suppressed when history isn't empty.
+    await expect(page.getByText(/draft a legal agreement/i)).toHaveCount(0);
+  });
 });
