@@ -12,6 +12,42 @@ type Dictionary = {
   comingSoon: string;
   templateUnavailable: string;
   pickDocPrompt: string;
+  disclaimer: string;
+  disclaimerShort: string;
+  signOut: string;
+  auth: {
+    welcome: string;
+    pitch: string;
+    signInTitle: string;
+    registerTitle: string;
+    email: string;
+    password: string;
+    passwordHelp: string;
+    name: string;
+    nameOptional: string;
+    signInCta: string;
+    registerCta: string;
+    submitting: string;
+    switchToRegister: string;
+    switchToLogin: string;
+    genericError: string;
+  };
+  sidebar: {
+    title: string;
+    newDraft: string;
+    empty: string;
+    untitled: string;
+  };
+  saveStatus: {
+    saved: string;
+    saving: string;
+    failed: string;
+    unsaved: string;
+  };
+  // Catalog id → display title for the active doc in the header and the
+  // sidebar. Kept in lockstep with catalog.json by hand because the catalog
+  // is small and the localized titles wouldn't survive a JSON-only sync.
+  catalogTitles: Record<string, string>;
   chat: {
     tab: string;
     formTab: string;
@@ -76,6 +112,53 @@ const zh: Dictionary = {
   comingSoon: "完整生成与 PDF 下载即将上线，目前仅 MNDA 已完整支持。可继续与 AI 对话收集关键条款，下方为模板预览。",
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
+  disclaimer:
+    "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。",
+  disclaimerShort: "草稿，请律师审核后再签署。",
+  signOut: "退出登录",
+  auth: {
+    welcome: "Prelegal · 法律协议生成器",
+    pitch:
+      "与 AI 对话起草 Common Paper 标准协议。注册后即可保存草稿，随时回看与继续编辑。",
+    signInTitle: "登录",
+    registerTitle: "注册",
+    email: "邮箱",
+    password: "密码",
+    passwordHelp: "至少 8 位",
+    name: "姓名",
+    nameOptional: "（可选）",
+    signInCta: "登录",
+    registerCta: "创建账号",
+    submitting: "处理中…",
+    switchToRegister: "还没有账号？立即注册",
+    switchToLogin: "已有账号？登录",
+    genericError: "请求失败，请稍后再试。",
+  },
+  sidebar: {
+    title: "我的草稿",
+    newDraft: "+ 新建协议",
+    empty: "尚无草稿。开始一段对话即可自动保存。",
+    untitled: "未命名草稿",
+  },
+  saveStatus: {
+    saved: "已保存",
+    saving: "正在保存…",
+    failed: "保存失败",
+    unsaved: "尚未保存",
+  },
+  catalogTitles: {
+    "mutual-nda": "双方保密协议（MNDA）",
+    "cloud-service-agreement": "云服务协议（CSA）",
+    "design-partner-agreement": "设计合作伙伴协议",
+    "service-level-agreement": "服务等级协议（SLA）",
+    "professional-services-agreement": "专业服务协议（PSA）",
+    "data-processing-agreement": "数据处理协议（DPA）",
+    "software-license-agreement": "软件许可协议",
+    "partnership-agreement": "合作协议",
+    "pilot-agreement": "试点协议",
+    "business-associate-agreement": "业务关联方协议（BAA）",
+    "ai-addendum": "AI 附录",
+  },
   chat: {
     tab: "AI 对话",
     formTab: "手动编辑",
@@ -141,6 +224,53 @@ const en: Dictionary = {
   comingSoon: "Full generation and PDF download for this document are coming soon — only the Mutual NDA is fully supported today. The chat keeps collecting key terms; below is the underlying template.",
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
+  disclaimer:
+    "AI-generated draft for discussion only. Have a lawyer review it before signing.",
+  disclaimerShort: "Draft only — review with counsel before signing.",
+  signOut: "Sign out",
+  auth: {
+    welcome: "Prelegal · Legal Agreement Generator",
+    pitch:
+      "Chat with AI to draft Common Paper standard agreements. Sign up to save drafts and pick up where you left off.",
+    signInTitle: "Sign in",
+    registerTitle: "Create your account",
+    email: "Email",
+    password: "Password",
+    passwordHelp: "8 characters minimum",
+    name: "Name",
+    nameOptional: "(optional)",
+    signInCta: "Sign in",
+    registerCta: "Create account",
+    submitting: "…",
+    switchToRegister: "Don't have an account? Register",
+    switchToLogin: "Already have an account? Sign in",
+    genericError: "Something went wrong. Please try again.",
+  },
+  sidebar: {
+    title: "My drafts",
+    newDraft: "+ New draft",
+    empty: "No drafts yet — start a conversation and we'll save it automatically.",
+    untitled: "Untitled draft",
+  },
+  saveStatus: {
+    saved: "Saved",
+    saving: "Saving…",
+    failed: "Save failed",
+    unsaved: "Unsaved",
+  },
+  catalogTitles: {
+    "mutual-nda": "Mutual Non-Disclosure Agreement (MNDA)",
+    "cloud-service-agreement": "Cloud Service Agreement (CSA)",
+    "design-partner-agreement": "Design Partner Agreement",
+    "service-level-agreement": "Service Level Agreement (SLA)",
+    "professional-services-agreement": "Professional Services Agreement (PSA)",
+    "data-processing-agreement": "Data Processing Agreement (DPA)",
+    "software-license-agreement": "Software License Agreement",
+    "partnership-agreement": "Partnership Agreement",
+    "pilot-agreement": "Pilot Agreement",
+    "business-associate-agreement": "Business Associate Agreement (BAA)",
+    "ai-addendum": "AI Addendum",
+  },
   chat: {
     tab: "AI Chat",
     formTab: "Edit fields",

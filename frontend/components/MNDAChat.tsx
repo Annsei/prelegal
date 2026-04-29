@@ -22,15 +22,22 @@ type Props = {
   onDocChange: (docId: string) => void;
   // Called when the LLM extracts cover-page-level fields for non-MNDA docs.
   onFieldUpdates: (updates: Record<string, string>) => void;
+  // Conversation history is owned by the page so it can be auto-saved
+  // and restored alongside the rest of the document state. Empty array
+  // means "fresh chat" — we render a localized welcome bubble in its
+  // place rather than persisting that bubble as part of history.
+  history: ChatTurn[];
+  onHistoryChange: (next: ChatTurn[]) => void;
 };
 
 /**
  * Chat panel that drives the MNDA via free-form conversation.
  *
- * State is held client-side: we keep the full message history in memory and
- * POST it on each turn (the backend is stateless). The first assistant turn
- * is a static welcome string from the i18n dict so the user gets immediate
- * feedback without an LLM round-trip.
+ * History is a controlled prop owned by the page so it travels with the
+ * saved draft (see app/page.tsx). The first assistant turn is rendered
+ * lazily from the i18n dict whenever history is empty; that way the
+ * welcome bubble follows the current locale and never gets persisted to
+ * the DB on its own.
  */
 export function MNDAChat({
   locale,
@@ -38,11 +45,10 @@ export function MNDAChat({
   onStateChange,
   onDocChange,
   onFieldUpdates,
+  history,
+  onHistoryChange,
 }: Props) {
   const t = useDictionary(locale);
-  const [history, setHistory] = useState<ChatTurn[]>([
-    { role: "assistant", content: t.chat.welcome },
-  ]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,15 +62,6 @@ export function MNDAChat({
     textareaRef.current?.focus();
   }, []);
 
-  // Re-localize the static welcome message when the user toggles language —
-  // but only if it's still the first turn (otherwise we'd rewrite history).
-  useEffect(() => {
-    setHistory((prev) => {
-      if (prev.length !== 1 || prev[0].role !== "assistant") return prev;
-      return [{ role: "assistant", content: t.chat.welcome }];
-    });
-  }, [t.chat.welcome]);
-
   useEffect(() => {
     // Pin the scroll to the bottom whenever a new message arrives.
     const el = scrollRef.current;
@@ -77,7 +74,7 @@ export function MNDAChat({
 
     const userTurn: ChatTurn = { role: "user", content };
     const nextHistory = [...history, userTurn];
-    setHistory(nextHistory);
+    onHistoryChange(nextHistory);
     setDraft("");
     setError(null);
     setSending(true);
@@ -95,7 +92,7 @@ export function MNDAChat({
       if (res.field_updates && Object.keys(res.field_updates).length > 0) {
         onFieldUpdates(res.field_updates);
       }
-      setHistory([
+      onHistoryChange([
         ...nextHistory,
         { role: "assistant", content: res.assistant_message },
       ]);
@@ -128,6 +125,9 @@ export function MNDAChat({
         ref={scrollRef}
         className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
       >
+        {history.length === 0 && (
+          <Bubble role="assistant">{t.chat.welcome}</Bubble>
+        )}
         {history.map((turn, i) => (
           <Bubble key={i} role={turn.role}>
             {turn.content}
@@ -154,8 +154,9 @@ export function MNDAChat({
       {error && (
         <div
           role="alert"
-          className="border-t border-neutral-200 px-4 py-2 text-sm text-red-600"
+          className="border-t border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
         >
+          <span className="font-medium">⚠ </span>
           {error}
         </div>
       )}

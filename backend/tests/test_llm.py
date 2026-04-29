@@ -23,7 +23,8 @@ def test_chat_complete_raises_when_api_key_missing(monkeypatch):
         )
 
 
-def test_chat_complete_wraps_litellm_failure(monkeypatch):
+def test_chat_complete_wraps_litellm_failure_with_friendly_message(monkeypatch):
+    """Generic transport failures get a short message, not the raw exception."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
 
     def boom(**_kwargs):
@@ -31,11 +32,38 @@ def test_chat_complete_wraps_litellm_failure(monkeypatch):
 
     monkeypatch.setattr(llm.litellm, "completion", boom)
 
-    with pytest.raises(llm.LLMUnavailableError, match="network down"):
+    with pytest.raises(llm.LLMUnavailableError) as info:
         llm.chat_complete(
             messages=[{"role": "user", "content": "hi"}],
             mnda_state={},
         )
+    # The classifier hides the raw "network down" detail behind a
+    # short, user-actionable sentence.
+    assert "network down" not in str(info.value)
+    assert "AI service" in str(info.value)
+
+
+def test_chat_complete_classifies_rate_limit(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    class RateLimitError(Exception):
+        pass
+
+    def boom(**_kwargs):
+        raise RateLimitError(
+            'OpenrouterException - {"error":{"code":429,"message":"rate-limited upstream"}}',
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", boom)
+
+    with pytest.raises(llm.LLMUnavailableError) as info:
+        llm.chat_complete(
+            messages=[{"role": "user", "content": "hi"}],
+            mnda_state={},
+        )
+    assert "rate-limited" in str(info.value).lower()
+    # No raw exception payload leaks into the user-facing message.
+    assert "OpenrouterException" not in str(info.value)
 
 
 def _fake_response(payload: dict) -> object:

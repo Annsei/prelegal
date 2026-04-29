@@ -3,18 +3,22 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MNDAChat } from "./MNDAChat";
+import type { ChatTurn } from "@/lib/api";
 import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 
 function Harness({
   locale = "en" as "en" | "zh",
   onDocChange = () => {},
   onFieldUpdates = () => {},
+  initialHistory = [] as ChatTurn[],
 }: {
   locale?: "en" | "zh";
   onDocChange?: (id: string) => void;
   onFieldUpdates?: (updates: Record<string, string>) => void;
+  initialHistory?: ChatTurn[];
 }) {
   const [state, setState] = useState<MndaState>(INITIAL_STATE);
+  const [history, setHistory] = useState<ChatTurn[]>(initialHistory);
   return (
     <>
       <div data-testid="state-json">{JSON.stringify(state)}</div>
@@ -24,6 +28,8 @@ function Harness({
         onStateChange={setState}
         onDocChange={onDocChange}
         onFieldUpdates={onFieldUpdates}
+        history={history}
+        onHistoryChange={setHistory}
       />
     </>
   );
@@ -45,6 +51,19 @@ describe("MNDAChat", () => {
   it("renders the static welcome message in the active locale", () => {
     render(<Harness locale="en" />);
     expect(screen.getByText(/draft a legal agreement/i)).toBeInTheDocument();
+  });
+
+  it("hides the welcome and replays prior history when one is provided", () => {
+    const restored: ChatTurn[] = [
+      { role: "user", content: "Earlier user message" },
+      { role: "assistant", content: "Earlier assistant reply" },
+    ];
+    render(<Harness locale="en" initialHistory={restored} />);
+    // Replayed turns visible.
+    expect(screen.getByText("Earlier user message")).toBeInTheDocument();
+    expect(screen.getByText("Earlier assistant reply")).toBeInTheDocument();
+    // Welcome bubble suppressed when history isn't empty.
+    expect(screen.queryByText(/draft a legal agreement/i)).toBeNull();
   });
 
   it("sends a turn, appends the assistant reply, and merges field updates", async () => {
