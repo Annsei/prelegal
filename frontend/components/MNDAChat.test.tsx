@@ -11,11 +11,13 @@ function Harness({
   onDocChange = () => {},
   onFieldUpdates = () => {},
   initialHistory = [] as ChatTurn[],
+  getDraftEpoch = () => 0,
 }: {
   locale?: "en" | "zh";
   onDocChange?: (id: string) => void;
   onFieldUpdates?: (updates: Record<string, string>) => void;
   initialHistory?: ChatTurn[];
+  getDraftEpoch?: () => number;
 }) {
   const [state, setState] = useState<MndaState>(INITIAL_STATE);
   const [history, setHistory] = useState<ChatTurn[]>(initialHistory);
@@ -25,6 +27,7 @@ function Harness({
       <MNDAChat
         locale={locale}
         state={state}
+        getDraftEpoch={getDraftEpoch}
         onStateChange={setState}
         onDocChange={onDocChange}
         onFieldUpdates={onFieldUpdates}
@@ -225,6 +228,64 @@ describe("MNDAChat", () => {
       ).toBeInTheDocument(),
     );
     expect(input).toHaveFocus();
+  });
+
+  it("discards a response that arrives after the draft epoch changed", async () => {
+    // Simulates: user sends a message in draft A, switches to draft B while
+    // the request is in flight, then the reply arrives. Nothing from that
+    // reply may be applied — otherwise auto-save would persist A's turn
+    // into B's row.
+    let resolveFetch: (r: Response) => void = () => {};
+    const fetchMock = vi.fn().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    let epoch = 0;
+    const onDocChange = vi.fn();
+    const onFieldUpdates = vi.fn();
+    render(
+      <Harness
+        locale="en"
+        getDraftEpoch={() => epoch}
+        onDocChange={onDocChange}
+        onFieldUpdates={onFieldUpdates}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText(/type a message/i), "hello");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    // The draft switches while the request is pending.
+    epoch = 1;
+    resolveFetch(
+      new Response(
+        JSON.stringify({
+          assistant_message: "Stale reply that must not render",
+          selected_doc_id: "cloud-service-agreement",
+          mnda_updates: { purpose: "stale purpose" },
+          field_updates: { Customer: "Stale Corp" },
+          done: false,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    // Sending indicator clears once the (discarded) response settles —
+    // the button label flips back from "Sending…" to "Send".
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /^send$/i }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/Stale reply that must not render/),
+    ).toBeNull();
+    expect(currentState().purpose).toBe(INITIAL_STATE.purpose);
+    expect(onDocChange).not.toHaveBeenCalled();
+    expect(onFieldUpdates).not.toHaveBeenCalled();
   });
 
   it("shows the done banner when the API reports done: true", async () => {

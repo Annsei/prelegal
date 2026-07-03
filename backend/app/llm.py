@@ -7,8 +7,8 @@ language reply and any new field values it learned this turn.
 
 The chat is multi-document aware (PL-6): it knows the catalog of supported
 documents and can recommend the closest match when a user asks for
-something we don't offer. Today only the MNDA is fully generatable in the
-UI, so the assistant routes other supported docs back to MNDA.
+something we don't offer. It collects key terms for any catalog document;
+only the MNDA is fully generatable (typed fields + PDF) in the UI today.
 """
 
 from __future__ import annotations
@@ -295,11 +295,48 @@ def _call_llm(
 
     try:
         content = response.choices[0].message.content
-        return json.loads(content)
+        parsed = json.loads(content)
     except (AttributeError, IndexError, json.JSONDecodeError, TypeError) as exc:
         raise LLMUnavailableError(
             f"LLM returned an unparseable response: {exc}",
         ) from exc
+    return _normalize_result(parsed)
+
+
+def _normalize_result(data: Any) -> dict[str, Any]:
+    """Coerce parsed LLM JSON into the exact shape the route layer expects.
+
+    Structured Outputs run without strict mode (see the response_format
+    comment above), so the model can omit keys or return wrong scalar types
+    (e.g. a bare number for a field value). Anything unrecoverable becomes an
+    LLMUnavailableError so it surfaces as a classified 502, never a raw 500.
+    """
+    if not isinstance(data, dict):
+        raise LLMUnavailableError(
+            "LLM returned an unparseable response: not a JSON object",
+        )
+    message = data.get("assistant_message")
+    if not isinstance(message, str) or not message.strip():
+        raise LLMUnavailableError(
+            "AI service returned an incomplete reply. Please retry.",
+        )
+    doc_id = data.get("selected_doc_id")
+    mnda_updates = data.get("mnda_updates")
+    raw_fields = data.get("field_updates")
+    field_updates: dict[str, str] = {}
+    if isinstance(raw_fields, dict):
+        for key, value in raw_fields.items():
+            field_updates[str(key)] = (
+                value if isinstance(value, str)
+                else json.dumps(value, ensure_ascii=False)
+            )
+    return {
+        "assistant_message": message,
+        "selected_doc_id": doc_id if isinstance(doc_id, str) else "",
+        "mnda_updates": mnda_updates if isinstance(mnda_updates, dict) else {},
+        "field_updates": field_updates,
+        "done": bool(data.get("done", False)),
+    }
 
 
 def chat_complete(
@@ -342,7 +379,10 @@ def chat_complete(
         )
         result = _call_llm(messages, retry_system, api_key)
         result["mnda_updates"] = {**first_mnda, **(result.get("mnda_updates") or {})}
-        result["field_updates"] = {**first_fields, **(result.get("field_updates") or {})}
+        result["field_updates"] = {
+            **first_fields,
+            **(result.get("field_updates") or {}),
+        }
         # Don't let the retry blank out a doc id the first call established.
         if not result.get("selected_doc_id") and first_doc_id:
             result["selected_doc_id"] = first_doc_id

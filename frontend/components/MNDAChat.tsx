@@ -12,6 +12,12 @@ import {
 type Props = {
   locale: Locale;
   state: MndaState;
+  // Returns the page-level draft generation. Captured when a chat request
+  // starts; if it changed by the time the response arrives, the user has
+  // switched drafts and the response must be discarded — applying it would
+  // merge one draft's conversation into another and the debounced auto-save
+  // would persist the corruption.
+  getDraftEpoch: () => number;
   // Accept either a value or an updater. When an LLM response arrives after
   // an unrelated re-render (e.g., user switched to the form tab and edited
   // a field), the updater form merges against the freshest state instead of
@@ -42,6 +48,7 @@ type Props = {
 export function MNDAChat({
   locale,
   state,
+  getDraftEpoch,
   onStateChange,
   onDocChange,
   onFieldUpdates,
@@ -78,12 +85,19 @@ export function MNDAChat({
     setDraft("");
     setError(null);
     setSending(true);
+    const epochAtSend = getDraftEpoch();
 
     try {
       const res = await chatApi.send(
         nextHistory,
         state as unknown as Record<string, unknown>,
       );
+      if (getDraftEpoch() !== epochAtSend) {
+        // The user switched to another draft while this request was in
+        // flight. Everything below writes into page-level state that now
+        // belongs to the other draft — drop the response instead.
+        return;
+      }
       onStateChange((prev) => mergeMndaUpdates(prev, res.mnda_updates));
       // The LLM may leave selected_doc_id empty when it isn't yet sure what
       // the user wants — only propagate non-empty values so we don't reset
@@ -98,6 +112,9 @@ export function MNDAChat({
       ]);
       if (res.done) setDone(true);
     } catch (err) {
+      // A late failure from a draft the user already left is noise — the
+      // message it complains about isn't on screen anymore.
+      if (getDraftEpoch() !== epochAtSend) return;
       // Don't roll the user message out of history — they should see what
       // they sent and have the chance to retry.
       const message =

@@ -51,7 +51,8 @@ def test_chat_complete_classifies_rate_limit(monkeypatch):
 
     def boom(**_kwargs):
         raise RateLimitError(
-            'OpenrouterException - {"error":{"code":429,"message":"rate-limited upstream"}}',
+            'OpenrouterException - '
+            '{"error":{"code":429,"message":"rate-limited upstream"}}',
         )
 
     monkeypatch.setattr(llm.litellm, "completion", boom)
@@ -102,7 +103,8 @@ def test_chat_complete_parses_structured_response(monkeypatch):
         messages=[{"role": "user", "content": "I need an NDA with Acme."}],
         mnda_state={"purpose": ""},
     )
-    assert result == payload
+    # Normalization fills in the optional keys the model omitted.
+    assert result == {**payload, "selected_doc_id": "", "field_updates": {}}
 
     # Sanity-check the routing constraints we actually care about.
     assert captured["model"] == "openrouter/openai/gpt-oss-120b"
@@ -126,7 +128,11 @@ def test_system_prompt_embeds_full_catalog(monkeypatch):
     def fake_completion(**kwargs):
         captured.update(kwargs)
         return _fake_response(
-            {"assistant_message": "What kind of agreement?", "mnda_updates": {}, "done": False},
+            {
+                "assistant_message": "What kind of agreement?",
+                "mnda_updates": {},
+                "done": False,
+            },
         )
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
@@ -185,7 +191,8 @@ def test_chat_complete_retries_when_followup_question_missing(monkeypatch):
 
 
 def test_chat_complete_preserves_first_call_updates_across_retry(monkeypatch):
-    """A retry triggered by missing question should not drop fields the first call extracted."""
+    """A retry triggered by a missing question must not drop fields the
+    first call extracted."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
 
     bad = {
@@ -229,7 +236,8 @@ def test_chat_response_schema_has_multi_doc_fields():
 
 
 def test_chat_complete_appends_followup_when_retry_also_fails(monkeypatch):
-    """Last-resort fallback: append a generic question so the user always has something to answer."""
+    """Last-resort fallback: append a generic question so the user always
+    has something to answer."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
 
     bad1 = {"assistant_message": "Got it.", "mnda_updates": {}, "done": False}
@@ -247,7 +255,8 @@ def test_chat_complete_appends_followup_when_retry_also_fails(monkeypatch):
 
 
 def test_chat_complete_skips_followup_check_when_done(monkeypatch):
-    """A finishing message ending with '.' is fine — only !done turns require a question."""
+    """A finishing message ending with '.' is fine — only !done turns
+    require a question."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
 
     payload = {
@@ -267,14 +276,82 @@ def test_chat_complete_skips_followup_check_when_done(monkeypatch):
         messages=[{"role": "user", "content": "looks good"}],
         mnda_state={},
     )
-    assert result == payload
+    assert result == {**payload, "selected_doc_id": "", "field_updates": {}}
     assert len(calls) == 1  # no retry
+
+
+def test_chat_complete_rejects_response_missing_assistant_message(monkeypatch):
+    """Non-strict structured outputs can omit keys — that must surface as a
+    classified LLMUnavailableError (502), never a KeyError-driven raw 500."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    payload = {"mnda_updates": {"purpose": "Evaluating"}, "done": False}
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda **_kw: _fake_response(payload),
+    )
+
+    with pytest.raises(llm.LLMUnavailableError, match="incomplete reply"):
+        llm.chat_complete(
+            messages=[{"role": "user", "content": "hi"}],
+            mnda_state={},
+        )
+
+
+def test_chat_complete_rejects_non_object_json(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    class FakeMessage:
+        content = json.dumps(["not", "an", "object"])
+
+    class FakeChoice:
+        message = FakeMessage()
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kw: FakeResponse())
+
+    with pytest.raises(llm.LLMUnavailableError, match="unparseable"):
+        llm.chat_complete(
+            messages=[{"role": "user", "content": "hi"}],
+            mnda_state={},
+        )
+
+
+def test_chat_complete_coerces_non_string_field_values(monkeypatch):
+    """The model sometimes returns numbers/booleans for field values; they
+    must be stringified so the route's dict[str, str] response validates."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    payload = {
+        "assistant_message": "Noted. What else?",
+        "selected_doc_id": "cloud-service-agreement",
+        "mnda_updates": {},
+        "field_updates": {"Subscription Period": 12, "Auto Renew": True},
+        "done": False,
+    }
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda **_kw: _fake_response(payload),
+    )
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "12 months, auto-renew"}],
+        mnda_state={},
+    )
+    assert result["field_updates"] == {
+        "Subscription Period": "12",
+        "Auto Renew": "true",
+    }
 
 
 def test_chat_complete_chinese_fallback_when_message_is_chinese(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
 
-    bad_zh = {"assistant_message": "好的，我知道了。", "mnda_updates": {}, "done": False}
+    bad_zh = {
+        "assistant_message": "好的，我知道了。",
+        "mnda_updates": {},
+        "done": False,
+    }
     responses = iter([_fake_response(bad_zh), _fake_response(bad_zh)])
     monkeypatch.setattr(llm.litellm, "completion", lambda **_kw: next(responses))
 
