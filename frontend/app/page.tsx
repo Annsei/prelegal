@@ -389,7 +389,10 @@ export default function Home() {
   }, []);
 
   const isMnda = docId === MNDA_DOC_ID;
-  const docTitle = useMemo(() => lookupDocTitle(docId), [docId]);
+  const docTitle = useMemo(
+    () => lookupDocTitle(docId),
+    [docId, lookupDocTitle],
+  );
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
