@@ -12,20 +12,27 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import purge_expired_sessions
 from app.db import init_database
 from app.routes import auth, chat, documents, health, templates
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
+# Hard ceiling on any request body. Field-level caps (chat state, document
+# state) are far below this; the middleware just stops multi-megabyte
+# payloads from ever reaching JSON parsing.
+MAX_BODY_BYTES = 2 * 1024 * 1024
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_database()
+    purge_expired_sessions()
     yield
 
 
@@ -47,6 +54,16 @@ def create_app(static_dir: Path = STATIC_DIR) -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    @instance.middleware("http")
+    async def reject_oversized_bodies(request: Request, call_next):
+        content_length = request.headers.get("content-length") or ""
+        if content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "request body too large"},
+            )
+        return await call_next(request)
 
     instance.include_router(health.router, prefix="/api")
     instance.include_router(auth.router, prefix="/api")

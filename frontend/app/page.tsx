@@ -58,16 +58,25 @@ function isChatTurnArray(value: unknown): value is ChatTurn[] {
 
 function readActiveDocId(): number | null {
   if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(ACTIVE_DOC_KEY);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_DOC_KEY);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    // Storage unavailable (private mode / policy) — no draft to restore.
+    return null;
+  }
 }
 
 function writeActiveDocId(id: number | null): void {
   if (typeof window === "undefined") return;
-  if (id == null) window.localStorage.removeItem(ACTIVE_DOC_KEY);
-  else window.localStorage.setItem(ACTIVE_DOC_KEY, String(id));
+  try {
+    if (id == null) window.localStorage.removeItem(ACTIVE_DOC_KEY);
+    else window.localStorage.setItem(ACTIVE_DOC_KEY, String(id));
+  } catch {
+    // Storage unavailable — the last-open-draft pointer just won't persist.
+  }
 }
 
 // Cover-page-style role keys the LLM emits for non-MNDA docs (see the

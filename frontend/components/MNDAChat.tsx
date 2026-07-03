@@ -8,6 +8,7 @@ import {
   mergeMndaUpdates,
   type MndaState,
 } from "@/lib/mndaState";
+import { clearSession, readToken } from "@/lib/session";
 
 type Props = {
   locale: Locale;
@@ -89,6 +90,7 @@ export function MNDAChat({
 
     try {
       const res = await chatApi.send(
+        readToken(),
         nextHistory,
         state as unknown as Record<string, unknown>,
       );
@@ -115,6 +117,13 @@ export function MNDAChat({
       // A late failure from a draft the user already left is noise — the
       // message it complains about isn't on screen anymore.
       if (getDraftEpoch() !== epochAtSend) return;
+      // Chat is a protected endpoint now — an expired/invalid session gets
+      // the same treatment as everywhere else: clear it and go to /login.
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        window.location.replace("/login");
+        return;
+      }
       // Don't roll the user message out of history — they should see what
       // they sent and have the chance to retry.
       const message =

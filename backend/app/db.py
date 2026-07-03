@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 DEFAULT_DB_PATH = "/data/prelegal.sqlite"
 
@@ -39,9 +39,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Session tokens issued at login; the frontend sends them as
 -- `Authorization: Bearer <token>` on protected endpoints. Tokens
--- persist across restarts (no expiry yet) so a stored token in
--- localStorage can keep working after a server bounce; explicit
--- logout still removes the row immediately. Adding TTL is a follow-up.
+-- persist across restarts so a stored token in localStorage keeps
+-- working after a server bounce, but expire PRELEGAL_SESSION_TTL_DAYS
+-- after created_at (default 30; enforced in app/auth.py — no
+-- expires_at column so existing volumes need no migration). Explicit
+-- logout removes the row immediately.
 CREATE TABLE IF NOT EXISTS sessions (
     token      TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

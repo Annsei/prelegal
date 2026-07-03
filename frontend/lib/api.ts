@@ -88,9 +88,16 @@ export type ChatResponse = {
 };
 
 export const chatApi = {
-  send: (messages: ChatTurn[], mndaState: Record<string, unknown>) =>
+  // Chat is a protected endpoint (each turn costs LLM credits server-side),
+  // so it takes the bearer token like the documents API.
+  send: (
+    token: string | null,
+    messages: ChatTurn[],
+    mndaState: Record<string, unknown>,
+  ) =>
     apiFetch<ChatResponse>("/api/chat", {
       method: "POST",
+      token,
       body: JSON.stringify({ messages, mnda_state: mndaState }),
     }),
 };

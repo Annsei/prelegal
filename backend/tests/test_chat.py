@@ -15,6 +15,21 @@ from app import llm
 from app.routes import chat as chat_route
 
 
+def _auth_headers(client) -> dict[str, str]:
+    """Register a throwaway user and return its bearer headers — /api/chat
+    is a protected endpoint."""
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "chatter@example.com",
+            "password": "hunter2hunter2",
+            "name": "Chatter",
+        },
+    )
+    assert res.status_code == 201
+    return {"Authorization": f"Bearer {res.json()['token']}"}
+
+
 @pytest.fixture
 def chat_client(client, monkeypatch):
     captured: dict = {}
@@ -32,12 +47,14 @@ def chat_client(client, monkeypatch):
 
     monkeypatch.setattr(chat_route, "chat_complete", fake_chat_complete)
     client.captured = captured
+    client.auth_headers = _auth_headers(client)
     return client
 
 
 def test_chat_returns_assistant_message_and_updates(chat_client):
     res = chat_client.post(
         "/api/chat",
+        headers=chat_client.auth_headers,
         json={
             "messages": [
                 {"role": "user", "content": "Hi, I need an MNDA with Acme."},
@@ -61,6 +78,7 @@ def test_chat_returns_assistant_message_and_updates(chat_client):
 def test_chat_rejects_when_last_message_is_assistant(chat_client):
     res = chat_client.post(
         "/api/chat",
+        headers=chat_client.auth_headers,
         json={
             "messages": [
                 {"role": "user", "content": "Hi"},
@@ -74,7 +92,11 @@ def test_chat_rejects_when_last_message_is_assistant(chat_client):
 
 
 def test_chat_rejects_empty_history(chat_client):
-    res = chat_client.post("/api/chat", json={"messages": [], "mnda_state": {}})
+    res = chat_client.post(
+        "/api/chat",
+        headers=chat_client.auth_headers,
+        json={"messages": [], "mnda_state": {}},
+    )
     assert res.status_code == 422  # pydantic min_length=1
 
 
@@ -86,6 +108,7 @@ def test_chat_returns_502_when_llm_unavailable(client, monkeypatch):
 
     res = client.post(
         "/api/chat",
+        headers=_auth_headers(client),
         json={
             "messages": [{"role": "user", "content": "hello"}],
             "mnda_state": {},
@@ -93,3 +116,17 @@ def test_chat_returns_502_when_llm_unavailable(client, monkeypatch):
     )
     assert res.status_code == 502
     assert "OPENROUTER_API_KEY" in res.json()["detail"]
+
+
+def test_chat_requires_auth(chat_client):
+    """Anonymous callers must not be able to spend LLM credits."""
+    res = chat_client.post(
+        "/api/chat",
+        json={
+            "messages": [{"role": "user", "content": "hello"}],
+            "mnda_state": {},
+        },
+    )
+    assert res.status_code == 401
+    # The LLM layer must never have been reached.
+    assert "messages" not in chat_client.captured
