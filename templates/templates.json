@@ -98,7 +98,7 @@
     {
       "id": "data-processing-agreement",
       "title": "个人信息委托处理协议",
-      "description": "依据《个人信息保护法》第 21 条起草的委托处理协议范本。",
+      "description": "依据《中华人民共和国个人信息保护法》第 21 条起草的委托处理协议范本。",
       "category": "privacy-addendum",
       "path": "data-processing-agreement",
       "files": [
@@ -166,7 +166,7 @@
     {
       "id": "business-associate-agreement",
       "title": "医疗健康数据合作协议",
-      "description": "依据《个人信息保护法》敏感个人信息条款与《数据安全法》起草的医疗健康数据合作协议范本。",
+      "description": "依据《中华人民共和国个人信息保护法》敏感个人信息条款与《中华人民共和国数据安全法》起草的医疗健康数据合作协议范本。",
       "category": "privacy-addendum",
       "path": "business-associate-agreement",
       "files": [
@@ -183,7 +183,7 @@
     {
       "id": "ai-addendum",
       "title": "人工智能服务附加条款",
-      "description": "依据《生成式人工智能服务管理暂行办法》《深度合成规定》起草的 AI 附加条款范本。",
+      "description": "依据《生成式人工智能服务管理暂行办法》《互联网信息服务深度合成管理规定》起草的 AI 附加条款范本。",
       "category": "commercial-addendum",
       "path": "ai-addendum",
       "files": [

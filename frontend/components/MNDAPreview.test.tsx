@@ -59,7 +59,7 @@ describe("MNDAPreview", () => {
   it("renders formatted effectiveDate in both cover page and the term section", () => {
     renderPreview({ effectiveDate: "2026-01-01" });
     // Cover-page header + term-section body each have their own rendering.
-    const matches = screen.getAllByText("January 1, 2026");
+    const matches = screen.getAllByText("2026年1月1日");
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 

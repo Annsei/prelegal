@@ -8,15 +8,15 @@ import {
 
 describe("formatEffectiveDate", () => {
   it("formats an ISO date in US long-month form", () => {
-    expect(formatEffectiveDate("2026-04-23")).toBe("April 23, 2026");
+    expect(formatEffectiveDate("2026-04-23")).toBe("2026年4月23日");
   });
 
   it("returns the date that was selected, not the prior day (UTC parse guard)", () => {
     // Regression: `new Date("2026-01-01")` is midnight UTC, which renders as
     // Dec 31, 2025 in any west-of-UTC timezone. parseInt-split logic must keep
     // this deterministic regardless of TZ.
-    expect(formatEffectiveDate("2026-01-01")).toBe("January 1, 2026");
-    expect(formatEffectiveDate("2026-12-31")).toBe("December 31, 2026");
+    expect(formatEffectiveDate("2026-01-01")).toBe("2026年1月1日");
+    expect(formatEffectiveDate("2026-12-31")).toBe("2026年12月31日");
   });
 
   it("returns empty string for empty input", () => {
