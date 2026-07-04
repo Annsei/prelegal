@@ -425,22 +425,43 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="no-print border-b border-neutral-200 bg-white">
+      <header
+        className="no-print sticky top-0 z-40 border-b backdrop-blur"
+        style={{
+          borderColor: "var(--rule)",
+          background: "rgba(245, 240, 228, 0.85)",
+        }}
+      >
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3">
           <div className="flex items-baseline gap-3">
-            <h1 className="text-base font-semibold text-neutral-900">
+            <span
+              aria-hidden
+              className="display self-center text-lg leading-none"
+              style={{ color: "var(--gold)" }}
+            >
+              契
+            </span>
+            <h1
+              className="display text-lg tracking-wide"
+              style={{ color: "var(--ink)" }}
+            >
               {t.appTitle}
             </h1>
-            <span className="text-xs" style={{ color: "#888888" }}>
+            <span
+              className="hidden items-baseline gap-1 rounded-full border px-3 py-0.5 text-xs md:inline-flex"
+              style={{ borderColor: "var(--rule)", color: "var(--ink-3)" }}
+            >
               {t.drafting}:{" "}
-              <span style={{ color: "#753991" }}>{docTitle}</span>
+              <span className="font-medium" style={{ color: "var(--purple)" }}>
+                {docTitle}
+              </span>
             </span>
             <SaveStatus locale={locale} state={saveState} />
           </div>
           <div className="flex items-center gap-2">
             <span
               className="hidden text-xs sm:inline"
-              style={{ color: "#888888" }}
+              style={{ color: "var(--ink-3)" }}
               title={user.email}
             >
               {user.email}
@@ -448,7 +469,7 @@ export default function Home() {
             <button
               type="button"
               onClick={onSignOut}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+              className="btn btn-ghost"
             >
               {t.signOut}
             </button>
@@ -460,7 +481,7 @@ export default function Home() {
               type="button"
               onClick={() => window.print()}
               disabled={!canDownload}
-              className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn btn-ink"
               title={downloadTitle}
             >
               {t.download}
@@ -469,7 +490,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-5 px-6 py-5 lg:grid-cols-[220px_minmax(320px,440px)_1fr]">
+      <main className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[230px_minmax(320px,440px)_1fr]">
         <DocumentSidebar
           locale={locale}
           documents={documents}
@@ -513,7 +534,7 @@ export default function Home() {
               onHistoryChange={setChatHistory}
             />
           ) : (
-            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="card p-5">
               {isMnda ? (
                 <MNDAForm locale={locale} value={state} onChange={setState} />
               ) : manifest !== null ? (
@@ -528,7 +549,9 @@ export default function Home() {
               ) : null}
             </div>
           )}
-          <p className="mt-3 text-xs text-neutral-500">{t.printHint}</p>
+          <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
+            {t.printHint}
+          </p>
         </div>
 
         <div>
@@ -565,12 +588,7 @@ function ModeTab({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className="rounded-md px-3 py-1.5 text-sm font-medium"
-      style={{
-        background: active ? "#209dd7" : "white",
-        color: active ? "white" : "#032147",
-        border: `1px solid ${active ? "#209dd7" : "#d4d4d4"}`,
-      }}
+      className="mode-tab"
     >
       {label}
     </button>

@@ -34,8 +34,8 @@ export function DocForm({ locale, manifest, values, onChange }: Props) {
         return (
           <fieldset key={section.key}>
             <legend
-              className="mb-2 text-sm font-semibold"
-              style={{ color: "#032147" }}
+              className="mb-2 flex w-full items-center gap-2 text-sm font-semibold"
+              style={{ color: "var(--ink)" }}
             >
               {localized(section.label, locale)}
             </legend>
@@ -80,8 +80,7 @@ function Field({
     onChange: (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     ) => onChange(e.target.value),
-    className:
-      "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none",
+    className: "input-field",
   } as const;
 
   return (
@@ -89,7 +88,7 @@ function Field({
       <label
         htmlFor={inputId}
         className="mb-1 block text-xs font-medium"
-        style={{ color: "#032147" }}
+        style={{ color: "var(--ink)" }}
       >
         {localized(field.label, locale)}
         {field.required && (
@@ -104,7 +103,7 @@ function Field({
         <input type={field.type === "date" ? "date" : "text"} {...common} />
       )}
       {hint && (
-        <p className="mt-1 text-xs" style={{ color: "#888888" }}>
+        <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
           {hint}
         </p>
       )}

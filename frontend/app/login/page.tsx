@@ -45,31 +45,60 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-50">
-      <div className="mx-auto grid min-h-screen max-w-6xl items-stretch px-4 lg:grid-cols-2">
+    <main className="min-h-screen">
+      <div className="grid min-h-screen items-stretch lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         {/* Marketing column — hidden on mobile so the form takes the whole
             screen and remains the focus. */}
         <section
-          className="hidden flex-col justify-between p-12 lg:flex"
-          style={{ background: "#032147", color: "white" }}
+          className="ledger relative hidden flex-col justify-between overflow-hidden p-12 lg:flex"
+          style={{ background: "#032147", color: "#f3ede0" }}
         >
-          <div>
+          {/* Oversized watermark glyph — 契, the character for "deed". */}
+          <span
+            aria-hidden
+            className="display pointer-events-none absolute -bottom-24 -right-10 select-none leading-none"
+            style={{ fontSize: "26rem", color: "rgba(236, 173, 10, 0.06)" }}
+          >
+            契
+          </span>
+
+          <div className="reveal reveal-1">
             <p
-              className="text-xs uppercase tracking-widest"
+              className="display text-base tracking-[0.3em]"
               style={{ color: "#ecad0a" }}
             >
               Prelegal
             </p>
-            <h1 className="mt-3 text-3xl font-semibold leading-tight">
+          </div>
+
+          <div className="relative">
+            <div className="seal reveal reveal-2 mb-10">
+              <span
+                aria-hidden
+                className="display text-5xl"
+                style={{ color: "#ecad0a" }}
+              >
+                契
+              </span>
+            </div>
+            <h1 className="display reveal reveal-2 max-w-md text-4xl leading-snug">
               {t.auth.welcome}
             </h1>
-            <p className="mt-4 text-sm leading-relaxed text-neutral-200">
+            <p
+              className="reveal reveal-3 mt-5 max-w-md text-sm leading-relaxed"
+              style={{ color: "#b9c8da" }}
+            >
               {t.auth.pitch}
             </p>
+            <div
+              className="reveal reveal-3 mt-8 h-px w-24"
+              style={{ background: "rgba(236, 173, 10, 0.6)" }}
+            />
           </div>
+
           <p
-            className="text-xs leading-relaxed"
-            style={{ color: "#aac9e1" }}
+            className="reveal reveal-4 max-w-md text-xs leading-relaxed"
+            style={{ color: "#8aa5c0" }}
           >
             {t.disclaimer}
           </p>
@@ -77,21 +106,34 @@ export default function LoginPage() {
 
         <section className="flex flex-col items-center justify-center px-6 py-10">
           <div className="flex w-full max-w-sm flex-col">
-            <div className="mb-6 flex justify-end">
+            <div className="reveal reveal-1 mb-6 flex items-center justify-between">
+              <p
+                className="display text-lg tracking-wide lg:invisible"
+                style={{ color: "#032147" }}
+              >
+                <span aria-hidden style={{ color: "#ecad0a" }}>
+                  契
+                </span>{" "}
+                Prelegal
+              </p>
               <LanguageToggle
                 locale={locale}
                 onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
               />
             </div>
-            <div className="rounded-xl border border-neutral-200 bg-white p-7 shadow-sm">
+            <div className="card reveal reveal-2 p-8">
               <h2
-                className="text-xl font-semibold"
+                className="display text-2xl"
                 style={{ color: "#032147" }}
               >
                 {mode === "login" ? t.auth.signInTitle : t.auth.registerTitle}
               </h2>
+              <div
+                className="mt-2 h-px w-10"
+                style={{ background: "#ecad0a" }}
+              />
 
-              <form className="mt-5 space-y-4" onSubmit={onSubmit}>
+              <form className="mt-6 space-y-4" onSubmit={onSubmit}>
                 <Field
                   id="email"
                   label={t.auth.email}
@@ -136,8 +178,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity disabled:opacity-60"
-                  style={{ backgroundColor: "#753991" }}
+                  className="btn btn-primary w-full"
                 >
                   {submitting
                     ? t.auth.submitting
@@ -149,7 +190,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="mt-4 w-full text-center text-sm hover:underline"
+                className="mt-5 w-full text-center text-sm hover:underline"
                 style={{ color: "#209dd7" }}
                 onClick={() => {
                   setError(null);
@@ -162,7 +203,7 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <div className="mt-6 lg:hidden">
+            <div className="reveal reveal-3 mt-6 lg:hidden">
               <Disclaimer locale={locale} variant="compact" />
             </div>
           </div>
@@ -197,7 +238,8 @@ function Field({
     <div>
       <label
         htmlFor={id}
-        className="mb-1 block text-sm font-medium text-neutral-800"
+        className="mb-1 block text-sm font-medium"
+        style={{ color: "#40536d" }}
       >
         {label}
       </label>
@@ -209,7 +251,7 @@ function Field({
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[#209dd7] focus:outline-none focus:ring-1 focus:ring-[#209dd7]"
+        className="input-field"
       />
       {helper && (
         <p className="mt-1 text-xs" style={{ color: "#888888" }}>

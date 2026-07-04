@@ -321,8 +321,6 @@ function toNonNegInt(e: ChangeEvent<HTMLInputElement>): number {
   return n;
 }
 
-const inputCls =
-  "w-full rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-neutral-500 focus:outline-none";
+const inputCls = "input-field";
 const textareaCls = `${inputCls} resize-y`;
-const numberCls =
-  "w-16 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-neutral-500 focus:outline-none disabled:bg-neutral-100";
+const numberCls = "input-field w-16 px-2 py-1 disabled:opacity-50";

@@ -20,9 +20,15 @@ export function SaveStatus({ locale, state }: Props) {
         ? t.saveStatus.failed
         : t.saveStatus.saved;
   const color =
-    state === "failed" ? "#b91c1c" : state === "saving" ? "#888888" : "#15803d";
+    state === "failed" ? "#b91c1c" : state === "saving" ? "#7e8a9b" : "#2f7d4f";
   return (
-    <span className="text-xs" style={{ color }} role="status" aria-live="polite">
+    <span
+      className="inline-flex items-center gap-1.5 text-xs"
+      style={{ color }}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="save-dot" data-state={state} aria-hidden />
       {label}
     </span>
   );
