@@ -1,8 +1,25 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+# Ceiling on a draft's serialized state (chat log + fields). The 800ms
+# auto-save persists this on nearly every edit, so an unbounded blob would
+# both bloat the SQLite file and make every save slower. 512KB comfortably
+# fits the max chat payload (50 messages × 4000 chars) plus form data.
+MAX_DOCUMENT_STATE_BYTES = 512 * 1024
+
+
+def _reject_oversized_state(value: dict[str, Any] | None):
+    if value is not None:
+        encoded = len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        if encoded > MAX_DOCUMENT_STATE_BYTES:
+            raise ValueError(
+                f"state too large ({encoded} bytes > {MAX_DOCUMENT_STATE_BYTES})",
+            )
+    return value
 
 
 class RegisterRequest(BaseModel):
@@ -56,6 +73,8 @@ class DocumentCreateRequest(BaseModel):
     title: str = Field(default="", max_length=200)
     state: dict[str, Any] = Field(default_factory=dict)
 
+    _cap_state = field_validator("state")(_reject_oversized_state)
+
 
 class DocumentUpdateRequest(BaseModel):
     # Both fields optional so PUTs can carry a partial change without
@@ -63,3 +82,5 @@ class DocumentUpdateRequest(BaseModel):
     # "leave unchanged".
     title: str | None = Field(default=None, max_length=200)
     state: dict[str, Any] | None = None
+
+    _cap_state = field_validator("state")(_reject_oversized_state)

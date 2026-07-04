@@ -2,10 +2,9 @@
 
 Register and login both return a fresh session token; the frontend
 stores it and sends it as `Authorization: Bearer <token>` on protected
-endpoints (notably /api/documents/*). Logout invalidates the token.
-
-The DB resets on every server restart so token persistence ends with
-the process — that's by design per PL-7.
+endpoints (notably /api/documents/* and /api/chat). Logout invalidates
+the token; otherwise it expires PRELEGAL_SESSION_TTL_DAYS after issue
+(see app/auth.py). Login and register are rate-limited per client IP.
 """
 
 from __future__ import annotations
@@ -24,8 +23,15 @@ from app.auth import (
 )
 from app.db import get_conn
 from app.models import LoginRequest, RegisterRequest, SessionOut, UserOut
+from app.ratelimit import LOGIN_LIMITER, REGISTER_LIMITER, client_ip, enforce
 
 router = APIRouter(prefix="/auth")
+
+# Hashed once at import. Login runs a bcrypt check against this when the
+# email doesn't exist, so unknown-email and wrong-password take the same
+# time — otherwise response latency (bcrypt ~100-300ms vs microseconds)
+# lets an attacker enumerate which emails are registered.
+_DUMMY_HASH = hash_password("prelegal-timing-equalizer")
 
 
 def _row_to_user(row: sqlite3.Row) -> UserOut:
@@ -40,7 +46,8 @@ def _row_to_user(row: sqlite3.Row) -> UserOut:
 @router.post(
     "/register", response_model=SessionOut, status_code=status.HTTP_201_CREATED,
 )
-def register(payload: RegisterRequest) -> SessionOut:
+def register(payload: RegisterRequest, request: Request) -> SessionOut:
+    enforce(REGISTER_LIMITER, f"register:{client_ip(request)}")
     pw_hash = hash_password(payload.password)
     with get_conn() as conn:
         try:
@@ -52,7 +59,7 @@ def register(payload: RegisterRequest) -> SessionOut:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="email already registered",
-            )
+            ) from None
         row = conn.execute(
             "SELECT id, email, name, created_at FROM users WHERE id = ?",
             (cur.lastrowid,),
@@ -64,12 +71,13 @@ def register(payload: RegisterRequest) -> SessionOut:
 
 
 @router.post("/login", response_model=SessionOut)
-def login(payload: LoginRequest) -> SessionOut:
+def login(payload: LoginRequest, request: Request) -> SessionOut:
     """Validate email + password, issue a new session token.
 
     Returns 401 for both unknown email and wrong password to avoid
     leaking which is the case to brute-force probers.
     """
+    enforce(LOGIN_LIMITER, f"login:{client_ip(request)}")
     with get_conn() as conn:
         row = conn.execute(
             "SELECT id, email, name, password_hash, created_at "
@@ -77,7 +85,9 @@ def login(payload: LoginRequest) -> SessionOut:
             (payload.email,),
         ).fetchone()
 
-    if row is None or not verify_password(payload.password, row["password_hash"]):
+    # Always pay the bcrypt cost, even for unknown emails — see _DUMMY_HASH.
+    stored_hash = row["password_hash"] if row is not None else _DUMMY_HASH
+    if not verify_password(payload.password, stored_hash) or row is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid email or password",

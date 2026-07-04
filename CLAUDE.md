@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft legal agreements based on templat
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. **Only the MNDA has a typed manual-edit form, bespoke placeholder rendering, and PDF download** today; the other 10 docs read the markdown template through a generic renderer with a Cover Page Summary card on top. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD; drafts auto-save (debounced, 800ms) including the conversation log, show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. **Only the MNDA has a typed manual-edit form, bespoke placeholder rendering, and PDF download** today; the other 10 docs read the markdown template through a generic renderer with a Cover Page Summary card on top. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log, show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -62,7 +62,11 @@ backend/         FastAPI service (uv project)
                    (idempotent — preserves existing rows). Schema: users
                    (with password_hash), sessions, documents.
   app/auth.py      bcrypt password helpers + bearer-token `current_user`
-                   FastAPI dependency
+                   FastAPI dependency; sessions expire PRELEGAL_SESSION_TTL_DAYS
+                   (default 30) after creation, expired rows purged at startup
+  app/ratelimit.py in-memory sliding-window rate limiters (login/register
+                   per IP, chat per user); PRELEGAL_RATELIMIT_DISABLED=1
+                   turns enforcement off for load/test tooling
   app/llm.py       LiteLLM → OpenRouter → Cerebras client; injects catalog.json
                    into the system prompt; enforces "always ask a follow-up"
                    (one retry + localized fallback append); classifies upstream
@@ -104,9 +108,18 @@ templates/       11 Common Paper markdown packages (mutual-nda has cover_page
                  + standard_terms; others have standard_terms only).
                  templates.json indexes them with provenance commits.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
-                 catalog.json and templates/ are COPYed into the runtime image
-                 at /app and /app/templates respectively
-scripts/         start/stop per OS; start scripts forward .env into the container
+                 deps installed with `uv sync --frozen` from the committed
+                 backend/uv.lock (reproducible builds); runs as non-root user
+                 `prelegal` (entrypoint chowns /data then drops privileges via
+                 setpriv — scripts/docker-entrypoint.sh); HEALTHCHECK hits
+                 /api/health; catalog.json and templates/ are COPYed into the
+                 runtime image at /app and /app/templates respectively
+scripts/         start/stop per OS; start scripts forward .env into the
+                 container and run with --restart unless-stopped + rotated
+                 json-file logs (10MB × 3)
+.github/         workflows/ci.yml — four jobs on push/PR: backend (ruff +
+                 pytest, locked deps), frontend (eslint + tsc + vitest),
+                 e2e (Playwright vs production build), docker (image builds)
 ```
 
 ### Backend API
@@ -116,34 +129,41 @@ scripts/         start/stop per OS; start scripts forward .env into the containe
 - `POST /api/auth/login` → `{user, token}`; 401 for both unknown email and wrong password (don't leak which)
 - `POST /api/auth/logout` → 204; invalidates the bearer token used to make the call
 - `GET /api/auth/me` → `{id,email,name,created_at}`; used by the frontend to validate a stored token after a page reload
-- `POST /api/chat` → `{messages:[{role,content}], mnda_state}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. Stateless (frontend keeps history). `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a free-form `{label: value}` map for non-MNDA docs (cover-page-level data). Returns 502 if `OPENROUTER_API_KEY` missing or the LLM call fails.
+- `POST /api/chat` → `{messages:[{role,content}], mnda_state}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. **Requires `Authorization: Bearer <token>`** (each turn spends LLM credits) and is rate-limited 20/min per user (429 beyond). Stateless (frontend keeps history). `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a free-form `{label: value}` map for non-MNDA docs (cover-page-level data). `mnda_state` is capped at 64KB serialized (422 beyond). Returns 502 if `OPENROUTER_API_KEY` missing, the LLM call fails, or the LLM returns malformed structured output (all classified into one-line messages).
 - `GET /api/templates/{doc_id}` → `{doc_id, title, standard_terms, cover_page?}`. Reads from `templates/templates.json` and the markdown files alongside it. 404 on unknown id.
 - `GET/POST/PUT/DELETE /api/documents[/{id}]` → per-user draft CRUD. **All require `Authorization: Bearer <token>`.** A user can only see and modify their own rows; cross-user access returns 404 to avoid leaking existence. The `state` field is a wrapped envelope: `{chat: ChatTurn[], mnda?: MndaState, fields?: Record<string,string>}` — `chat` is the conversation log; `mnda` is populated for `mutual-nda` only; `fields` carries cover-page-level key/value data for any other doc. Missing keys decode to fresh-draft defaults on the frontend.
 - `GET /` and unknown paths → SPA fallback to the Next.js static export (path-traversal refused, falls back to `index.html`)
 
 `users` schema: `id`, `email UNIQUE`, `name`, `password_hash` (bcrypt), `created_at`.
-`sessions` schema: `token PRIMARY KEY`, `user_id FK`, `created_at`. Tokens persist across server restarts (no TTL yet — adding expiry is a follow-up); explicit logout deletes the row.
+`sessions` schema: `token PRIMARY KEY`, `user_id FK`, `created_at`. Tokens persist across server restarts and expire `PRELEGAL_SESSION_TTL_DAYS` (default 30) after `created_at` — enforced in the `current_user` query (no `expires_at` column, so existing volumes need no migration); expired rows are purged at startup; explicit logout deletes the row immediately.
 `documents` schema: `id, user_id FK, doc_id, title, state_json, created_at, updated_at`.
 
 ### Auth model
 
-bcrypt password hashing + bearer-token sessions. Frontend stores `{user, token}` in localStorage under key `prelegal:session` and sends `Authorization: Bearer <token>` on protected calls (`/api/auth/me`, `/api/auth/logout`, all `/api/documents/*`). Tokens persist across server restarts alongside the rest of the DB (no TTL yet — adding session expiry is a follow-up); explicit `/api/auth/logout` deletes the row immediately. The frontend handles 401 from any protected call by clearing the session and bouncing to `/login`. `/api/chat` and `/api/templates/*` remain open today — gating them is a follow-up.
+bcrypt password hashing + bearer-token sessions. Frontend stores `{user, token}` in localStorage under key `prelegal:session` (all localStorage access is wrapped in try/catch — private-mode browsers degrade to a non-persistent session instead of crashing) and sends `Authorization: Bearer <token>` on protected calls (`/api/auth/me`, `/api/auth/logout`, `/api/chat`, all `/api/documents/*`). Tokens persist across server restarts alongside the rest of the DB and expire `PRELEGAL_SESSION_TTL_DAYS` (default 30 days; `0` disables) after creation; explicit `/api/auth/logout` deletes the row immediately. Login pays the same bcrypt cost for unknown emails as for wrong passwords (dummy-hash verify) so response timing doesn't leak which emails are registered. Login (10/min) and register (5/min) are rate-limited per client IP, chat (20/min) per user — in-memory sliding windows, see `app/ratelimit.py`. The frontend handles 401 from any protected call by clearing the session and bouncing to `/login`. `/api/templates/*` remains open today — it serves static template text only.
 
 ### Configuration
 
 - `PRELEGAL_DB_PATH` (backend, default `/data/prelegal.sqlite` in Docker) — SQLite file path. The Docker image declares `/data` as a `VOLUME`, and the start scripts bind `$HOME/.prelegal/data` (or `%USERPROFILE%\.prelegal\data` on Windows) into it so users + drafts persist across `docker rm`. For local non-Docker dev pass any writable path (e.g. `./prelegal-dev.sqlite`).
 - `OPENROUTER_API_KEY` (backend, **required for AI chat**) — read from the project-root `.env`. Without it `/api/chat` returns 502. The `start-{mac,linux,windows}` scripts forward `.env` into the container automatically.
 - `NEXT_PUBLIC_API_BASE_URL` (frontend, default `""`) — set to `http://localhost:8000` for local dev where the Next dev server runs on a different port from FastAPI. Empty in Docker (same origin).
+- `PRELEGAL_CORS_ORIGINS` (backend, default unset = CORS off) — comma-separated allowlist of origins. Required for local non-Docker dev (`http://localhost:3000`) because the two dev servers are cross-origin; leave unset in Docker where everything is same-origin.
+- `PRELEGAL_SESSION_TTL_DAYS` (backend, default `30`) — sessions expire this many days after creation; `0` disables expiry.
+- `PRELEGAL_RATELIMIT_DISABLED` (backend, default unset) — set to `1` to turn off login/register/chat rate limiting (load tests, local tooling). Never set in production.
+
+A committed `.env.example` at the repo root documents these keys — copy it to `.env` to get started.
 
 ### Local dev (without Docker)
 
 ```bash
-cd backend  && uv sync && uv run uvicorn app.main:app --reload --port 8000
+cd backend  && uv sync && PRELEGAL_CORS_ORIGINS=http://localhost:3000 PRELEGAL_DB_PATH=./prelegal-dev.sqlite uv run uvicorn app.main:app --reload --port 8000
 cd frontend && NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
-### Tests
+### Tests & lint
 
-- Backend: `cd backend && uv run pytest`
+- Backend: `cd backend && uv run pytest`; lint: `uv run ruff check .`
 - Frontend unit: `cd frontend && npm test -- --run`
-- Frontend e2e: `cd frontend && npx playwright test`
+- Frontend lint / types: `cd frontend && npm run lint && npx tsc --noEmit`
+- Frontend e2e: `cd frontend && npx playwright test` (CI runs `npm run test:e2e:ci` against the production build)
+- CI runs all of the above plus a Docker image build on every push/PR (`.github/workflows/ci.yml`)

@@ -22,9 +22,13 @@ Then open <http://localhost:8000>. The container builds the frontend, mounts
 it under FastAPI, and serves both the API (`/api/*`) and the static site from
 the same port.
 
-> **Heads up:** the SQLite DB is recreated from scratch on every container
-> start. There is no real authentication yet — the login screen will land any
-> email on the platform. This is the v1 foundation, not a production setup.
+Before starting, copy `.env.example` to `.env` at the repo root and fill in
+`OPENROUTER_API_KEY` — the AI chat returns 502 without it. The start scripts
+forward `.env` into the container automatically.
+
+Accounts use real password auth (bcrypt + bearer-token sessions), and the
+SQLite DB is persisted on the host (`~/.prelegal/data`), so users and saved
+drafts survive container restarts and `docker rm`.
 
 ## Layout
 
@@ -41,12 +45,17 @@ Dockerfile       Multi-stage: Node builds the frontend, Python serves it
 
 Frontend and backend can run independently. Set
 `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` so the dev server hits the
-local FastAPI process.
+local FastAPI process, and `PRELEGAL_CORS_ORIGINS=http://localhost:3000` on
+the backend — the two dev servers are cross-origin, so browsers block the
+API calls without it. (CORS stays off in Docker, where everything is served
+from one origin.)
 
 ```bash
 # Terminal 1 — backend
 cd backend
 uv sync
+PRELEGAL_CORS_ORIGINS=http://localhost:3000 \
+PRELEGAL_DB_PATH=./prelegal-dev.sqlite \
 uv run uvicorn app.main:app --reload --port 8000
 
 # Terminal 2 — frontend

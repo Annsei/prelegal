@@ -6,18 +6,30 @@ memory and POSTs both each turn. The backend just does:
     history + current_state -> LLM (structured) -> assistant reply + updates
 
 so it stays stateless. There is no DB write here.
+
+Requires a bearer token: every turn costs real money on OpenRouter, so
+anonymous callers can't run up the bill. Rate-limited per user on top.
 """
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field, field_validator
 
+from app.auth import current_user
 from app.llm import LLMUnavailableError, chat_complete
+from app.ratelimit import CHAT_LIMITER, enforce
 
 router = APIRouter(prefix="/chat")
+
+# The state is injected verbatim into the system prompt; an unbounded blob
+# would inflate LLM token cost (or blow the context window) long before it
+# hurts anything else.
+MAX_STATE_BYTES = 64 * 1024
 
 
 class ChatMessage(BaseModel):
@@ -29,6 +41,16 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     mnda_state: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("mnda_state")
+    @classmethod
+    def _cap_state_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+        encoded = len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        if encoded > MAX_STATE_BYTES:
+            raise ValueError(
+                f"mnda_state too large ({encoded} bytes > {MAX_STATE_BYTES})",
+            )
+        return value
+
 
 class ChatResponse(BaseModel):
     assistant_message: str
@@ -39,7 +61,11 @@ class ChatResponse(BaseModel):
 
 
 @router.post("", response_model=ChatResponse)
-def chat(payload: ChatRequest) -> ChatResponse:
+def chat(
+    payload: ChatRequest,
+    user: sqlite3.Row = Depends(current_user),
+) -> ChatResponse:
+    enforce(CHAT_LIMITER, f"chat:{user['id']}")
     if payload.messages[-1].role != "user":
         # The LLM only has something to reply to if the conversation ends
         # with a user turn. Reject early so we don't waste a request.
@@ -57,7 +83,7 @@ def chat(payload: ChatRequest) -> ChatResponse:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
-        )
+        ) from exc
 
     return ChatResponse(
         assistant_message=result["assistant_message"],

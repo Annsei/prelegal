@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const SESSION_KEY = "prelegal:session";
 
@@ -18,17 +18,6 @@ test.beforeEach(async ({ page }) => {
     );
   }, SESSION_KEY);
 });
-
-// Helper to assert the Authorization header reaches the backend on every
-// stubbed call — the auto-save flow lives or dies on the bearer token.
-async function expectBearer(page: Page, urlPattern: RegExp): Promise<string[]> {
-  const seen: string[] = [];
-  await page.route(urlPattern, (route) => {
-    seen.push(route.request().headers()["authorization"] ?? "");
-    route.continue();
-  });
-  return seen;
-}
 
 test.describe("Documents — sidebar and auto-save", () => {
   test("sidebar shows existing drafts and renders the disclaimer", async ({

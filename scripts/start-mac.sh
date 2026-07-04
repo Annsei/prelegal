@@ -33,9 +33,13 @@ elif [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
 fi
 
 echo "[prelegal] Starting container on http://localhost:$PORT (data: $DATA_DIR)"
+# --restart brings the app back after daemon/host restarts; the log-opts
+# rotate container logs so a long-running instance can't fill the disk.
 docker run -d --name "$CONTAINER" \
   -p "${PORT}:8000" \
   -v "$DATA_DIR:/data" \
+  --restart unless-stopped \
+  --log-opt max-size=10m --log-opt max-file=3 \
   "${ENV_FLAGS[@]}" \
   "$IMAGE" >/dev/null
 

@@ -22,9 +22,12 @@ export default defineConfig({
   webServer: {
     // Local dev uses `next dev` for fast reload. Set E2E_USE_BUILD=1 (or use the
     // `test:e2e:ci` script) to exercise the production build instead — this is
-    // what CI should run so the tests reflect deployed behavior.
+    // what CI runs so the tests reflect deployed behavior. The project is a
+    // static export (output: "export"), which `next start` refuses to serve;
+    // `serve` maps clean URLs to .html files the same way the FastAPI
+    // fallback does in production.
     command: process.env.E2E_USE_BUILD
-      ? `next build && next start -p ${PORT}`
+      ? `next build && serve -l ${PORT} out`
       : `next dev -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,

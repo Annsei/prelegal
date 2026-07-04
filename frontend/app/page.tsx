@@ -58,16 +58,25 @@ function isChatTurnArray(value: unknown): value is ChatTurn[] {
 
 function readActiveDocId(): number | null {
   if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(ACTIVE_DOC_KEY);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_DOC_KEY);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    // Storage unavailable (private mode / policy) — no draft to restore.
+    return null;
+  }
 }
 
 function writeActiveDocId(id: number | null): void {
   if (typeof window === "undefined") return;
-  if (id == null) window.localStorage.removeItem(ACTIVE_DOC_KEY);
-  else window.localStorage.setItem(ACTIVE_DOC_KEY, String(id));
+  try {
+    if (id == null) window.localStorage.removeItem(ACTIVE_DOC_KEY);
+    else window.localStorage.setItem(ACTIVE_DOC_KEY, String(id));
+  } catch {
+    // Storage unavailable — the last-open-draft pointer just won't persist.
+  }
 }
 
 // Cover-page-style role keys the LLM emits for non-MNDA docs (see the
@@ -131,6 +140,18 @@ export default function Home() {
   // with the load. Without this, switching from doc A to doc B would
   // immediately overwrite A's state with B's loaded state.
   const lastLoadedKey = useRef<string>("");
+  // Draft generation counter. Bumped whenever the user switches to a
+  // different draft (sidebar click, new draft). In-flight async work that
+  // started under an older generation (a slow /api/chat reply, a stale
+  // sidebar GET) must discard its result instead of applying it to the
+  // draft that is now on screen — otherwise the 800ms auto-save would
+  // persist draft A's reply into draft B's DB row.
+  const draftEpoch = useRef(0);
+  const getDraftEpoch = useCallback(() => draftEpoch.current, []);
+  // Monotonic ticket for sidebar selections. Rapid clicks A→B can resolve
+  // out of order (A's GET returns after B's); only the latest click may
+  // load, otherwise stale data overwrites what the user selected last.
+  const selectSeq = useRef(0);
   const autosaveHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
   // While a "create new draft" POST is in flight we hold the token here
   // so a second debounce that fires before setActiveDocId propagates
@@ -268,6 +289,10 @@ export default function Home() {
   );
 
   const startNewDraft = useCallback(() => {
+    draftEpoch.current += 1;
+    // Invalidate any in-flight sidebar selection so its response can't
+    // overwrite the fresh draft we're about to show.
+    selectSeq.current += 1;
     setDocId(MNDA_DOC_ID);
     setState(INITIAL_STATE);
     setGenericFields({});
@@ -281,6 +306,7 @@ export default function Home() {
   }, []);
 
   const loadDraftFromRecord = useCallback((rec: DocumentRecord) => {
+    draftEpoch.current += 1;
     // Saved state is wrapped: { chat?, mnda?, fields? }. Decode each
     // piece defensively — bad/missing data falls back to a fresh draft.
     const saved = (rec.state ?? {}) as SavedDocState;
@@ -329,8 +355,10 @@ export default function Home() {
     async (id: number) => {
       const tk = readToken();
       if (!tk) return;
+      const ticket = ++selectSeq.current;
       try {
         const rec = await documentsApi.get(tk, id);
+        if (ticket !== selectSeq.current) return;
         loadDraftFromRecord(rec);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -361,7 +389,10 @@ export default function Home() {
   }, []);
 
   const isMnda = docId === MNDA_DOC_ID;
-  const docTitle = useMemo(() => lookupDocTitle(docId), [docId]);
+  const docTitle = useMemo(
+    () => lookupDocTitle(docId),
+    [docId, lookupDocTitle],
+  );
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
@@ -405,8 +436,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-neutral-700"
-              title={t.printHint}
+              // Only the MNDA fills its template with the collected terms.
+              // Printing any other doc would emit the raw, unpopulated
+              // template — dangerously misleading for a legal document —
+              // so the button stays disabled until that doc is supported.
+              disabled={!isMnda}
+              className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+              title={isMnda ? t.printHint : t.downloadUnavailable}
             >
               {t.download}
             </button>
@@ -447,6 +483,7 @@ export default function Home() {
               key={activeDocId ?? "new"}
               locale={locale}
               state={state}
+              getDraftEpoch={getDraftEpoch}
               onStateChange={setState}
               onDocChange={onChatDocChange}
               onFieldUpdates={(updates) =>

@@ -85,7 +85,7 @@ poetry.lock
 .pdm.toml
 .pdm-python
 .pdm-build/
-uv.lock
+# uv.lock is tracked on purpose - reproducible backend builds (Docker uses --frozen)
 
 # Virtual environments
 .env

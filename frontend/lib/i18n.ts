@@ -7,6 +7,7 @@ type Dictionary = {
   appSubtitle: string;
   langToggle: string;
   download: string;
+  downloadUnavailable: string;
   printHint: string;
   drafting: string;
   comingSoon: string;
@@ -107,6 +108,8 @@ const zh: Dictionary = {
   appSubtitle: "基于 Common Paper 模板。与 AI 对话选择并起草协议，右侧实时预览。",
   langToggle: "English",
   download: "下载 PDF",
+  downloadUnavailable:
+    "该文档的条款尚未填入模板正文，暂不支持下载，以免产生误导性文件。目前仅 MNDA 支持完整下载。",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
   drafting: "正在起草",
   comingSoon: "完整生成与 PDF 下载即将上线，目前仅 MNDA 已完整支持。可继续与 AI 对话收集关键条款，下方为模板预览。",
@@ -219,6 +222,8 @@ const en: Dictionary = {
   appSubtitle: "Based on Common Paper templates. Chat with the AI to pick and draft an agreement; preview on the right.",
   langToggle: "中文",
   download: "Download PDF",
+  downloadUnavailable:
+    "Download is disabled for this document — its terms aren't merged into the template body yet, so the output would be misleading. Only the MNDA supports full download today.",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
   drafting: "Drafting",
   comingSoon: "Full generation and PDF download for this document are coming soon — only the Mutual NDA is fully supported today. The chat keeps collecting key terms; below is the underlying template.",

@@ -33,9 +33,13 @@ if (Test-Path $envFile) {
 }
 
 Write-Host "[prelegal] Starting container on http://localhost:$Port (data: $DataDir)"
+# --restart brings the app back after daemon/host restarts; the log-opts
+# rotate container logs so a long-running instance can't fill the disk.
 docker run -d --name $Container `
     -p "${Port}:8000" `
     -v "${DataDir}:/data" `
+    --restart unless-stopped `
+    --log-opt max-size=10m --log-opt max-file=3 `
     @envFlags $Image | Out-Null
 
 Write-Host "[prelegal] Up. Tail logs with: docker logs -f $Container"

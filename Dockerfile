@@ -18,9 +18,11 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
 WORKDIR /app/backend
 
 # Install dependencies first so the layer cache survives source edits.
+# uv.lock pins exact versions — --frozen makes the build reproducible
+# instead of re-resolving ">=" ranges on every build.
 # README.md is referenced by pyproject and hatchling refuses to build without it.
-COPY backend/pyproject.toml backend/README.md ./
-RUN uv sync --no-dev --no-install-project
+COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
 
 # App source + the static frontend export from the Node stage.
 COPY backend/app/ ./app/
@@ -36,7 +38,14 @@ COPY catalog.json /app/catalog.json
 COPY templates/ /app/templates/
 
 # Final install (places the project itself into the venv).
-RUN uv sync --no-dev
+RUN uv sync --frozen --no-dev
+
+# Unprivileged runtime user. The entrypoint starts as root only to chown
+# /data (bind mounts arrive with arbitrary ownership) and then drops to
+# this user via setpriv — see scripts/docker-entrypoint.sh.
+RUN useradd --system --user-group --no-create-home prelegal \
+    && chown -R prelegal:prelegal /app
+COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # SQLite lives under /data so users and saved drafts persist across
 # container restarts. Declaring it as a VOLUME means even a `docker run`
@@ -48,4 +57,12 @@ ENV PRELEGAL_DB_PATH=/data/prelegal.sqlite
 VOLUME ["/data"]
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# The API is up when /api/health answers; python3 (system, not the venv)
+# keeps the check dependency-free.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+# Invoke uvicorn from the venv directly — `uv run` would re-check the
+# lockfile on every container start for no benefit.
+CMD ["/app/backend/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

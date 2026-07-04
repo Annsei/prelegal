@@ -1,14 +1,15 @@
 """Auth utilities: password hashing + bearer-token dependency.
 
 Tokens are random UUIDs stored in the `sessions` table and sent by the
-frontend as `Authorization: Bearer <token>` on protected endpoints. The
-DB resets on every server restart per PL-7, so token persistence beyond
-process lifetime isn't a goal — but per-session isolation across users
-is, which is what this layer enforces.
+frontend as `Authorization: Bearer <token>` on protected endpoints.
+Tokens persist across restarts alongside the rest of the DB but expire
+PRELEGAL_SESSION_TTL_DAYS after creation (default 30; 0 disables) — a
+leaked token shouldn't stay valid forever.
 """
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import uuid
 
@@ -16,6 +17,16 @@ import bcrypt
 from fastapi import Depends, HTTPException, Request, status
 
 from app.db import get_conn
+
+DEFAULT_SESSION_TTL_DAYS = 30
+
+
+def session_ttl_days() -> int:
+    raw = os.environ.get("PRELEGAL_SESSION_TTL_DAYS", "")
+    try:
+        return int(raw) if raw else DEFAULT_SESSION_TTL_DAYS
+    except ValueError:
+        return DEFAULT_SESSION_TTL_DAYS
 
 
 def hash_password(plain: str) -> str:
@@ -48,6 +59,21 @@ def delete_session(token: str) -> None:
         conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
 
 
+def purge_expired_sessions() -> None:
+    """Delete sessions past their TTL. Called at startup so long-dead
+    tokens don't pile up in the table; `current_user` filters them out
+    per-request either way."""
+    ttl = session_ttl_days()
+    if ttl <= 0:
+        return
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM sessions "
+            "WHERE created_at <= datetime('now', '-' || ? || ' days')",
+            (ttl,),
+        )
+
+
 def extract_token(request: Request) -> str:
     """Pull the bearer token from the Authorization header or 401."""
     auth_header = request.headers.get("authorization") or ""
@@ -73,14 +99,19 @@ def current_user(request: Request) -> sqlite3.Row:
             ...
     """
     token = extract_token(request)
+    ttl = session_ttl_days()
     with get_conn() as conn:
+        # Expiry is computed from the session's created_at rather than a
+        # dedicated expires_at column — no schema migration needed on the
+        # host-mounted volumes that already exist.
         row = conn.execute(
             """
             SELECT u.id, u.email, u.name, u.created_at
               FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.token = ?
+               AND (? <= 0 OR s.created_at > datetime('now', '-' || ? || ' days'))
             """,
-            (token,),
+            (token, ttl, ttl),
         ).fetchone()
     if row is None:
         raise HTTPException(

@@ -8,7 +8,9 @@ on protected endpoints.
 from __future__ import annotations
 
 
-def _register(client, email: str, password: str = "correct horse", name: str = "") -> dict:
+def _register(
+    client, email: str, password: str = "correct horse", name: str = ""
+) -> dict:
     res = client.post(
         "/api/auth/register",
         json={"email": email, "name": name, "password": password},
