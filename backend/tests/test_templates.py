@@ -48,6 +48,8 @@ def test_csa_template_includes_manifest(client):
     for expected in (
         "Provider",
         "Customer",
+        "Provider Notice Address",
+        "Customer Notice Address",
         "Subscription Period",
         "Effective Date",
         "Governing Law",

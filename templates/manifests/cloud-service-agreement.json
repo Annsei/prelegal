@@ -29,6 +29,24 @@
       "aliases": ["Customer’s"]
     },
     {
+      "key": "Provider Notice Address",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "服务商通知地址", "en": "Provider Notice Address" },
+      "hint": { "zh": "§12.9 通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.9 are sent (email or postal, optional)" },
+      "example": "legal@globexcloud.com"
+    },
+    {
+      "key": "Customer Notice Address",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "客户通知地址", "en": "Customer Notice Address" },
+      "hint": { "zh": "§12.9 通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.9 are sent (email or postal, optional)" },
+      "example": "legal@acme.com"
+    },
+    {
       "key": "Cloud Service",
       "section": "order",
       "type": "text",
