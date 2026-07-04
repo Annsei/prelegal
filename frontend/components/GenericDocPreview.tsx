@@ -38,11 +38,12 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
 
   if (load.kind === "loading" || load.kind === "idle") {
     return (
-      <div
-        className="rounded-lg border border-neutral-200 bg-white p-8 text-sm"
-        style={{ color: "#888888" }}
-      >
-        …
+      <div className="card p-8 text-sm" style={{ color: "var(--ink-3)" }}>
+        <span className="typing-dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
       </div>
     );
   }
@@ -71,13 +72,14 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
   return (
     <article
       data-print-root
-      className="rounded-lg border border-neutral-200 bg-white p-8 leading-relaxed shadow-sm"
+      className="card p-8 leading-relaxed lg:p-10"
+      style={{ borderTop: "3px solid var(--ink)" }}
     >
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold" style={{ color: "#032147" }}>
+        <h1 className="display text-2xl" style={{ color: "var(--ink)" }}>
           {template.title}
         </h1>
-        <p className="no-print mt-2 text-sm" style={{ color: "#888888" }}>
+        <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
           {manifest ? t.manifestNote : t.comingSoon}
         </p>
       </header>
@@ -95,7 +97,7 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
 
       <div
         className="prose prose-sm max-w-none"
-        style={{ color: "#032147" }}
+        style={{ color: "var(--ink)" }}
         dangerouslySetInnerHTML={{ __html: standardTermsHtml }}
       />
     </article>
@@ -119,16 +121,17 @@ function CoverPage({
   return (
     <section
       aria-label={t.coverPage.title}
-      className="mb-8 rounded-md border border-neutral-300 p-5"
-      style={{ background: "#fbfaf7" }}
+      className="mb-8 rounded-md border p-5"
+      style={{
+        background: "rgba(236, 173, 10, 0.05)",
+        borderColor: "var(--rule)",
+        boxShadow: "inset 0 3px 0 var(--gold)",
+      }}
     >
-      <h2
-        className="mb-1 text-lg font-semibold"
-        style={{ color: "#032147" }}
-      >
+      <h2 className="display mb-1 text-xl" style={{ color: "var(--ink)" }}>
         {t.coverPage.title}
       </h2>
-      <p className="mb-4 text-xs" style={{ color: "#888888" }}>
+      <p className="mb-4 text-xs" style={{ color: "var(--ink-3)" }}>
         {template.title}
       </p>
 
@@ -141,7 +144,7 @@ function CoverPage({
           <div key={section.key} className="mb-4 last:mb-0">
             <h3
               className="mb-2 text-xs font-semibold uppercase tracking-wide"
-              style={{ color: "#753991" }}
+              style={{ color: "var(--purple)" }}
             >
               {localized(section.label, locale)}
             </h3>
@@ -150,16 +153,16 @@ function CoverPage({
                 const value = (fields[field.key] ?? "").trim();
                 return (
                   <div key={field.key} className="contents">
-                    <dt className="font-medium" style={{ color: "#032147" }}>
+                    <dt className="font-medium" style={{ color: "var(--ink)" }}>
                       {localized(field.label, locale)}
                     </dt>
-                    <dd style={{ color: "#032147" }}>
+                    <dd style={{ color: "var(--ink)" }}>
                       {value ? (
                         <span className="filled">{value}</span>
                       ) : field.required ? (
                         <span className="missing">{t.coverPage.missing}</span>
                       ) : (
-                        <span style={{ color: "#888888" }}>—</span>
+                        <span style={{ color: "var(--ink-3)" }}>—</span>
                       )}
                     </dd>
                   </div>
@@ -174,17 +177,17 @@ function CoverPage({
         <div className="mt-4 border-t border-neutral-200 pt-3">
           <h3
             className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "#753991" }}
+            style={{ color: "var(--purple)" }}
           >
             {t.coverPage.otherTerms}
           </h3>
           <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
             {extras.map(([key, value]) => (
               <div key={key} className="contents">
-                <dt className="font-medium" style={{ color: "#032147" }}>
+                <dt className="font-medium" style={{ color: "var(--ink)" }}>
                   {key}
                 </dt>
-                <dd style={{ color: "#032147" }}>{value}</dd>
+                <dd style={{ color: "var(--ink)" }}>{value}</dd>
               </div>
             ))}
           </dl>
@@ -207,17 +210,17 @@ function SummaryCard({ fields }: { fields: Record<string, string> }) {
     >
       <h2
         className="mb-3 text-sm font-semibold uppercase tracking-wide"
-        style={{ color: "#032147" }}
+        style={{ color: "var(--ink)" }}
       >
         Cover Page Summary
       </h2>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
         {entries.map(([key, value]) => (
           <div key={key} className="contents">
-            <dt className="font-medium" style={{ color: "#032147" }}>
+            <dt className="font-medium" style={{ color: "var(--ink)" }}>
               {key}
             </dt>
-            <dd style={{ color: "#032147" }}>{value}</dd>
+            <dd style={{ color: "var(--ink)" }}>{value}</dd>
           </div>
         ))}
       </dl>

@@ -14,7 +14,11 @@ type Props = { value: MndaState };
 export function MNDAPreview({ value }: Props) {
   const lookup = buildPlaceholderLookup(value);
   return (
-    <article data-print-root className="doc bg-white px-10 py-12 shadow-sm">
+    <article
+      data-print-root
+      className="card doc px-10 py-12"
+      style={{ borderTop: "3px solid var(--ink)" }}
+    >
       <CoverPage value={value} lookup={lookup} />
       <div className="mt-10 border-t border-neutral-300 pt-6">
         <StandardTerms lookup={lookup} />
