@@ -70,7 +70,7 @@ def test_chat_rate_limited_per_user(client, monkeypatch):
     monkeypatch.setattr(
         chat_route,
         "chat_complete",
-        lambda messages, mnda_state: {
+        lambda messages, mnda_state, doc_id="": {
             "assistant_message": "Sure — what else?",
             "selected_doc_id": "",
             "mnda_updates": {},

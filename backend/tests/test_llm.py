@@ -360,3 +360,72 @@ def test_chat_complete_chinese_fallback_when_message_is_chinese(monkeypatch):
         mnda_state={},
     )
     assert result["assistant_message"].endswith("？")
+
+
+def test_chat_complete_injects_manifest_checklist_for_csa(monkeypatch):
+    """When the open doc has a manifest, the prompt gains its field
+    checklist and the schema pins field_updates to exactly those keys."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "Who is the provider?",
+                "mnda_updates": {},
+                "done": False,
+            },
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    llm.chat_complete(
+        messages=[{"role": "user", "content": "12 month subscription"}],
+        mnda_state={},
+        doc_id="cloud-service-agreement",
+    )
+
+    system = captured["messages"][0]["content"]
+    assert "## Field checklist" in system
+    assert '"General Cap Amount" (required)' in system
+    assert '"Technical Support" (optional)' in system
+
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["additionalProperties"] is False
+    assert "Subscription Period" in field_schema["properties"]
+    assert "Provider Covered Claims" in field_schema["properties"]
+
+
+def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "Which document?",
+                "mnda_updates": {},
+                "done": False,
+            },
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    llm.chat_complete(
+        messages=[{"role": "user", "content": "hi"}],
+        mnda_state={},
+        doc_id="pilot-agreement",  # no manifest yet
+    )
+
+    system = captured["messages"][0]["content"]
+    assert "## Field checklist" not in system
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["additionalProperties"] == {"type": "string"}

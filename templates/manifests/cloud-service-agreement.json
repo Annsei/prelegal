@@ -1,0 +1,206 @@
+{
+  "doc_id": "cloud-service-agreement",
+  "version": 1,
+  "description": "Cover-page field manifest for the Common Paper CSA. Field keys are the exact term names the standard-terms body references via coverpage_link / orderform_link / keyterms_link spans; `aliases` lists other span texts (possessives, plurals, singulars) that refer to the same term. The AI chat, the manual-edit form, the cover-page rendering, and the body-reference highlighting are all driven by this file.",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "order", "label": { "zh": "订单条款（Order Form）", "en": "Order Form" } },
+    { "key": "keyterms", "label": { "zh": "关键条款（Key Terms）", "en": "Key Terms" } }
+  ],
+  "fields": [
+    {
+      "key": "Provider",
+      "section": "parties",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "服务商（公司名）", "en": "Provider (company)" },
+      "hint": { "zh": "提供云服务的一方", "en": "The party providing the cloud service" },
+      "example": "Globex Cloud, Inc.",
+      "aliases": ["Provider’s"]
+    },
+    {
+      "key": "Customer",
+      "section": "parties",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "客户（公司名）", "en": "Customer (company)" },
+      "hint": { "zh": "订阅并使用云服务的一方", "en": "The party subscribing to and using the service" },
+      "example": "Acme, Inc.",
+      "aliases": ["Customer’s"]
+    },
+    {
+      "key": "Cloud Service",
+      "section": "order",
+      "type": "text",
+      "required": true,
+      "label": { "zh": "云服务描述", "en": "Cloud Service" },
+      "hint": { "zh": "所订阅产品/服务的简要描述", "en": "Short description of the subscribed product" },
+      "example": "Acme analytics platform, Team plan"
+    },
+    {
+      "key": "Order Date",
+      "section": "order",
+      "type": "date",
+      "required": true,
+      "label": { "zh": "订单日期", "en": "Order Date" },
+      "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" },
+      "example": "2026-07-01"
+    },
+    {
+      "key": "Subscription Period",
+      "section": "order",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "订阅期", "en": "Subscription Period" },
+      "hint": { "zh": "如 12 months；到期自动续订", "en": "e.g. 12 months; renews automatically" },
+      "example": "12 months",
+      "aliases": ["Subscription Periods"]
+    },
+    {
+      "key": "Non-Renewal Notice Date",
+      "section": "order",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "不续约通知期限", "en": "Non-Renewal Notice Date" },
+      "hint": { "zh": "在当前订阅期结束前多久须发出不续约通知", "en": "How long before the period ends notice must be given" },
+      "example": "30 days before the end of the current Subscription Period"
+    },
+    {
+      "key": "Fees",
+      "section": "order",
+      "type": "text",
+      "required": true,
+      "label": { "zh": "费用", "en": "Fees" },
+      "hint": { "zh": "金额与计费口径", "en": "Amount and pricing basis" },
+      "example": "$2,000 per month"
+    },
+    {
+      "key": "Payment Process",
+      "section": "order",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "付款方式", "en": "Payment Process" },
+      "hint": { "zh": "开票或自动扣款，及账期", "en": "Invoicing or automatic payment, and terms" },
+      "example": "Invoicing, net 30"
+    },
+    {
+      "key": "Technical Support",
+      "section": "order",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "技术支持", "en": "Technical Support" },
+      "hint": { "zh": "支持渠道与响应承诺（可选）", "en": "Support channels and response commitments (optional)" },
+      "example": "Email support, business hours (9-5 Pacific)"
+    },
+    {
+      "key": "Use Limitations",
+      "section": "order",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "使用限制", "en": "Use Limitations" },
+      "hint": { "zh": "席位数、用量或其他限制（可选）", "en": "Seats, usage, or other limits (optional)" },
+      "example": "Up to 50 Users"
+    },
+    {
+      "key": "Effective Date",
+      "section": "keyterms",
+      "type": "date",
+      "required": true,
+      "label": { "zh": "生效日期", "en": "Effective Date" },
+      "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" },
+      "example": "2026-07-01"
+    },
+    {
+      "key": "Governing Law",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "适用法律", "en": "Governing Law" },
+      "hint": { "zh": "美国州，如 Delaware", "en": "U.S. state, e.g. Delaware" },
+      "example": "Delaware"
+    },
+    {
+      "key": "Chosen Courts",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "管辖法院", "en": "Chosen Courts" },
+      "hint": { "zh": "城市/县与州", "en": "City/county and state" },
+      "example": "courts located in New Castle County, Delaware"
+    },
+    {
+      "key": "General Cap Amount",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "一般责任上限", "en": "General Cap Amount" },
+      "hint": { "zh": "常见写法：过去 12 个月已付费用的 1 倍", "en": "Commonly 1x Fees paid in the prior 12 months" },
+      "example": "1x the Fees paid or payable in the 12 months before the claim"
+    },
+    {
+      "key": "Increased Cap Amount",
+      "section": "keyterms",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "提高的责任上限", "en": "Increased Cap Amount" },
+      "hint": { "zh": "适用于 Increased Claims 的更高上限（可选）", "en": "Higher cap applying to Increased Claims (optional)" },
+      "example": "2x the General Cap Amount"
+    },
+    {
+      "key": "Increased Claims",
+      "section": "keyterms",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "适用提高上限的索赔", "en": "Increased Claims" },
+      "hint": { "zh": "如违反保密义务、数据泄露（可选）", "en": "e.g. breach of confidentiality, security incidents (optional)" },
+      "example": "Breach of Section 6 (Confidentiality); security incidents caused by Provider"
+    },
+    {
+      "key": "Unlimited Claims",
+      "section": "keyterms",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "不设上限的索赔", "en": "Unlimited Claims" },
+      "hint": { "zh": "完全不受责任上限约束的索赔类型（可选）", "en": "Claims outside any liability cap (optional)" },
+      "example": "Customer's payment obligations; IP infringement claims"
+    },
+    {
+      "key": "Provider Covered Claims",
+      "section": "keyterms",
+      "type": "text",
+      "required": true,
+      "label": { "zh": "服务商承保索赔", "en": "Provider Covered Claims" },
+      "hint": { "zh": "服务商为客户抗辩/赔偿的第三方索赔类型", "en": "Third-party claims Provider defends Customer against" },
+      "example": "Claims that the Cloud Service infringes third-party IP rights",
+      "aliases": ["Provider Covered Claim"]
+    },
+    {
+      "key": "Customer Covered Claims",
+      "section": "keyterms",
+      "type": "text",
+      "required": true,
+      "label": { "zh": "客户承保索赔", "en": "Customer Covered Claims" },
+      "hint": { "zh": "客户为服务商抗辩/赔偿的第三方索赔类型", "en": "Third-party claims Customer defends Provider against" },
+      "example": "Claims arising from Customer Content or Customer's breach of Section 2",
+      "aliases": ["Customer Covered Claim"]
+    },
+    {
+      "key": "DPA",
+      "section": "keyterms",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "数据处理协议（DPA）", "en": "DPA" },
+      "hint": { "zh": "是否附有 DPA（可选）", "en": "Whether a DPA is attached (optional)" },
+      "example": "The Common Paper DPA attached to this Cover Page"
+    },
+    {
+      "key": "Additional Warranties",
+      "section": "keyterms",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "附加保证", "en": "Additional Warranties" },
+      "hint": { "zh": "标准条款之外的额外保证（可选）", "en": "Warranties beyond the standard terms (optional)" },
+      "example": "Provider warrants the Cloud Service will comply with the Documentation"
+    }
+  ]
+}

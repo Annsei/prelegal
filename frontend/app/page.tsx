@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Disclaimer } from "@/components/Disclaimer";
+import { DocForm } from "@/components/DocForm";
 import { DocumentSidebar } from "@/components/DocumentSidebar";
 import { GenericDocPreview } from "@/components/GenericDocPreview";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -9,6 +10,8 @@ import { MNDAChat } from "@/components/MNDAChat";
 import { MNDAForm } from "@/components/MNDAForm";
 import { MNDAPreview } from "@/components/MNDAPreview";
 import { SaveStatus, type SaveState } from "@/components/SaveStatus";
+import { allRequiredFilled } from "@/lib/docManifest";
+import { useDocTemplate } from "@/lib/useDocTemplate";
 import {
   ApiError,
   type ChatTurn,
@@ -394,6 +397,26 @@ export default function Home() {
     [docId, lookupDocTitle],
   );
 
+  // Template + cover-page manifest for the open non-MNDA doc. Owned here
+  // (not in the preview) because the manifest also drives the manual-edit
+  // tab and the download gating in the header.
+  const templateLoad = useDocTemplate(docId, !isMnda, t.templateUnavailable);
+  const manifest =
+    templateLoad.kind === "ready" ? (templateLoad.template.manifest ?? null) : null;
+  const manifestComplete =
+    manifest !== null && allRequiredFilled(manifest, genericFields);
+  // MNDA keeps its historical behavior (download always available; the
+  // preview renders explicit [missing] placeholders). Manifest docs unlock
+  // download once every required cover-page field has a value; docs
+  // without a manifest can't download at all — the output would be a raw
+  // unpopulated template.
+  const canDownload = isMnda || manifestComplete;
+  const downloadTitle = canDownload
+    ? t.printHint
+    : manifest
+      ? t.downloadIncomplete
+      : t.downloadUnavailable;
+
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
     // The effect above will redirect to /login if not.
@@ -436,13 +459,9 @@ export default function Home() {
             <button
               type="button"
               onClick={() => window.print()}
-              // Only the MNDA fills its template with the collected terms.
-              // Printing any other doc would emit the raw, unpopulated
-              // template — dangerously misleading for a legal document —
-              // so the button stays disabled until that doc is supported.
-              disabled={!isMnda}
+              disabled={!canDownload}
               className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
-              title={isMnda ? t.printHint : t.downloadUnavailable}
+              title={downloadTitle}
             >
               {t.download}
             </button>
@@ -467,7 +486,7 @@ export default function Home() {
               onClick={() => setMode("chat")}
               label={t.chat.tab}
             />
-            {isMnda && (
+            {(isMnda || manifest !== null) && (
               <ModeTab
                 active={mode === "form"}
                 onClick={() => setMode("form")}
@@ -475,7 +494,7 @@ export default function Home() {
               />
             )}
           </div>
-          {mode === "chat" || !isMnda ? (
+          {mode === "chat" || (!isMnda && manifest === null) ? (
             <MNDAChat
               // Tear down + remount when the user switches drafts so any
               // ephemeral chat state (the "done" banner, in-flight errors)
@@ -483,6 +502,7 @@ export default function Home() {
               key={activeDocId ?? "new"}
               locale={locale}
               state={state}
+              docId={docId}
               getDraftEpoch={getDraftEpoch}
               onStateChange={setState}
               onDocChange={onChatDocChange}
@@ -494,7 +514,18 @@ export default function Home() {
             />
           ) : (
             <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-              <MNDAForm locale={locale} value={state} onChange={setState} />
+              {isMnda ? (
+                <MNDAForm locale={locale} value={state} onChange={setState} />
+              ) : manifest !== null ? (
+                <DocForm
+                  locale={locale}
+                  manifest={manifest}
+                  values={genericFields}
+                  onChange={(key, value) =>
+                    setGenericFields((prev) => ({ ...prev, [key]: value }))
+                  }
+                />
+              ) : null}
             </div>
           )}
           <p className="mt-3 text-xs text-neutral-500">{t.printHint}</p>
@@ -506,7 +537,7 @@ export default function Home() {
             <MNDAPreview value={state} />
           ) : (
             <GenericDocPreview
-              docId={docId}
+              load={templateLoad}
               fields={genericFields}
               locale={locale}
             />

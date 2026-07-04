@@ -89,16 +89,23 @@ export type ChatResponse = {
 
 export const chatApi = {
   // Chat is a protected endpoint (each turn costs LLM credits server-side),
-  // so it takes the bearer token like the documents API.
+  // so it takes the bearer token like the documents API. `docId` is the doc
+  // currently open — the backend uses it to inject that document's
+  // cover-page field checklist into the LLM prompt.
   send: (
     token: string | null,
     messages: ChatTurn[],
     mndaState: Record<string, unknown>,
+    docId: string,
   ) =>
     apiFetch<ChatResponse>("/api/chat", {
       method: "POST",
       token,
-      body: JSON.stringify({ messages, mnda_state: mndaState }),
+      body: JSON.stringify({
+        messages,
+        mnda_state: mndaState,
+        doc_id: docId,
+      }),
     }),
 };
 
@@ -107,6 +114,7 @@ export type TemplateResponse = {
   title: string;
   standard_terms: string;
   cover_page: string | null;
+  manifest?: import("@/lib/docManifest").DocManifest | null;
 };
 
 export const templatesApi = {

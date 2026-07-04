@@ -34,7 +34,7 @@ def _auth_headers(client) -> dict[str, str]:
 def chat_client(client, monkeypatch):
     captured: dict = {}
 
-    def fake_chat_complete(messages, mnda_state):
+    def fake_chat_complete(messages, mnda_state, doc_id=""):
         captured["messages"] = messages
         captured["mnda_state"] = mnda_state
         return {
@@ -101,7 +101,7 @@ def test_chat_rejects_empty_history(chat_client):
 
 
 def test_chat_returns_502_when_llm_unavailable(client, monkeypatch):
-    def boom(messages, mnda_state):
+    def boom(messages, mnda_state, doc_id=""):
         raise llm.LLMUnavailableError("OPENROUTER_API_KEY is not set.")
 
     monkeypatch.setattr(chat_route, "chat_complete", boom)
@@ -130,3 +130,31 @@ def test_chat_requires_auth(chat_client):
     assert res.status_code == 401
     # The LLM layer must never have been reached.
     assert "messages" not in chat_client.captured
+
+
+def test_chat_forwards_doc_id_to_llm_layer(client, monkeypatch):
+    captured: dict = {}
+
+    def fake_chat_complete(messages, mnda_state, doc_id=""):
+        captured["doc_id"] = doc_id
+        return {
+            "assistant_message": "Noted — what's the subscription period?",
+            "selected_doc_id": "cloud-service-agreement",
+            "mnda_updates": {},
+            "field_updates": {},
+            "done": False,
+        }
+
+    monkeypatch.setattr(chat_route, "chat_complete", fake_chat_complete)
+
+    res = client.post(
+        "/api/chat",
+        headers=_auth_headers(client),
+        json={
+            "messages": [{"role": "user", "content": "hello"}],
+            "mnda_state": {},
+            "doc_id": "cloud-service-agreement",
+        },
+    )
+    assert res.status_code == 200
+    assert captured["doc_id"] == "cloud-service-agreement"

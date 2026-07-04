@@ -13,6 +13,10 @@ import { clearSession, readToken } from "@/lib/session";
 type Props = {
   locale: Locale;
   state: MndaState;
+  // The catalog doc currently open. Sent with each chat turn so the
+  // backend can inject that document's cover-page field checklist into
+  // the LLM prompt (see backend/app/manifests.py).
+  docId: string;
   // Returns the page-level draft generation. Captured when a chat request
   // starts; if it changed by the time the response arrives, the user has
   // switched drafts and the response must be discarded — applying it would
@@ -49,6 +53,7 @@ type Props = {
 export function MNDAChat({
   locale,
   state,
+  docId,
   getDraftEpoch,
   onStateChange,
   onDocChange,
@@ -93,6 +98,7 @@ export function MNDAChat({
         readToken(),
         nextHistory,
         state as unknown as Record<string, unknown>,
+        docId,
       );
       if (getDraftEpoch() !== epochAtSend) {
         // The user switched to another draft while this request was in
