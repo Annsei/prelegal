@@ -82,16 +82,22 @@ function writeActiveDocId(id: number | null): void {
   }
 }
 
-// Cover-page-style role keys the LLM emits for non-MNDA docs (see the
-// system prompt in backend/app/llm.py). We match the title-derivation
-// keys against these.
+// Cover-page-style party keys the LLM emits for non-MNDA docs (they match
+// the manifest field keys / template span names, which are Chinese in the
+// PRC template library). We match the title-derivation keys against these.
 const ROLE_KEYS = [
-  "Customer",
-  "Provider",
-  "Recipient",
-  "Discloser",
-  "Buyer",
-  "Seller",
+  "客户",
+  "服务方",
+  "甲方",
+  "乙方",
+  "委托方",
+  "受托方",
+  "许可方",
+  "被许可方",
+  "供应商",
+  "合作方",
+  "医疗机构",
+  "技术服务方",
 ] as const;
 
 // Compose the document title from chat-collected fields. For MNDA we use
@@ -106,9 +112,9 @@ function deriveTitle(
   if (docId === MNDA_DOC_ID) {
     const a = state.party1.company.trim();
     const b = state.party2.company.trim();
-    if (a && b) return `${a} × ${b} MNDA`;
-    if (a || b) return `${a || b} MNDA`;
-    return "Mutual NDA draft";
+    if (a && b) return `${a} × ${b} 保密协议`;
+    if (a || b) return `${a || b} 保密协议`;
+    return "保密协议草稿";
   }
   const hits = ROLE_KEYS.map((k) => fields[k]?.trim()).filter(
     (v): v is string => Boolean(v),

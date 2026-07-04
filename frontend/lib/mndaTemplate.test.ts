@@ -1,37 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
-  ATTRIBUTION_LICENSE_URL,
-  ATTRIBUTION_VERSION_URL,
   parseSegments,
   type PlaceholderKey,
   STANDARD_TERMS_SECTIONS,
+  TEMPLATE_NOTICE,
+  TEMPLATE_VERSION_LABEL,
 } from "./mndaTemplate";
 
 describe("STANDARD_TERMS_SECTIONS", () => {
-  it("has all 11 sections in the upstream order", () => {
+  it("has all 11 sections of the PRC template in order", () => {
     expect(STANDARD_TERMS_SECTIONS).toHaveLength(11);
     expect(STANDARD_TERMS_SECTIONS.map((s) => s.heading)).toEqual([
-      "Introduction",
-      "Use and Protection of Confidential Information",
-      "Exceptions",
-      "Disclosures Required by Law",
-      "Term and Termination",
-      "Return or Destruction of Confidential Information",
-      "Proprietary Rights",
-      "Disclaimer",
-      "Governing Law and Jurisdiction",
-      "Equitable Relief",
-      "General",
+      "协议构成",
+      "保密信息的使用与保护",
+      "除外情形",
+      "依法披露",
+      "期限与终止",
+      "返还与销毁",
+      "权利保留",
+      "不作保证",
+      "违约责任",
+      "适用法律与争议解决",
+      "其他约定",
     ]);
   });
 
-  it("tokenizes the three Section 5 cover-page references", () => {
-    // Regression: upstream markdown has three <span class="coverpage_link">
-    // anchors in "Term and Termination" (Effective Date, MNDA Term, Term of
-    // Confidentiality). Early implementation hard-coded the labels as plain
-    // text, breaking flow-through of form state.
+  it("tokenizes the three term-section cover-page references", () => {
+    // Regression: the term section carries three placeholders (生效日期、
+    // 协议期限、保密期限). Early implementations hard-coded the labels as
+    // plain text, breaking flow-through of form state.
     const section5 = STANDARD_TERMS_SECTIONS[4];
-    expect(section5.heading).toBe("Term and Termination");
+    expect(section5.heading).toBe("期限与终止");
     expect(section5.body).toContain("{{effectiveDate}}");
     expect(section5.body).toContain("{{mndaTerm}}");
     expect(section5.body).toContain("{{confidentialityTerm}}");
@@ -116,16 +115,13 @@ describe("parseSegments", () => {
   });
 });
 
-describe("Attribution URLs", () => {
-  it("links to the upstream versioned Common Paper standard", () => {
-    expect(ATTRIBUTION_VERSION_URL).toBe(
-      "https://commonpaper.com/standards/mutual-nda/1.0/",
-    );
+describe("Template provenance", () => {
+  it("labels the template as the Prelegal PRC draft v1.0", () => {
+    expect(TEMPLATE_VERSION_LABEL).toContain("Prelegal");
+    expect(TEMPLATE_VERSION_LABEL).toContain("v1.0");
   });
 
-  it("links to the CC BY 4.0 license text", () => {
-    expect(ATTRIBUTION_LICENSE_URL).toBe(
-      "https://creativecommons.org/licenses/by/4.0/",
-    );
+  it("carries the lawyer-review notice", () => {
+    expect(TEMPLATE_NOTICE).toContain("律师审核");
   });
 });

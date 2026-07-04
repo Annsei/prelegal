@@ -9,65 +9,56 @@ function renderPreview(overrides: Partial<MndaState> = {}) {
 }
 
 describe("MNDAPreview", () => {
-  it("renders the document header and attribution with upstream + license links", () => {
+  it("renders the document header and the template notice", () => {
     renderPreview();
     expect(
-      screen.getByRole("heading", {
-        name: "Mutual Non-Disclosure Agreement",
-        level: 1,
-      }),
+      screen.getByRole("heading", { name: "双方保密协议", level: 1 }),
     ).toBeInTheDocument();
-    const versionLink = screen.getByRole("link", { name: "Version 1.0" });
-    expect(versionLink).toHaveAttribute(
-      "href",
-      "https://commonpaper.com/standards/mutual-nda/1.0/",
-    );
-    const licenseLink = screen.getByRole("link", { name: "CC BY 4.0" });
-    expect(licenseLink).toHaveAttribute(
-      "href",
-      "https://creativecommons.org/licenses/by/4.0/",
-    );
+    expect(
+      screen.getByText(/Prelegal 双方保密协议范本 v1.0/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/签署前请由执业律师审核/)).toBeInTheDocument();
   });
 
-  it("substitutes {{purpose}} in the Standard Terms body", () => {
-    renderPreview({ purpose: "Evaluating a strategic partnership." });
-    // The phrase should appear in the Standard Terms (at least twice, per
-    // Introduction and Use and Protection sections).
-    const matches = screen.getAllByText(/Evaluating a strategic partnership./);
+  it("substitutes {{purpose}} in the standard-terms body", () => {
+    renderPreview({ purpose: "评估战略合作可能性。" });
+    // The phrase should appear in the standard terms (at least twice, per
+    // 协议构成 and 保密信息的使用与保护 sections).
+    const matches = screen.getAllByText(/评估战略合作可能性。/);
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("substitutes {{governingLaw}} and {{jurisdiction}} in Section 9", () => {
+  it("substitutes {{governingLaw}} and {{jurisdiction}} in the dispute-resolution section", () => {
     renderPreview({
-      governingLaw: "California",
-      jurisdiction: "courts located in San Francisco, CA",
+      governingLaw: "中华人民共和国法律",
+      jurisdiction: "北京仲裁委员会按其仲裁规则进行仲裁",
     });
-    // governingLaw appears twice in Section 9's body.
-    expect(screen.getAllByText("California").length).toBeGreaterThanOrEqual(2);
+    // Cover page + section body each render the value at least once.
     expect(
-      screen.getAllByText("courts located in San Francisco, CA").length,
+      screen.getAllByText("中华人民共和国法律").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.getAllByText("北京仲裁委员会按其仲裁规则进行仲裁").length,
     ).toBeGreaterThanOrEqual(2);
   });
 
-  it("reflects mndaTerm and confidentialityTerm in Section 5 body (regression)", () => {
-    // Regression guard: Section 5 used to hard-code these strings. They must
-    // follow the form state.
+  it("reflects mndaTerm and confidentialityTerm in the term section (regression)", () => {
+    // Regression guard: the term section used to hard-code these strings.
+    // They must follow the form state.
     renderPreview({
       mndaTermMode: "expires",
       mndaTermYears: 7,
       confidentialityMode: "perpetual",
     });
-    // mndaTerm renders as "7 year(s) from the Effective Date"
-    expect(
-      screen.getByText(/7 year\(s\) from the Effective Date/),
-    ).toBeInTheDocument();
-    // confidentialityTerm renders as "in perpetuity"
-    expect(screen.getByText(/in perpetuity/)).toBeInTheDocument();
+    // mndaTerm renders as "自生效日期起 7 年"
+    expect(screen.getByText(/自生效日期起 7 年/)).toBeInTheDocument();
+    // confidentialityTerm renders as "永久" (cover page checkbox row + body)
+    expect(screen.getAllByText(/永久/).length).toBeGreaterThan(0);
   });
 
-  it("renders formatted effectiveDate in both cover page and Section 5", () => {
+  it("renders formatted effectiveDate in both cover page and the term section", () => {
     renderPreview({ effectiveDate: "2026-01-01" });
-    // Cover-page header + Section 5 body each have their own rendering.
+    // Cover-page header + term-section body each have their own rendering.
     const matches = screen.getAllByText("January 1, 2026");
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
@@ -77,15 +68,12 @@ describe("MNDAPreview", () => {
       confidentialityMode: "years",
       confidentialityYears: 12,
     });
-    // Two "year(s)" occurrences in the cover page share the N year(s) shape;
-    // one is MNDA Term, one is Term of Confidentiality. Verify the exact
-    // match for 12 year(s) shows up at least once.
-    expect(screen.getAllByText(/12 year\(s\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/12 年/).length).toBeGreaterThan(0);
   });
 
   it("emits .missing placeholders when party fields are empty", () => {
     // INITIAL_STATE leaves both parties blank; without any overrides, the 8
-    // Party 1/2 fields alone must produce at least 8 missing pills.
+    // 甲方/乙方 fields alone must produce at least 8 missing pills.
     const { container } = renderPreview();
     const missingInTable = container.querySelectorAll(
       "table .missing",
@@ -95,58 +83,54 @@ describe("MNDAPreview", () => {
 
   it("emits no .missing pills in the signature table when both parties are fully filled", () => {
     const filled = {
-      company: "Acme, Inc.",
-      signerName: "Jane Doe",
-      signerTitle: "CEO",
-      noticeAddress: "jane@acme.com",
+      company: "示例科技（北京）有限公司",
+      signerName: "张三",
+      signerTitle: "法定代表人",
+      noticeAddress: "legal@example.com.cn",
     };
     const { container } = renderPreview({
       party1: filled,
-      party2: { ...filled, company: "Globex Corp." },
+      party2: { ...filled, company: "示例云计算（上海）有限公司" },
     });
-    expect(
-      container.querySelectorAll("table .missing").length,
-    ).toBe(0);
+    expect(container.querySelectorAll("table .missing").length).toBe(0);
   });
 
   it("shows filled party data in the signature table", () => {
     renderPreview({
       party1: {
-        company: "Acme, Inc.",
-        signerName: "Jane Doe",
-        signerTitle: "CEO",
-        noticeAddress: "jane@acme.com",
+        company: "示例科技（北京）有限公司",
+        signerName: "张三",
+        signerTitle: "首席执行官",
+        noticeAddress: "zhangsan@example.com.cn",
       },
     });
-    expect(screen.getByText("Acme, Inc.")).toBeInTheDocument();
-    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
-    expect(screen.getByText("CEO")).toBeInTheDocument();
-    expect(screen.getByText("jane@acme.com")).toBeInTheDocument();
+    expect(screen.getByText("示例科技（北京）有限公司")).toBeInTheDocument();
+    expect(screen.getByText("张三")).toBeInTheDocument();
+    expect(screen.getByText("首席执行官")).toBeInTheDocument();
+    expect(screen.getByText("zhangsan@example.com.cn")).toBeInTheDocument();
   });
 
   it("renders all 6 standard-row labels in the signature table", () => {
     renderPreview();
     const table = screen.getByRole("table");
     for (const label of [
-      "Signature",
-      "Print Name",
-      "Title",
-      "Company",
-      "Notice Address",
-      "Date",
+      "签字",
+      "姓名",
+      "职务",
+      "公司名称",
+      "通知地址",
+      "签署日期",
     ]) {
       expect(within(table).getByText(label)).toBeInTheDocument();
     }
   });
 
-  it("renders the Modifications cover-page field", () => {
-    renderPreview({ modifications: "Section 5 shall not apply." });
+  it("renders the modifications cover-page field", () => {
+    renderPreview({ modifications: "第五条不适用。" });
     expect(
-      screen.getByRole("heading", { name: "MNDA Modifications" }),
+      screen.getByRole("heading", { name: "对标准条款的修订" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Section 5 shall not apply."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("第五条不适用。")).toBeInTheDocument();
   });
 
   it("tags the root article with data-print-root for print CSS", () => {
@@ -156,26 +140,26 @@ describe("MNDAPreview", () => {
     expect(printRoot?.tagName.toLowerCase()).toBe("article");
   });
 
-  it("renders Standard Terms heading and all 11 section headings", () => {
+  it("renders the standard-terms heading and all 11 section headings", () => {
     renderPreview();
     expect(
-      screen.getByRole("heading", { name: "Standard Terms", level: 2 }),
+      screen.getByRole("heading", { name: "标准条款", level: 2 }),
     ).toBeInTheDocument();
     // Each numbered list item's leading <strong> should carry the section name.
     for (const heading of [
-      "Introduction",
-      "Use and Protection of Confidential Information",
-      "Exceptions",
-      "Disclosures Required by Law",
-      "Term and Termination",
-      "Return or Destruction of Confidential Information",
-      "Proprietary Rights",
-      "Disclaimer",
-      "Governing Law and Jurisdiction",
-      "Equitable Relief",
-      "General",
+      "协议构成",
+      "保密信息的使用与保护",
+      "除外情形",
+      "依法披露",
+      "期限与终止",
+      "返还与销毁",
+      "权利保留",
+      "不作保证",
+      "违约责任",
+      "适用法律与争议解决",
+      "其他约定",
     ]) {
-      expect(screen.getByText(new RegExp(`^${heading}\\.`))).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`^${heading}。`))).toBeInTheDocument();
     }
   });
 });

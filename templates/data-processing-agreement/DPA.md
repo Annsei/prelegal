@@ -1,151 +1,90 @@
-# Data Processing Agreement
-
-1. <span class="header_2">Processor and Subprocessor Relationships</span>
-
-    1. <span class="header_3">Provider as Processor.</span>  In situations where <span class="keyterms_link">Customer</span> is a Controller of the Customer Personal Data, <span class="keyterms_link">Provider</span> will be deemed a Processor that is Processing Personal Data on behalf of <span class="keyterms_link">Customer</span>.
-
-    2. <span class="header_3">Provider as Subprocessor.</span>  In situations where <span class="keyterms_link">Customer</span> is a Processor of the Customer Personal Data, <span class="keyterms_link">Provider</span> will be deemed a Subprocessor of the Customer Personal Data.
-
-2. <span class="header_2">Processing</span>
-
-    1. <span class="header_3">Processing Details.</span>  Annex I(B) on the Cover Page describes the subject matter, nature, purpose, and duration of this Processing, as well as the <span class="keyterms_link">Categories of Personal Data</span> collected and <span class="keyterms_link">Categories of Data Subjects</span>.  
-
-    2. <span class="header_3">Processing Instructions.</span>  <span class="keyterms_link">Customer</span> instructs <span class="keyterms_link">Provider</span> to Process Customer Personal Data: (a) to provide and maintain the Service; (b) as may be further specified through <span class="keyterms_link">Customer’s</span> use of the Service; (c) as documented in the <span class="keyterms_link">Agreement</span>; and (d) as documented in any other written instructions given by <span class="keyterms_link">Customer</span> and acknowledged by <span class="keyterms_link">Provider</span> about Processing Customer Personal Data under this DPA. <span class="keyterms_link">Provider</span> will abide by these instructions unless prohibited from doing so by Applicable Laws. <span class="keyterms_link">Provider</span> will immediately inform <span class="keyterms_link">Customer</span> if it is unable to follow the Processing instructions. <span class="keyterms_link">Customer</span> has given and will only give instructions that comply with Applicable Laws.
-
-    3. <span class="header_3">Processing by Provider.</span>  <span class="keyterms_link">Provider</span> will only Process Customer Personal Data in accordance with this DPA, including the details in the Cover Page. If <span class="keyterms_link">Provider</span> updates the Service to update existing or include new products, features, or functionality, <span class="keyterms_link">Provider</span> may change the <span class="keyterms_link">Categories of Data Subjects</span>, <span class="keyterms_link">Categories of Personal Data</span>, <span class="keyterms_link">Special Category Data</span>, <span class="keyterms_link">Special Category Data Restrictions or Safeguards</span>, <span class="keyterms_link">Frequency of Transfer</span>, <span class="keyterms_link">Nature and Purpose of Processing</span>, and <span class="keyterms_link">Duration of Processing</span> as needed to reflect the updates by notifying <span class="keyterms_link">Customer</span> of the updates and changes.
-
-    4. <span class="header_3">Customer Processing.</span>  Where <span class="keyterms_link">Customer</span> is a Processor and <span class="keyterms_link">Provider</span> is a Subprocessor, <span class="keyterms_link">Customer</span> will comply with all Applicable Laws that apply to <span class="keyterms_link">Customer’s</span> Processing of Customer Personal Data. <span class="keyterms_link">Customer’s</span> agreement with its Controller will similarly require <span class="keyterms_link">Customer</span> to comply with all Applicable Laws that apply to <span class="keyterms_link">Customer</span> as a Processor. In addition, <span class="keyterms_link">Customer</span> will comply with the Subprocessor requirements in <span class="keyterms_link">Customer’s</span> agreement with its Controller.
-
-    5. <span class="header_3">Consent to Processing.</span>  <span class="keyterms_link">Customer</span> has complied with and will continue to comply with all Applicable Data Protection Laws concerning its provision of Customer Personal Data to <span class="keyterms_link">Provider</span> and/or the Service, including making all disclosures, obtaining all consents, providing adequate choice, and implementing relevant safeguards required under Applicable Data Protection Laws.
-
-    6. <span class="header_3">Subprocessors.</span>
-
-        a. <span class="keyterms_link">Provider</span> will not provide, transfer, or hand over any Customer Personal Data to a Subprocessor unless <span class="keyterms_link">Customer</span> has approved the Subprocessor. The current list of <span class="keyterms_link">Approved Subprocessors</span> includes the identities of the Subprocessors, their country of location, and their anticipated Processing tasks. <span class="keyterms_link">Provider</span> will inform <span class="keyterms_link">Customer</span> at least 10 business days in advance and in writing of any intended changes to the <span class="keyterms_link">Approved Subprocessors</span> whether by addition or replacement of a Subprocessor, which allows <span class="keyterms_link">Customer</span> to have enough time to object to the changes before the <span class="keyterms_link">Provider</span> begins using the new Subprocessor(s). <span class="keyterms_link">Provider</span> will give <span class="keyterms_link">Customer</span> the information necessary to allow <span class="keyterms_link">Customer</span> to exercise its right to object to the change to <span class="keyterms_link">Approved Subprocessors</span>. <span class="keyterms_link">Customer</span> has 30 days after notice of a change to the <span class="keyterms_link">Approved Subprocessors</span> to object, otherwise <span class="keyterms_link">Customer</span> will be deemed to accept the changes. If <span class="keyterms_link">Customer</span> objects to the change within 30 days of notice, <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> will cooperate in good faith to resolve <span class="keyterms_link">Customer’s</span> objection or concern.
-
-        b. When engaging a Subprocessor, <span class="keyterms_link">Provider</span> will have a written agreement with the Subprocessor that ensures the Subprocessor only accesses and uses Customer Personal Data (i) to the extent required to perform the obligations subcontracted to it, and (ii) consistent with the terms of <span class="keyterms_link">Agreement</span>.
-
-        c. If the GDPR applies to the Processing of Customer Personal Data, (i) the data protection obligations described in this DPA (as referred to in Article 28(3) of the GDPR, if applicable) are also imposed on the Subprocessor, and (ii) <span class="keyterms_link">Provider’s</span> agreement with the Subprocessor will incorporate these obligations, including details about how <span class="keyterms_link">Provider</span> and its Subprocessor will coordinate to respond to inquiries or requests about the Processing of Customer Personal Data. In addition, <span class="keyterms_link">Provider</span> will share, at <span class="keyterms_link">Customer’s</span> request, a copy of its agreements (including any amendments) with its Subprocessors. To the extent necessary to protect business secrets or other confidential information, including personal data, <span class="keyterms_link">Provider</span> may redact the text of its agreement with its Subprocessor prior to sharing a copy.
-
-        d. <span class="keyterms_link">Provider</span> remains fully liable for all obligations subcontracted to its Subprocessors, including the acts and omissions of its Subprocessors in Processing Customer Personal Data. <span class="keyterms_link">Provider</span> will notify Customer of any failure by its Subprocessors to fulfill a material obligation about Customer Personal Data under the agreement between <span class="keyterms_link">Provider</span> and the Subprocessor.
-
-3. <span class="header_2">Restricted Transfers</span>
-
-    1. <span class="header_3">Authorization.</span>  <span class="keyterms_link">Customer</span> agrees that <span class="keyterms_link">Provider</span> may transfer Customer Personal Data outside the EEA, the United Kingdom, or other relevant geographic territory as necessary to provide the Service. If <span class="keyterms_link">Provider</span> transfers Customer Personal Data to a territory for which the European Commission or other relevant supervisory authority has not issued an adequacy decision, <span class="keyterms_link">Provider</span> will implement appropriate safeguards for the transfer of Customer Personal Data to that territory consistent with Applicable Data Protection Laws.
-
-    2. <span class="header_3">Ex-EEA Transfers.</span>  <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> agree that if the GDPR protects the transfer of Customer Personal Data, the transfer is from <span class="keyterms_link">Customer</span> from within the EEA to <span class="keyterms_link">Provider</span> outside of the EEA, and the transfer is not governed by an adequacy decision made by the European Commission, then by entering into this DPA, <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> are deemed to have signed the EEA SCCs and their Annexes, which are incorporated by reference. Any such transfer is made pursuant to the EEA SCCs, which are completed as follows:
-
-        a. Module Two (Controller to Processor) of the EEA SCCs apply when <span class="keyterms_link">Customer</span> is a Controller and <span class="keyterms_link">Provider</span> is Processing Customer Personal Data for <span class="keyterms_link">Customer</span> as a Processor.
-
-        b. Module Three (Processor to Sub-Processor) of the EEA SCCs apply when <span class="keyterms_link">Customer</span> is a Processor and <span class="keyterms_link">Provider</span> is Processing Customer Personal Data on behalf of <span class="keyterms_link">Customer</span> as a Subprocessor.
-
-        c. For each module, the following applies (when applicable):    
-
-            i. The optional docking clause in Clause 7 does not apply;
-
-            ii. In Clause 9, Option 2 (general written authorization) applies, and the minimum time period for prior notice of Subprocessor changes is 10 business days;
-
-            iii. In Clause 11, the optional language does not apply;
-
-            iv. All square brackets in Clause 13 are removed;
-
-            v. In Clause 17 (Option 1), the EEA SCCs will be governed by the laws of <span class="keyterms_link">Governing Member State</span>;
-
-            vi. In Clause 18(b), disputes will be resolved in the courts of the <span class="keyterms_link">Governing Member State</span>; and
-
-            vii. The Cover Page to this DPA contains the information required in Annex I, Annex II, and Annex III of the EEA SCCs.
-
-    3. <span class="header_3">Ex-UK Transfers.</span>  <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> agree that if the UK GDPR protects the transfer of Customer Personal Data, the transfer is from <span class="keyterms_link">Customer</span> from within the United Kingdom to <span class="keyterms_link">Provider</span> outside of the United Kingdom, and the transfer is not governed by an adequacy decision made by the United Kingdom Secretary of State, then by entering into this DPA, <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> are deemed to have signed the UK Addendum and their Annexes, which are incorporated by reference. Any such transfer is made pursuant to the UK Addendum, which is completed as follows:
-
-        a. Section 3.2 of this DPA contains the information required in Table 2 of the UK Addendum.
-
-        b. Table 4 of the UK Addendum is modified as follows: Neither party may end the UK Addendum as set out in Section 19 of the UK Addendum; to the extent ICO issues a revised Approved Addendum under Section ‎18 of the UK Addendum, the parties will work in good faith to revise this DPA accordingly.
-
-        c. The Cover Page contains the information required by Annex 1A, Annex 1B, Annex II, and Annex III of the UK Addendum.
-
-    4. <span class="header_3">Other International Transfers.</span>  For Personal Data transfers where Swiss law (and not the law in any EEA member state or the United Kingdom) applies to the international nature of the transfer, references to the GDPR in Clause 4 of the EEA SCCs are, to the extent legally required, amended to refer to the Swiss Federal Data Protection Act or its successor instead, and the concept of supervisory authority will include the Swiss Federal Data Protection and Information Commissioner.
-
-4. <span class="header_2">Security Incident Response</span>
-
-    1. Upon becoming aware of any Security Incident, <span class="keyterms_link">Provider</span> will: (a) notify <span class="keyterms_link">Customer</span> without undue delay when feasible, but no later than 72 hours after becoming aware of the Security Incident; (b) provide timely information about the Security Incident as it becomes known or as is reasonably requested by <span class="keyterms_link">Customer</span>; and (c) promptly take reasonable steps to contain and investigate the Security Incident. <span class="keyterms_link">Provider’s</span> notification of or response to a Security Incident as required by this DPA will not be construed as an acknowledgment by <span class="keyterms_link">Provider</span> of any fault or liability for the Security Incident.
-
-5. <span class="header_2">Audit & Reports</span>
-
-    1. <span class="header_3">Audit Rights.</span>  <span class="keyterms_link">Provider</span> will give <span class="keyterms_link">Customer</span> all information reasonably necessary to demonstrate its compliance with this DPA and <span class="keyterms_link">Provider</span> will allow for and contribute to audits, including inspections by <span class="keyterms_link">Customer</span>, to assess <span class="keyterms_link">Provider’s</span> compliance with this DPA. However, <span class="keyterms_link">Provider</span> may restrict access to data or information if <span class="keyterms_link">Customer’s</span> access to the information would negatively impact <span class="keyterms_link">Provider’s</span> intellectual property rights, confidentiality obligations, or other obligations under Applicable Laws. <span class="keyterms_link">Customer</span> acknowledges and agrees that it will only exercise its audit rights under this DPA and any audit rights granted by Applicable Data Protection Laws by instructing <span class="keyterms_link">Provider</span> to comply with the reporting and due diligence requirements below. <span class="keyterms_link">Provider</span> will maintain records of its compliance with this DPA for 3 years after the DPA ends.
-
-    2. <span class="header_3">Security Reports.</span>  <span class="keyterms_link">Customer</span> acknowledges that <span class="keyterms_link">Provider</span> is regularly audited against the standards defined in the <span class="keyterms_link">Security Policy</span> by independent third-party auditors. Upon written request, <span class="keyterms_link">Provider</span> will give <span class="keyterms_link">Customer</span>, on a confidential basis, a summary copy of its then-current Report so that <span class="keyterms_link">Customer</span> can verify <span class="keyterms_link">Provider’s</span> compliance with the standards defined in the <span class="keyterms_link">Security Policy</span>.
-
-    3. <span class="header_3">Security Due Diligence.</span>  In addition to the Report, <span class="keyterms_link">Provider</span> will respond to reasonable requests for information made by <span class="keyterms_link">Customer</span> to confirm <span class="keyterms_link">Provider’s</span> compliance with this DPA, including responses to information security, due diligence, and audit questionnaires, or by giving additional information about its information security program. All such requests must be in writing and made to the <span class="keyterms_link">Provider Security Contact</span> and may only be made once a year.
-
-6. <span class="header_2">Coordination & Cooperation</span>
-
-    1. <span class="header_3">Response to Inquiries.</span>  If <span class="keyterms_link">Provider</span> receives any inquiry or request from anyone else about the Processing of Customer Personal Data, <span class="keyterms_link">Provider</span> will notify <span class="keyterms_link">Customer</span> about the request and <span class="keyterms_link">Provider</span> will not respond to the request without <span class="keyterms_link">Customer’s</span> prior consent. Examples of these kinds of inquiries and requests include a judicial or administrative or regulatory agency order about Customer Personal Data where notifying <span class="keyterms_link">Customer</span> is not prohibited by Applicable Law, or a request from a data subject. If allowed by Applicable Law, <span class="keyterms_link">Provider</span> will follow <span class="keyterms_link">Customer’s</span> reasonable instructions about these requests, including providing status updates and other information reasonably requested by <span class="keyterms_link">Customer</span>. If a data subject makes a valid request under Applicable Data Protection Laws to delete or opt out of <span class="keyterms_link">Customer’s</span> giving of Customer Personal Data to <span class="keyterms_link">Provider</span>, <span class="keyterms_link">Provider</span> will assist <span class="keyterms_link">Customer</span> in fulfilling the request according to the Applicable Data Protection Law. <span class="keyterms_link">Provider</span> will cooperate with and provide reasonable assistance to <span class="keyterms_link">Customer</span>, at <span class="keyterms_link">Customer’s</span> expense, in any legal response or other procedural action taken by <span class="keyterms_link">Customer</span> in response to a third-party request about <span class="keyterms_link">Provider’s</span> Processing of Customer Personal Data under this DPA.
-
-    2. <span class="header_3">DPIAs and DTIAs.</span>  If required by Applicable Data Protection Laws, <span class="keyterms_link">Provider</span> will reasonably assist <span class="keyterms_link">Customer</span> in conducting any mandated data protection impact assessments or data transfer impact assessments and consultations with relevant data protection authorities, taking into consideration the nature of the Processing and Customer Personal Data.
-
-7. <span class="header_2">Deletion of Customer Personal Data</span>
-
-    1. <span class="header_3">Deletion by Customer.</span>  <span class="keyterms_link">Provider</span> will enable <span class="keyterms_link">Customer</span> to delete Customer Personal Data in a manner consistent with the functionality of the Services. <span class="keyterms_link">Provider</span> will comply with this instruction as soon as reasonably practicable except where further storage of Customer Personal Data is required by Applicable Law.
-
-    2. <span class="header_3">Deletion at DPA Expiration.</span>
-
-        a. After the DPA expires, <span class="keyterms_link">Provider</span> will return or delete Customer Personal Data at <span class="keyterms_link">Customer’s</span> instruction unless further storage of Customer Personal Data is required or authorized by Applicable Law. If return or destruction is impracticable or prohibited by Applicable Laws, <span class="keyterms_link">Provider</span> will make reasonable efforts to prevent additional Processing of Customer Personal Data and will continue to protect the Customer Personal Data remaining in its possession, custody, or control. For example, Applicable Laws may require <span class="keyterms_link">Provider</span> to continue hosting or Processing Customer Personal Data.
-
-        b. If <span class="keyterms_link">Customer</span> and <span class="keyterms_link">Provider</span> have entered the EEA SCCs or the UK Addendum as part of this DPA, <span class="keyterms_link">Provider</span> will only give <span class="keyterms_link">Customer</span> the certification of deletion of Personal Data described in Clause 8.1(d) and Clause 8.5 of the EEA SCCs if <span class="keyterms_link">Customer</span> asks for one.
-
-8. <span class="header_2">Limitation of Liability</span>
-
-    1. <span class="header_3">Liability Caps and Damages Waiver.</span>  **To the maximum extent permitted under Applicable Data Protection Laws, each party’s total cumulative liability to the other party arising out of or related to this DPA will be subject to the waivers, exclusions, and limitations of liability stated in the <span class="keyterms_link">Agreement</span>.**
-
-    2. <span class="header_3">Related-Party Claims.</span>  **Any claims made against <span class="keyterms_link">Provider</span> or its Affiliates arising out of or related to this DPA may only be brought by the <span class="keyterms_link">Customer</span> entity that is a party to the <span class="keyterms_link">Agreement</span>.**
-
-    3. <span class="header_3">Exceptions.</span>  This DPA does not limit any liability to an individual about the individual’s data protection rights under Applicable Data Protection Laws. In addition, this DPA does not limit any liability between the parties for violations of the EEA SCCs or UK Addendum.
-
-9. <span class="header_2">Conflicts Between Documents</span>
-
-    1. This DPA forms part of and supplements the Agreement. If there is any inconsistency between this DPA, the <span class="keyterms_link">Agreement</span>, or any of their parts, the part listed earlier will control over the part listed later for that inconsistency: (1) the EEA SCCs or the UK Addendum, (2) this DPA, and then (3) the <span class="keyterms_link">Agreement</span>.
-
-10. <span class="header_2">Term of Agreement</span>
-
-    1. This DPA will start when <span class="keyterms_link">Provider</span> and <span class="keyterms_link">Customer</span> agree to a Cover Page for the DPA and sign or electronically accept the <span class="keyterms_link">Agreement</span> and will continue until the <span class="keyterms_link">Agreement</span> expires or is terminated. However, <span class="keyterms_link">Provider</span> and <span class="keyterms_link">Customer</span> will each remain subject to the obligations in this DPA and Applicable Data Protection Laws until <span class="keyterms_link">Customer</span> stops transferring Customer Personal Data to <span class="keyterms_link">Provider</span> and <span class="keyterms_link">Provider</span> stops Processing Customer Personal Data.
-
-11. <span class="header_2">Definitions</span>
-
-    1. **"Applicable Laws"** means the laws, rules, regulations, court orders, and other binding requirements of a relevant government authority that apply to or govern a party.
-
-    2. **"Applicable Data Protection Laws"** means the Applicable Laws that govern how the Service may process or use an individual’s personal information, personal data, personally identifiable information, or other similar term.
-
-    3. **"Controller"** will have the meaning(s) given in the Applicable Data Protection Laws for the company that determines the purpose and extent of Processing Personal Data.
-
-    4. **"Cover Page"** means a document that is signed or electronically accepted by the parties that incorporates these DPA Standard Terms and identifies <span class="keyterms_link">Provider</span>, <span class="keyterms_link">Customer</span>, and the subject matter and details of the data processing.
-
-    5. **"Customer Personal Data"** means Personal Data that <span class="keyterms_link">Customer</span> uploads or provides to <span class="keyterms_link">Provider</span> as part of the Service and that is governed by this DPA.
-
-    6. **"DPA"** means these DPA Standard Terms, the Cover Page between <span class="keyterms_link">Provider</span> and <span class="keyterms_link">Customer</span>, and the policies and documents referenced in or attached to the Cover Page.
-
-    7. **"EEA SCCs"** means the standard contractual clauses annexed to the European Commission's Implementing Decision 2021/914 of 4 June 2021 on standard contractual clauses for the transfer of personal data to third countries pursuant to Regulation (EU) 2016/679 of the European Parliament and of the European Council.
-
-    8. **"European Economic Area"** or **"EEA"** means the member states of the European Union, Norway, Iceland, and Liechtenstein.
-
-    9. **"GDPR"** means European Union Regulation 2016/679 as implemented by local law in the relevant EEA member nation.
-
-    10. **"Personal Data"** will have the meaning(s) given in the Applicable Data Protection Laws for personal information, personal data, or other similar term.
-
-    11. **"Processing"** or **"Process"** will have the meaning(s) given in the Applicable Data Protection Laws for any use of, or performance of a computer operation on, Personal Data, including by automatic methods.
-
-    12. **"Processor"** will have the meaning(s) given in the Applicable Data Protection Laws for the company that Processes Personal Data on behalf of the Controller.
-
-    13. **"Report"** means audit reports prepared by another company according to the standards defined in the Security Policy on behalf of Provider.
-
-    14. **"Restricted Transfer"** means (a) where the GDPR applies, a transfer of personal data from the EEA to a country outside of the EEA which is not subject to an adequacy determination by the European Commission; and (b) where the UK GDPR applies, a transfer of personal data from the United Kingdom to any other country which is not subject to adequacy regulations adopted pursuant to Section 17A of the United Kingdom Data Protection Act 2018.
-
-    15. **"Security Incident"** means a Personal Data Breach as defined in Article 4 of the GDPR.
-
-    16. **"Service"** means the product and/or services described in the <span class="keyterms_link">Agreement</span>.
-
-    17. **"Special Category Data"** will have the meaning given in Article 9 of the GDPR.
-
-    18. **"Subprocessor"** will have the meaning(s) given in the Applicable Data Protection Laws for a company that, with the approval and acceptance of Controller, assists the Processor in Processing Personal Data on behalf of the Controller.
-
-    19. **"UK GDPR"** means European Union Regulation 2016/679 as implemented by section 3 of the United Kingdom’s European Union (Withdrawal) Act of 2018 in the United Kingdom.
-
-    20. **"UK Addendum"** means the international data transfer addendum to the EEA SCCs issued by the Information Commissioner for Parties making Restricted Transfers under S119A(1) Data Protection Act 2018.
+# 个人信息委托处理协议
+
+本协议由<span class="coverpage_link">委托方</span>（作为《中华人民共和国个人信息保护法》项下的个人信息处理者）与<span class="coverpage_link">受托方</span>（作为接受委托处理个人信息的受托人）依据《中华人民共和国个人信息保护法》第二十一条及相关法律法规订立，自<span class="keyterms_link">生效日期</span>起生效。双方就<span class="coverpage_link">委托方</span>委托<span class="coverpage_link">受托方</span>处理个人信息的目的、期限、方式、种类、保护措施以及双方的权利义务，达成如下条款。
+
+1. <span class="header_2" id="1">定义与释义</span>
+    1. <span class="header_3" id="1.1">个人信息。</span>  指以电子或者其他方式记录的与已识别或者可识别的自然人有关的各种信息，不包括匿名化处理后的信息。
+    2. <span class="header_3" id="1.2">敏感个人信息。</span>  指一旦泄露或者非法使用，容易导致自然人的人格尊严受到侵害或者人身、财产安全受到危害的个人信息，包括生物识别、宗教信仰、特定身份、医疗健康、金融账户、行踪轨迹等信息，以及不满十四周岁未成年人的个人信息。
+    3. <span class="header_3" id="1.3">委托处理。</span>  指<span class="coverpage_link">受托方</span>根据本协议及<span class="coverpage_link">委托方</span>的指示，为<span class="coverpage_link">委托方</span>的目的处理个人信息的活动，包括个人信息的收集、存储、使用、加工、传输、提供、公开、删除等。
+    4. <span class="header_3" id="1.4">去标识化。</span>  指个人信息经过处理，使其在不借助额外信息的情况下无法识别特定自然人的过程。
+    5. <span class="header_3" id="1.5">匿名化。</span>  指个人信息经过处理无法识别特定自然人且不能复原的过程；匿名化处理后的信息不属于个人信息。
+    6. <span class="header_3" id="1.6">个人信息安全事件。</span>  指导致个人信息发生泄露、篡改、丢失，或者个人信息被非法访问、非法利用的任何事件。
+    7. <span class="header_3" id="1.7">释义规则。</span>  本协议所称"法律法规"包括《中华人民共和国个人信息保护法》《中华人民共和国数据安全法》《中华人民共和国网络安全法》《中华人民共和国民法典》及其配套行政法规、部门规章与国家标准；章节标题仅为方便阅读，不影响条款的解释。
+
+2. <span class="header_2" id="2">委托处理范围</span>
+    1. <span class="header_3" id="2.1">处理目的与方式。</span>  <span class="coverpage_link">受托方</span>仅得为实现<span class="orderform_link">处理目的</span>，并按照<span class="orderform_link">处理方式</span>处理个人信息。
+    2. <span class="header_3" id="2.2">个人信息种类。</span>  受托处理的个人信息以<span class="orderform_link">个人信息种类</span>所列为限；其中包含敏感个人信息的，<span class="coverpage_link">委托方</span>应予明确标注，<span class="coverpage_link">受托方</span>应对其采取更为严格的保护措施。
+    3. <span class="header_3" id="2.3">处理期限。</span>  委托处理的期限为<span class="orderform_link">处理期限</span>；期限届满且双方未续约的，<span class="coverpage_link">受托方</span>应立即停止处理，并按照第 10 条（删除与返还）处理个人信息。
+    4. <span class="header_3" id="2.4">存储地点。</span>  <span class="coverpage_link">受托方</span>应在<span class="orderform_link">存储地点</span>存储个人信息，未经<span class="coverpage_link">委托方</span>书面同意，不得变更<span class="orderform_link">存储地点</span>或将个人信息转移至中华人民共和国境外。
+    5. <span class="header_3" id="2.5">按指示处理。</span>  <span class="coverpage_link">受托方</span>应严格按照本协议约定及<span class="coverpage_link">委托方</span>的书面指示处理个人信息；<span class="coverpage_link">受托方</span>认为有关指示违反法律法规的，应及时书面告知<span class="coverpage_link">委托方</span>并暂缓执行该指示。
+    6. <span class="header_3" id="2.6">超范围处理之禁止。</span>  <span class="coverpage_link">受托方</span>不得超出约定的<span class="orderform_link">处理目的</span>、<span class="orderform_link">处理方式</span>处理个人信息，不得将个人信息用于自身或任何第三方的目的。
+
+3. <span class="header_2" id="3">双方义务</span>
+    1. <span class="header_3" id="3.1">委托方义务。</span>  <span class="coverpage_link">委托方</span>应当：
+        a. <span id="3.1.a">确保</span>其向<span class="coverpage_link">受托方</span>提供个人信息具备合法性基础，已依法履行告知义务并取得个人同意或者具备法律法规规定的其他合法性基础；委托处理敏感个人信息的，已依法取得个人的单独同意；
+        b. <span id="3.1.b">对</span><span class="coverpage_link">受托方</span>的个人信息处理活动进行监督；
+        c. <span id="3.1.c">及时</span>向<span class="coverpage_link">受托方</span>传达与委托处理有关的个人信息主体请求及监管部门要求；
+        d. <span id="3.1.d">保证</span>委托处理的个人信息范围与<span class="orderform_link">处理目的</span>相适应，遵循最小必要原则。
+    2. <span class="header_3" id="3.2">受托方义务。</span>  <span class="coverpage_link">受托方</span>应当：
+        a. <span id="3.2.a">按照</span>本协议约定处理个人信息，并采取必要措施保障所处理个人信息的安全；
+        b. <span id="3.2.b">协助</span><span class="coverpage_link">委托方</span>履行《中华人民共和国个人信息保护法》规定的各项义务；
+        c. <span id="3.2.c">对</span>其工作人员按照最小必要原则设定访问权限，并要求接触个人信息的人员承担书面保密义务；
+        d. <span id="3.2.d">不得</span>留存、复制个人信息或其副本，为履行本协议所必需或法律法规另有规定的除外；
+        e. <span id="3.2.e">在</span>本协议不生效、无效、被撤销或者终止时，按照约定将个人信息返还<span class="coverpage_link">委托方</span>或者予以删除，不得保留。
+
+4. <span class="header_2" id="4">安全保护措施</span>
+    1. <span class="header_3" id="4.1">技术措施。</span>  <span class="coverpage_link">受托方</span>应采取加密、去标识化、访问控制、身份鉴别、安全审计、数据备份与恢复等技术措施，确保个人信息处理活动持续符合法律法规的要求，防止未经授权的访问以及个人信息泄露、篡改、丢失。
+    2. <span class="header_3" id="4.2">组织措施。</span>  <span class="coverpage_link">受托方</span>应制定内部管理制度和操作规程，明确个人信息保护负责部门及负责人，制定并组织实施个人信息安全事件应急预案，定期开展合规审计与应急演练。
+    3. <span class="header_3" id="4.3">人员管理。</span>  <span class="coverpage_link">受托方</span>应定期对相关人员开展个人信息保护教育培训，与其签署保密协议，并在人员离岗时及时回收访问权限。
+    4. <span class="header_3" id="4.4">分类分级。</span>  <span class="coverpage_link">受托方</span>应对个人信息实行分类管理，对敏感个人信息采取加密存储、单独授权、操作留痕等更为严格的保护措施。
+
+5. <span class="header_2" id="5">转委托</span>
+    1. <span class="header_3" id="5.1">事先同意。</span>  未经<span class="coverpage_link">委托方</span>事先书面同意，<span class="coverpage_link">受托方</span>不得转委托任何第三方处理个人信息。经同意转委托的，<span class="coverpage_link">受托方</span>应与次受托方订立保护标准不低于本协议的书面协议，将次受托方的名称、联系方式及处理事项告知<span class="coverpage_link">委托方</span>，并对次受托方的处理活动进行监督。
+    2. <span class="header_3" id="5.2">责任承担。</span>  次受托方的行为视为<span class="coverpage_link">受托方</span>的行为，<span class="coverpage_link">受托方</span>就次受托方处理个人信息的活动向<span class="coverpage_link">委托方</span>承担全部责任。
+
+6. <span class="header_2" id="6">跨境提供限制</span>
+    1. <span class="header_3" id="6.1">境内处理。</span>  除本协议另有约定或经<span class="coverpage_link">委托方</span>事先书面同意外，<span class="coverpage_link">受托方</span>应在中华人民共和国境内处理和存储个人信息，不得以任何方式向境外提供。
+    2. <span class="header_3" id="6.2">出境评估提示。</span>  确因业务需要向中华人民共和国境外提供个人信息的，双方应依照《中华人民共和国个人信息保护法》第三十八条的规定，通过国家网信部门组织的数据出境安全评估、专业机构个人信息保护认证，或者按照国家网信部门制定的标准合同与境外接收方订立合同等法定途径之一进行，并由<span class="coverpage_link">委托方</span>依法向个人告知并取得单独同意；相关法定程序未完成前，不得实施出境行为。
+    3. <span class="header_3" id="6.3">境外机构请求。</span>  非经中华人民共和国主管机关批准，<span class="coverpage_link">受托方</span>不得向外国司法或者执法机构提供存储于境内的个人信息，并应在收到相关请求后立即书面通知<span class="coverpage_link">委托方</span>。
+
+7. <span class="header_2" id="7">个人权利协助</span>
+    1. <span class="header_3" id="7.1">协助义务。</span>  <span class="coverpage_link">受托方</span>应采取适当的技术和组织措施，协助<span class="coverpage_link">委托方</span>响应个人信息主体行使查阅、复制、更正、补充、删除、转移以及撤回同意等权利的请求。
+    2. <span class="header_3" id="7.2">请求转交。</span>  <span class="coverpage_link">受托方</span>直接收到个人信息主体请求的，应在三个工作日内转交<span class="coverpage_link">委托方</span>，未经<span class="coverpage_link">委托方</span>书面指示不得自行实质答复。
+
+8. <span class="header_2" id="8">个人信息安全事件</span>
+    1. <span class="header_3" id="8.1">通知义务。</span>  发生或者可能发生个人信息安全事件的，<span class="coverpage_link">受托方</span>应立即采取补救措施，并在发现后<span class="keyterms_link">泄露通知时限</span>内书面通知<span class="coverpage_link">委托方</span>。
+    2. <span class="header_3" id="8.2">通知内容。</span>  通知应载明：事件涉及的信息类别与数量、发生原因和可能造成的危害；<span class="coverpage_link">受托方</span>已采取和拟采取的补救措施；个人可以采取的减轻危害的措施；以及<span class="coverpage_link">受托方</span>的联系方式。
+    3. <span class="header_3" id="8.3">补救与配合。</span>  <span class="coverpage_link">受托方</span>应配合<span class="coverpage_link">委托方</span>向履行个人信息保护职责的部门及个人履行通知义务，并承担因其原因导致事件所产生的合理调查、补救与通知费用。
+    4. <span class="header_3" id="8.4">对外披露。</span>  未经<span class="coverpage_link">委托方</span>书面同意，<span class="coverpage_link">受托方</span>不得就个人信息安全事件对外发布声明或者披露相关信息，法律法规强制要求的除外。
+
+9. <span class="header_2" id="9">审计与监督</span>
+    1. <span class="header_3" id="9.1">处理记录。</span>  <span class="coverpage_link">受托方</span>应如实记录其受托处理活动，处理记录至少保存三年，并应<span class="coverpage_link">委托方</span>要求提供。
+    2. <span class="header_3" id="9.2">审计权。</span>  <span class="coverpage_link">委托方</span>有权自行或者委托第三方专业机构，对<span class="coverpage_link">受托方</span>履行本协议及法律法规的情况进行合规审计，<span class="coverpage_link">受托方</span>应予配合；除为调查个人信息安全事件外，<span class="coverpage_link">委托方</span>应提前合理期间通知，且每年不超过一次。
+    3. <span class="header_3" id="9.3">影响评估协助。</span>  <span class="coverpage_link">受托方</span>应协助<span class="coverpage_link">委托方</span>开展个人信息保护影响评估，并提供必要的信息与书面说明。
+
+10. <span class="header_2" id="10">删除与返还</span>
+    1. <span class="header_3" id="10.1">删除或返还。</span>  本协议终止、解除或者<span class="orderform_link">处理期限</span>届满时，<span class="coverpage_link">受托方</span>应按照<span class="coverpage_link">委托方</span>的选择，返还或者删除全部个人信息及其副本，不得继续保留。
+    2. <span class="header_3" id="10.2">删除证明。</span>  <span class="coverpage_link">受托方</span>应在完成删除或返还后十个工作日内，向<span class="coverpage_link">委托方</span>出具书面确认文件。
+    3. <span class="header_3" id="10.3">法定保留。</span>  法律法规要求<span class="coverpage_link">受托方</span>保留个人信息的，<span class="coverpage_link">受托方</span>应停止除存储和采取必要安全保护措施之外的一切处理，并在法定保留期届满后立即删除。
+
+11. <span class="header_2" id="11">违约责任</span>
+    1. <span class="header_3" id="11.1">赔偿责任。</span>  一方违反本协议给对方造成损失的，应赔偿对方因此遭受的直接损失，包括对方向个人信息主体支付的赔偿金、被监管部门处以的罚款，以及合理的律师费、公证费与调查取证费用。
+    2. <span class="header_3" id="11.2">责任上限。</span>  除第 11.3 条约定的情形外，任何一方在本协议项下的累计赔偿责任不超过<span class="keyterms_link">责任上限</span>。
+    3. <span class="header_3" id="11.3">例外。</span>  因一方故意或者重大过失、违反第 6 条（跨境提供限制）或者因其原因发生个人信息安全事件所产生的责任，不适用<span class="keyterms_link">责任上限</span>。
+
+12. <span class="header_2" id="12">期限与终止</span>
+    1. <span class="header_3" id="12.1">协议期限。</span>  本协议自<span class="keyterms_link">生效日期</span>起生效，有效期与<span class="orderform_link">处理期限</span>一致。
+    2. <span class="header_3" id="12.2">终止情形。</span>  <span class="coverpage_link">受托方</span>违反本协议或者法律法规处理个人信息，且未在<span class="coverpage_link">委托方</span>要求的合理期限内纠正的，<span class="coverpage_link">委托方</span>有权解除本协议，并要求<span class="coverpage_link">受托方</span>立即停止处理个人信息。
+    3. <span class="header_3" id="12.3">存续条款。</span>  第 8 条（个人信息安全事件）、第 10 条（删除与返还）、第 11 条（违约责任）、第 13 条（适用法律与争议解决）以及其他依其性质应当存续的条款，在本协议终止后继续有效。
+
+13. <span class="header_2" id="13">适用法律与争议解决</span>
+    1. <span class="header_3" id="13.1">适用法律。</span>  本协议适用中华人民共和国法律。
+    2. <span class="header_3" id="13.2">争议解决。</span>  因本协议引起的或者与本协议有关的任何争议，双方应首先友好协商解决；协商不成的，按照<span class="keyterms_link">争议解决</span>的约定处理。
+
+14. <span class="header_2" id="14">其他约定</span>
+    1. <span class="header_3" id="14.1">通知。</span>  一方依据本协议发出的通知应以书面形式送达对方指定的联系人及地址；紧急情形下可先以电子方式发送，并及时补送书面文本。
+    2. <span class="header_3" id="14.2">可分性。</span>  本协议任何条款被认定无效或者不可执行的，不影响其他条款的效力，双方应以最接近原条款意旨的有效约定替代之。
+    3. <span class="header_3" id="14.3">完整协议。</span>  本协议构成双方就委托处理个人信息事宜达成的完整约定；本协议与双方相关服务合同不一致的，就个人信息保护事项以本协议为准。
+    4. <span class="header_3" id="14.4">文本与份数。</span>  本协议以中文书就，一式两份，双方各执一份，具有同等法律效力。
+
+*本范本由 Prelegal 起草（v1.0），由 AI 辅助生成，仅供参考，不构成法律意见；签署前请由执业律师审核。*

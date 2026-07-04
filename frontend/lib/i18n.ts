@@ -115,16 +115,16 @@ type Dictionary = {
 
 const zh: Dictionary = {
   appTitle: "法律协议生成器",
-  appSubtitle: "基于 Common Paper 模板。与 AI 对话选择并起草协议，右侧实时预览。",
+  appSubtitle: "中国法标准范本。与 AI 对话选择并起草协议，右侧实时预览。",
   langToggle: "English",
   download: "下载 PDF",
   downloadUnavailable:
-    "该文档的条款尚未填入模板正文，暂不支持下载，以免产生误导性文件。目前仅 MNDA 支持完整下载。",
+    "该文档尚无封面页字段清单，暂不支持下载，以免输出未填充的误导性文件。",
   downloadIncomplete:
     "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
   drafting: "正在起草",
-  comingSoon: "完整生成与 PDF 下载即将上线，目前仅 MNDA 已完整支持。可继续与 AI 对话收集关键条款，下方为模板预览。",
+  comingSoon: "该文档的完整生成与 PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
   manifestNote:
     "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 PDF。",
   coverPage: {
@@ -144,7 +144,7 @@ const zh: Dictionary = {
   auth: {
     welcome: "Prelegal · 法律协议生成器",
     pitch:
-      "与 AI 对话起草 Common Paper 标准协议。注册后即可保存草稿，随时回看与继续编辑。",
+      "与 AI 对话起草中国法标准协议范本。注册后即可保存草稿，随时回看与继续编辑。",
     signInTitle: "登录",
     registerTitle: "注册",
     email: "邮箱",
@@ -172,17 +172,17 @@ const zh: Dictionary = {
     unsaved: "尚未保存",
   },
   catalogTitles: {
-    "mutual-nda": "双方保密协议（MNDA）",
-    "cloud-service-agreement": "云服务协议（CSA）",
+    "mutual-nda": "双方保密协议",
+    "cloud-service-agreement": "SaaS 服务协议",
     "design-partner-agreement": "设计合作伙伴协议",
     "service-level-agreement": "服务等级协议（SLA）",
-    "professional-services-agreement": "专业服务协议（PSA）",
-    "data-processing-agreement": "数据处理协议（DPA）",
+    "professional-services-agreement": "专业服务协议",
+    "data-processing-agreement": "个人信息委托处理协议",
     "software-license-agreement": "软件许可协议",
-    "partnership-agreement": "合作协议",
+    "partnership-agreement": "渠道合作协议",
     "pilot-agreement": "试点协议",
-    "business-associate-agreement": "业务关联方协议（BAA）",
-    "ai-addendum": "AI 附录",
+    "business-associate-agreement": "医疗健康数据合作协议",
+    "ai-addendum": "人工智能服务附加条款",
   },
   chat: {
     tab: "AI 对话",
@@ -214,9 +214,9 @@ const zh: Dictionary = {
     confidentialityYears: "年（自生效日起；商业秘密直至不再构成商业秘密为止）",
     confidentialityPerpetual: "永久",
     governingLaw: "适用法律",
-    governingLawHelp: "美国州（例：Delaware）",
-    jurisdiction: "管辖法院",
-    jurisdictionHelp: "城市/县与州（例：courts located in New Castle, DE）",
+    governingLawHelp: "默认：中华人民共和国法律",
+    jurisdiction: "争议解决",
+    jurisdictionHelp: "仲裁机构或管辖法院（例：上海仲裁委员会仲裁）",
     modifications: "对标准条款的修订",
     modificationsHelp: "留空表示不修改标准条款",
     party: "方",
@@ -229,28 +229,28 @@ const zh: Dictionary = {
     noticeAddressHelp: "邮箱或邮寄地址",
   },
   placeholders: {
-    purpose: "Evaluating whether to enter into a business relationship with the other party.",
-    governingLaw: "Delaware",
-    jurisdiction: "courts located in New Castle, DE",
-    company: "Acme, Inc.",
-    signerName: "Jane Doe",
-    signerTitle: "Chief Executive Officer",
-    noticeAddress: "legal@acme.com",
+    purpose: "评估双方之间的业务合作机会。",
+    governingLaw: "中华人民共和国法律",
+    jurisdiction: "上海仲裁委员会按其仲裁规则进行仲裁",
+    company: "示例科技（北京）有限公司",
+    signerName: "张三",
+    signerTitle: "法定代表人",
+    noticeAddress: "legal@example.com.cn",
   },
 };
 
 const en: Dictionary = {
   appTitle: "Legal Agreement Generator",
-  appSubtitle: "Based on Common Paper templates. Chat with the AI to pick and draft an agreement; preview on the right.",
+  appSubtitle: "PRC-law standard templates. Chat with the AI to pick and draft an agreement; preview on the right.",
   langToggle: "中文",
   download: "Download PDF",
   downloadUnavailable:
-    "Download is disabled for this document — its terms aren't merged into the template body yet, so the output would be misleading. Only the MNDA supports full download today.",
+    "Download is disabled for this document — it has no cover-page field manifest yet, so the output would be an unpopulated template.",
   downloadIncomplete:
     "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
   drafting: "Drafting",
-  comingSoon: "Full generation and PDF download for this document are coming soon — only the Mutual NDA is fully supported today. The chat keeps collecting key terms; below is the underlying template.",
+  comingSoon: "Full generation and PDF download for this document are coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
   manifestNote:
     "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
   coverPage: {
@@ -270,7 +270,7 @@ const en: Dictionary = {
   auth: {
     welcome: "Prelegal · Legal Agreement Generator",
     pitch:
-      "Chat with AI to draft Common Paper standard agreements. Sign up to save drafts and pick up where you left off.",
+      "Chat with AI to draft PRC-law standard agreements. Sign up to save drafts and pick up where you left off.",
     signInTitle: "Sign in",
     registerTitle: "Create your account",
     email: "Email",
@@ -298,17 +298,17 @@ const en: Dictionary = {
     unsaved: "Unsaved",
   },
   catalogTitles: {
-    "mutual-nda": "Mutual Non-Disclosure Agreement (MNDA)",
-    "cloud-service-agreement": "Cloud Service Agreement (CSA)",
+    "mutual-nda": "Mutual NDA (PRC law)",
+    "cloud-service-agreement": "SaaS Service Agreement",
     "design-partner-agreement": "Design Partner Agreement",
     "service-level-agreement": "Service Level Agreement (SLA)",
-    "professional-services-agreement": "Professional Services Agreement (PSA)",
-    "data-processing-agreement": "Data Processing Agreement (DPA)",
+    "professional-services-agreement": "Professional Services Agreement",
+    "data-processing-agreement": "Personal Information Processing Agreement",
     "software-license-agreement": "Software License Agreement",
-    "partnership-agreement": "Partnership Agreement",
+    "partnership-agreement": "Channel Partnership Agreement",
     "pilot-agreement": "Pilot Agreement",
-    "business-associate-agreement": "Business Associate Agreement (BAA)",
-    "ai-addendum": "AI Addendum",
+    "business-associate-agreement": "Healthcare Data Cooperation Agreement",
+    "ai-addendum": "AI Service Addendum",
   },
   chat: {
     tab: "AI Chat",
@@ -340,9 +340,9 @@ const en: Dictionary = {
     confidentialityYears: "year(s) from Effective Date; trade secrets until no longer trade secrets",
     confidentialityPerpetual: "In perpetuity",
     governingLaw: "Governing Law",
-    governingLawHelp: "U.S. state (e.g., Delaware)",
-    jurisdiction: "Jurisdiction",
-    jurisdictionHelp: "City/county and state (e.g., courts located in New Castle, DE)",
+    governingLawHelp: "Default: the laws of the People's Republic of China",
+    jurisdiction: "Dispute Resolution",
+    jurisdictionHelp: "Arbitration commission or competent court",
     modifications: "Modifications to Standard Terms",
     modificationsHelp: "Leave blank for no modifications",
     party: "Party",
@@ -355,13 +355,13 @@ const en: Dictionary = {
     noticeAddressHelp: "Email or postal address",
   },
   placeholders: {
-    purpose: "Evaluating whether to enter into a business relationship with the other party.",
-    governingLaw: "Delaware",
-    jurisdiction: "courts located in New Castle, DE",
-    company: "Acme, Inc.",
-    signerName: "Jane Doe",
-    signerTitle: "Chief Executive Officer",
-    noticeAddress: "legal@acme.com",
+    purpose: "评估双方之间的业务合作机会。",
+    governingLaw: "中华人民共和国法律",
+    jurisdiction: "上海仲裁委员会按其仲裁规则进行仲裁",
+    company: "示例科技（北京）有限公司",
+    signerName: "张三",
+    signerTitle: "法定代表人",
+    noticeAddress: "legal@example.com.cn",
   },
 };
 

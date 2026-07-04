@@ -389,15 +389,15 @@ def test_chat_complete_injects_manifest_checklist_for_csa(monkeypatch):
 
     system = captured["messages"][0]["content"]
     assert "## Field checklist" in system
-    assert '"General Cap Amount" (required)' in system
-    assert '"Technical Support" (optional)' in system
+    assert '"一般责任上限" (required)' in system
+    assert '"技术支持" (optional)' in system
 
     field_schema = captured["response_format"]["json_schema"]["schema"][
         "properties"
     ]["field_updates"]
     assert field_schema["additionalProperties"] is False
-    assert "Subscription Period" in field_schema["properties"]
-    assert "Provider Covered Claims" in field_schema["properties"]
+    assert "订阅期" in field_schema["properties"]
+    assert "服务方赔偿范围" in field_schema["properties"]
 
 
 def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
