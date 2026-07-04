@@ -60,18 +60,38 @@ body {
   margin-bottom: 0.75rem;
 }
 
-.doc .filled {
+/* Value fills — used by the MNDA preview (.doc) and the generic
+   cover page; both live under a [data-print-root] article. */
+[data-print-root] .filled {
   background: #fff6b8;
   padding: 0 0.15rem;
   border-radius: 2px;
 }
 
-.doc .missing {
+[data-print-root] .missing {
   background: #fbe3e3;
   color: #8a1f1f;
   font-style: italic;
   padding: 0 0.25rem;
   border-radius: 2px;
+}
+
+/* Term references in generic standard terms: the body cites cover-page
+   terms by name (coverpage_link / orderform_link / keyterms_link spans).
+   Defined terms show their value in a tooltip; missing ones flag the gap. */
+[data-print-root] .term-defined {
+  background: #eaf6fc;
+  border-bottom: 1.5px solid #209dd7;
+  border-radius: 2px;
+  padding: 0 0.1rem;
+  cursor: help;
+}
+
+[data-print-root] .term-missing {
+  background: #fbe3e3;
+  border-bottom: 1.5px dashed #c46a6a;
+  border-radius: 2px;
+  padding: 0 0.1rem;
 }
 
 .doc table {
@@ -118,12 +138,24 @@ body {
     box-shadow: none;
   }
 
-  .doc .filled {
+  [data-print-root] .filled {
     background: transparent;
   }
 
-  .doc .missing {
+  [data-print-root] .missing {
     background: transparent;
     color: #8a1f1f;
+  }
+
+  /* Printed agreements keep the body text clean — defined term refs lose
+     their screen highlight entirely; missing ones keep a subtle dashed
+     underline so an incomplete draft is recognizable on paper. */
+  [data-print-root] .term-defined {
+    background: transparent;
+    border-bottom: none;
+  }
+
+  [data-print-root] .term-missing {
+    background: transparent;
   }
 }

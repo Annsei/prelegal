@@ -8,12 +8,14 @@ import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 
 function Harness({
   locale = "en" as "en" | "zh",
+  docId = "mutual-nda",
   onDocChange = () => {},
   onFieldUpdates = () => {},
   initialHistory = [] as ChatTurn[],
   getDraftEpoch = () => 0,
 }: {
   locale?: "en" | "zh";
+  docId?: string;
   onDocChange?: (id: string) => void;
   onFieldUpdates?: (updates: Record<string, string>) => void;
   initialHistory?: ChatTurn[];
@@ -27,6 +29,7 @@ function Harness({
       <MNDAChat
         locale={locale}
         state={state}
+        docId={docId}
         getDraftEpoch={getDraftEpoch}
         onStateChange={setState}
         onDocChange={onDocChange}
@@ -111,6 +114,9 @@ describe("MNDAChat", () => {
       content: "We're evaluating a partnership.",
     });
     expect(body.mnda_state).toMatchObject({ purpose: expect.any(String) });
+    // The open doc travels with every turn so the backend can inject its
+    // cover-page field checklist.
+    expect(body.doc_id).toBe("mutual-nda");
   });
 
   it("shows an error message when the chat API fails and keeps the user turn visible", async () => {

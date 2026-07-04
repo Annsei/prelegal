@@ -20,6 +20,8 @@ from typing import Any
 
 import litellm
 
+from app.manifests import load_manifest, manifest_field_keys
+
 MODEL = "openrouter/openai/gpt-oss-120b"
 
 # Force Cerebras as the inference provider so we don't silently fall back
@@ -56,13 +58,13 @@ legal agreements based on Common Paper templates.
 
 ## Supported documents
 
-The catalog below lists every document type we offer. **All entries marked \
-`status: "available"` can be drafted; today that is the Mutual NDA only.** \
-Other catalog entries (`status: "planned"`) have their underlying templates \
-loaded and visible in the preview pane, and you can still collect the key \
-terms for them via chat — the user just can't yet download a finished PDF \
-for those. For requests **outside** the catalog (e.g. employment contracts, \
-leases, terms of service), explain that we can't generate that document and \
+The catalog below lists every document type we offer. **Entries marked \
+`status: "available"` support full drafting and PDF download.** Entries \
+marked `status: "planned"` have their underlying templates loaded and \
+visible in the preview pane, and you can still collect the key terms for \
+them via chat — the user just can't yet download a finished PDF for those. \
+For requests **outside** the catalog (e.g. employment contracts, leases, \
+terms of service), explain that we can't generate that document and \
 recommend the closest available item from the catalog.
 
 Catalog (JSON):
@@ -117,10 +119,47 @@ answer next — never leave the conversation hanging on a statement.
 - For an MNDA, when the document looks complete enough to sign, set \
 `done: true` and tell the user they can review the preview and download \
 the PDF.
+- When a "Field checklist" section appears below, the selected document \
+supports full cover-page drafting: collect those fields and set \
+`done: true` once every required one has a value (from this conversation \
+or the current state).
 - For any other document, keep `done: false` (we don't yet emit a final \
 PDF for those). Tell the user the preview shows the underlying template \
 and you'll keep collecting key terms.
 """
+
+
+def _manifest_prompt_section(manifest: dict[str, Any]) -> str:
+    """Render a manifest as a prompt section: the exact field_updates keys
+    to use for the selected document, with hints and examples."""
+    lines = [
+        "## Field checklist for the selected document",
+        "",
+        f"The user's current document is **{manifest.get('doc_id', '')}**. "
+        "Collect values for the cover-page fields below, using EXACTLY "
+        "these keys in `field_updates` — never invent other keys for this "
+        "document. Ask about them conversationally (group related ones); "
+        "don't interrogate one field at a time.",
+        "",
+    ]
+    for field in manifest.get("fields", []):
+        key = field.get("key", "")
+        requirement = "required" if field.get("required") else "optional"
+        hint = (field.get("hint") or {}).get("en", "")
+        example = field.get("example", "")
+        parts = [f'- "{key}" ({requirement})']
+        if hint:
+            parts.append(f": {hint}")
+        if example:
+            parts.append(f' — e.g. "{example}"')
+        lines.append("".join(parts))
+    lines.append("")
+    lines.append(
+        "When every required field has a value, set `done: true` and tell "
+        "the user the cover page is complete — they can review the "
+        "preview and download the PDF."
+    )
+    return "\n".join(lines)
 
 
 def _party_schema() -> dict[str, Any]:
@@ -188,6 +227,26 @@ CHAT_RESPONSE_SCHEMA: dict[str, Any] = {
     "required": ["assistant_message", "mnda_updates", "done"],
     "additionalProperties": False,
 }
+
+
+def _schema_for(manifest: dict[str, Any] | None) -> dict[str, Any]:
+    """Response schema, with field_updates constrained to the manifest's
+    keys when the selected document has one. Free-form otherwise."""
+    if not manifest:
+        return CHAT_RESPONSE_SCHEMA
+    schema = json.loads(json.dumps(CHAT_RESPONSE_SCHEMA))  # deep copy
+    schema["properties"]["field_updates"] = {
+        "type": "object",
+        "description": (
+            "Values for the selected document's cover-page fields. Keys "
+            "MUST come from the field checklist."
+        ),
+        "properties": {
+            key: {"type": "string"} for key in manifest_field_keys(manifest)
+        },
+        "additionalProperties": False,
+    }
+    return schema
 
 
 class LLMUnavailableError(RuntimeError):
@@ -270,6 +329,7 @@ def _call_llm(
     messages: list[dict[str, str]],
     system: str,
     api_key: str,
+    schema: dict[str, Any],
 ) -> dict[str, Any]:
     try:
         response = litellm.completion(
@@ -280,7 +340,7 @@ def _call_llm(
                 "type": "json_schema",
                 "json_schema": {
                     "name": "mnda_chat_turn",
-                    "schema": CHAT_RESPONSE_SCHEMA,
+                    "schema": schema,
                     # Don't request strict mode: OpenAI strict requires every
                     # property to be listed in `required`, but `mnda_updates`
                     # is intentionally a partial — only the keys the model
@@ -342,8 +402,16 @@ def _normalize_result(data: Any) -> dict[str, Any]:
 def chat_complete(
     messages: list[dict[str, str]],
     mnda_state: dict[str, Any],
+    doc_id: str = "",
 ) -> dict[str, Any]:
     """Call the LLM and return the parsed structured response.
+
+    `doc_id` is the document the frontend currently has open. When that
+    document has a cover-page manifest, its field checklist is injected
+    into the system prompt and the structured-output schema constrains
+    `field_updates` to exactly those keys. (The manifest kicks in from
+    the turn after the LLM picks the doc — the exchange stays stateless,
+    so the frontend echoes the selection back on subsequent turns.)
 
     Enforces the "always ask a follow-up" contract: when `done` is false but
     the message doesn't end with a question, retry once with a corrective
@@ -355,10 +423,16 @@ def chat_complete(
     """
     api_key = _ensure_api_key()
 
-    state_summary = json.dumps(mnda_state, indent=2, ensure_ascii=False)
-    system = SYSTEM_PROMPT + f"\n\nCurrent MNDA state:\n{state_summary}"
+    manifest = load_manifest(doc_id)
+    schema = _schema_for(manifest)
+    system = SYSTEM_PROMPT
+    if manifest:
+        system += "\n\n" + _manifest_prompt_section(manifest)
 
-    result = _call_llm(messages, system, api_key)
+    state_summary = json.dumps(mnda_state, indent=2, ensure_ascii=False)
+    system += f"\n\nCurrent MNDA state:\n{state_summary}"
+
+    result = _call_llm(messages, system, api_key, schema)
 
     needs_followup = (
         not result.get("done")
@@ -377,7 +451,7 @@ def chat_complete(
             + "\n\nIMPORTANT: Your previous reply did not end with a question. "
             "While `done` is false, `assistant_message` MUST end with a question."
         )
-        result = _call_llm(messages, retry_system, api_key)
+        result = _call_llm(messages, retry_system, api_key, schema)
         result["mnda_updates"] = {**first_mnda, **(result.get("mnda_updates") or {})}
         result["field_updates"] = {
             **first_fields,

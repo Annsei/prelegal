@@ -35,3 +35,36 @@ def test_get_template_404s_on_unknown_doc(client):
     res = client.get("/api/templates/no-such-doc")
     assert res.status_code == 404
     assert "unknown document id" in res.json()["detail"]
+
+
+def test_csa_template_includes_manifest(client):
+    res = client.get("/api/templates/cloud-service-agreement")
+    assert res.status_code == 200
+    manifest = res.json()["manifest"]
+    assert manifest is not None
+    assert manifest["doc_id"] == "cloud-service-agreement"
+    keys = [f["key"] for f in manifest["fields"]]
+    # Parties + the terms the template body actually references.
+    for expected in (
+        "Provider",
+        "Customer",
+        "Provider Notice Address",
+        "Customer Notice Address",
+        "Subscription Period",
+        "Effective Date",
+        "Governing Law",
+        "General Cap Amount",
+    ):
+        assert expected in keys
+    # Every field carries both label languages; required is boolean.
+    for field in manifest["fields"]:
+        assert field["label"]["zh"] and field["label"]["en"]
+        assert isinstance(field["required"], bool)
+    section_keys = {s["key"] for s in manifest["sections"]}
+    assert {f["section"] for f in manifest["fields"]} <= section_keys
+
+
+def test_docs_without_manifest_return_null_manifest(client):
+    res = client.get("/api/templates/mutual-nda")
+    assert res.status_code == 200
+    assert res.json()["manifest"] is None

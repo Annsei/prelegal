@@ -19,6 +19,8 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from app.manifests import load_manifest
+
 router = APIRouter(prefix="/templates")
 
 # templates/templates.json lives at the repo root. From this file:
@@ -44,6 +46,9 @@ class TemplateResponse(BaseModel):
     title: str
     standard_terms: str
     cover_page: str | None = None
+    # Cover-page field manifest (templates/manifests/<doc_id>.json), or
+    # None for docs that still use free-form field collection.
+    manifest: dict | None = None
 
 
 @router.get("/{doc_id}", response_model=TemplateResponse)
@@ -84,4 +89,5 @@ def get_template(doc_id: str) -> TemplateResponse:
         title=entry["title"],
         standard_terms=standard_terms,
         cover_page=cover_page,
+        manifest=load_manifest(doc_id),
     )

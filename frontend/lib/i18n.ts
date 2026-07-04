@@ -8,9 +8,19 @@ type Dictionary = {
   langToggle: string;
   download: string;
   downloadUnavailable: string;
+  downloadIncomplete: string;
   printHint: string;
   drafting: string;
   comingSoon: string;
+  manifestNote: string;
+  coverPage: {
+    title: string;
+    missing: string;
+    otherTerms: string;
+  };
+  docForm: {
+    required: string;
+  };
   templateUnavailable: string;
   pickDocPrompt: string;
   disclaimer: string;
@@ -110,9 +120,21 @@ const zh: Dictionary = {
   download: "下载 PDF",
   downloadUnavailable:
     "该文档的条款尚未填入模板正文，暂不支持下载，以免产生误导性文件。目前仅 MNDA 支持完整下载。",
+  downloadIncomplete:
+    "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
   drafting: "正在起草",
   comingSoon: "完整生成与 PDF 下载即将上线，目前仅 MNDA 已完整支持。可继续与 AI 对话收集关键条款，下方为模板预览。",
+  manifestNote:
+    "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 PDF。",
+  coverPage: {
+    title: "封面页（Cover Page）",
+    missing: "[未填写]",
+    otherTerms: "其他条款",
+  },
+  docForm: {
+    required: "*必填",
+  },
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
   disclaimer:
@@ -224,9 +246,21 @@ const en: Dictionary = {
   download: "Download PDF",
   downloadUnavailable:
     "Download is disabled for this document — its terms aren't merged into the template body yet, so the output would be misleading. Only the MNDA supports full download today.",
+  downloadIncomplete:
+    "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
   drafting: "Drafting",
   comingSoon: "Full generation and PDF download for this document are coming soon — only the Mutual NDA is fully supported today. The chat keeps collecting key terms; below is the underlying template.",
+  manifestNote:
+    "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
+  coverPage: {
+    title: "Cover Page",
+    missing: "[Not provided]",
+    otherTerms: "Other terms",
+  },
+  docForm: {
+    required: "*required",
+  },
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
   disclaimer:

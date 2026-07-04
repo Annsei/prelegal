@@ -40,6 +40,10 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     mnda_state: dict[str, Any] = Field(default_factory=dict)
+    # The doc the frontend currently has open. Lets the LLM layer inject
+    # that document's cover-page field checklist (see app/manifests.py).
+    # Empty on the first turn, before a document is picked.
+    doc_id: str = Field(default="", max_length=100)
 
     @field_validator("mnda_state")
     @classmethod
@@ -78,6 +82,7 @@ def chat(
         result = chat_complete(
             messages=[m.model_dump() for m in payload.messages],
             mnda_state=payload.mnda_state,
+            doc_id=payload.doc_id,
         )
     except LLMUnavailableError as exc:
         raise HTTPException(
