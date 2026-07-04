@@ -13,12 +13,12 @@ def test_get_template_returns_mnda_with_cover_page(client):
     assert res.status_code == 200
     body = res.json()
     assert body["doc_id"] == "mutual-nda"
-    assert body["title"].startswith("Mutual Non-Disclosure Agreement")
+    assert body["title"] == "双方保密协议"
     # MNDA is the only doc with a cover page in the index — should be present.
     assert body["cover_page"] is not None
-    assert "Cover Page" in body["cover_page"]
+    assert "封面页" in body["cover_page"]
     # Standard terms include the boilerplate clauses.
-    assert "Confidential Information" in body["standard_terms"]
+    assert "保密信息" in body["standard_terms"]
 
 
 def test_get_template_returns_csa_without_cover_page(client):
@@ -28,7 +28,7 @@ def test_get_template_returns_csa_without_cover_page(client):
     body = res.json()
     assert body["doc_id"] == "cloud-service-agreement"
     assert body["cover_page"] is None
-    assert "Cloud Service Agreement" in body["standard_terms"]
+    assert "SaaS 服务协议" in body["standard_terms"]
 
 
 def test_get_template_404s_on_unknown_doc(client):
@@ -46,14 +46,14 @@ def test_csa_template_includes_manifest(client):
     keys = [f["key"] for f in manifest["fields"]]
     # Parties + the terms the template body actually references.
     for expected in (
-        "Provider",
-        "Customer",
-        "Provider Notice Address",
-        "Customer Notice Address",
-        "Subscription Period",
-        "Effective Date",
-        "Governing Law",
-        "General Cap Amount",
+        "服务方",
+        "客户",
+        "服务方通知地址",
+        "客户通知地址",
+        "订阅期",
+        "生效日期",
+        "争议解决",
+        "一般责任上限",
     ):
         assert expected in keys
     # Every field carries both label languages; required is boolean.

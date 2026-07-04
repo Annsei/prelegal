@@ -2,11 +2,11 @@
 
 ## Overview
 
-This is a SaaS product to allow users to draft legal agreements based on templates in the templates directory. The user uses AI chat in order to establish what document they want and how to fill in the fields. The available documents are covered in the catalog.json file in the project root, included here:
+This is a SaaS product to allow users to draft **PRC-law (中国法) Chinese legal agreements** based on templates in the templates directory. The template library is first-party (Prelegal 范本 v1.0, AI-drafted, not lawyer-reviewed — the product ships a three-place lawyer-review disclaimer); it replaced the original Common Paper (US-law, English) library. The user uses AI chat in order to establish what document they want and how to fill in the fields. The available documents are covered in the catalog.json file in the project root, included here:
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying Common Paper template with AI-collected key terms. Documents are being upgraded onto a **manifest-driven pipeline** (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields): **the CSA is the first fully-drafted doc on it**. The MNDA keeps its bespoke typed form/preview/PDF for now (migrating it onto the pipeline is a follow-up). The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log, show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). Documents are being upgraded onto a **manifest-driven pipeline** (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields): **the CSA is the first fully-drafted doc on it**. The MNDA keeps its bespoke typed form/preview/PDF for now (migrating it onto the pipeline is a follow-up). The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log, show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -109,7 +109,8 @@ frontend/        Next.js 15 (static export, output: "export")
                    owns the fetch, not the preview)
   lib/i18n.ts      zh/en dictionaries (default zh)
   lib/mndaState.ts MndaState type + AI-update merge (drops unknown keys)
-  lib/mndaTemplate.ts Common Paper MNDA standard terms with placeholders
+  lib/mndaTemplate.ts PRC-law 双方保密协议 standard terms with placeholders
+                   (governingLaw = 适用法律, jurisdiction = 争议解决)
   lib/session.ts   localStorage-backed session ({user, token}) under key
                    "prelegal:session". Companion key "prelegal:activeDocId"
                    (written by app/page.tsx) remembers which draft to
@@ -120,9 +121,12 @@ frontend/        Next.js 15 (static export, output: "export")
                    history restoration after refresh, and the CSA manifest
                    pipeline: cover page, term-ref highlighting, download
                    gating)
-templates/       11 Common Paper markdown packages (mutual-nda has cover_page
-                 + standard_terms; others have standard_terms only).
-                 templates.json indexes them with provenance commits.
+templates/       11 PRC-law Chinese markdown packages (Prelegal 范本 v1.0,
+                 AI-drafted; mutual-nda has cover_page + standard_terms,
+                 others standard_terms only). Same span conventions as the
+                 old Common Paper library (header_2/3, coverpage_link /
+                 orderform_link / keyterms_link with Chinese variable
+                 names). templates.json indexes them (origin: prelegal).
                  manifests/<doc_id>.json — cover-page field manifests (key,
                  type, required, zh/en labels, hint, example, alias span
                  texts). CSA has one today; adding a doc to the full

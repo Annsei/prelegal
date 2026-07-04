@@ -21,7 +21,7 @@ const plex = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "Prelegal · 法律协议生成器",
   description:
-    "Draft Common Paper standard agreements with an AI copilot — structured cover pages, live previews, and PDF export.",
+    "Draft PRC-law standard agreements with an AI copilot — structured cover pages, live previews, and PDF export.",
 };
 
 export default function RootLayout({

@@ -1,62 +1,60 @@
 {
   "doc_id": "cloud-service-agreement",
-  "version": 1,
-  "description": "Cover-page field manifest for the Common Paper CSA. Field keys are the exact term names the standard-terms body references via coverpage_link / orderform_link / keyterms_link spans; `aliases` lists other span texts (possessives, plurals, singulars) that refer to the same term. The AI chat, the manual-edit form, the cover-page rendering, and the body-reference highlighting are all driven by this file.",
+  "version": 2,
+  "description": "《SaaS 服务协议》（中国法，Prelegal 范本 v1.0）封面页字段清单。字段键与正文 coverpage_link / orderform_link / keyterms_link span 中的变量名逐字一致；AI 对话抽取、手动编辑表单、封面页渲染与正文引用高亮均由本文件驱动。",
   "sections": [
     { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
-    { "key": "order", "label": { "zh": "订单条款（Order Form）", "en": "Order Form" } },
-    { "key": "keyterms", "label": { "zh": "关键条款（Key Terms）", "en": "Key Terms" } }
+    { "key": "order", "label": { "zh": "商务条款", "en": "Order Terms" } },
+    { "key": "keyterms", "label": { "zh": "关键法律条款", "en": "Key Legal Terms" } }
   ],
   "fields": [
     {
-      "key": "Provider",
+      "key": "服务方",
       "section": "parties",
       "type": "string",
       "required": true,
-      "label": { "zh": "服务商（公司名）", "en": "Provider (company)" },
+      "label": { "zh": "服务方（公司名）", "en": "Provider (company)" },
       "hint": { "zh": "提供云服务的一方", "en": "The party providing the cloud service" },
-      "example": "Globex Cloud, Inc.",
-      "aliases": ["Provider’s"]
+      "example": "示例云计算（上海）有限公司"
     },
     {
-      "key": "Customer",
+      "key": "客户",
       "section": "parties",
       "type": "string",
       "required": true,
       "label": { "zh": "客户（公司名）", "en": "Customer (company)" },
-      "hint": { "zh": "订阅并使用云服务的一方", "en": "The party subscribing to and using the service" },
-      "example": "Acme, Inc.",
-      "aliases": ["Customer’s"]
+      "hint": { "zh": "订阅并使用云服务的一方", "en": "The party subscribing to the service" },
+      "example": "示例科技（北京）有限公司"
     },
     {
-      "key": "Provider Notice Address",
+      "key": "服务方通知地址",
       "section": "parties",
       "type": "string",
       "required": false,
-      "label": { "zh": "服务商通知地址", "en": "Provider Notice Address" },
-      "hint": { "zh": "§12.9 通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.9 are sent (email or postal, optional)" },
-      "example": "legal@globexcloud.com"
+      "label": { "zh": "服务方通知地址", "en": "Provider Notice Address" },
+      "hint": { "zh": "第 12.6 条通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.6 are sent (optional)" },
+      "example": "legal@example-cloud.cn"
     },
     {
-      "key": "Customer Notice Address",
+      "key": "客户通知地址",
       "section": "parties",
       "type": "string",
       "required": false,
       "label": { "zh": "客户通知地址", "en": "Customer Notice Address" },
-      "hint": { "zh": "§12.9 通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.9 are sent (email or postal, optional)" },
-      "example": "legal@acme.com"
+      "hint": { "zh": "第 12.6 条通知条款的送达地址（邮箱或邮寄地址，可选）", "en": "Where notices under §12.6 are sent (optional)" },
+      "example": "legal@example.com.cn"
     },
     {
-      "key": "Cloud Service",
+      "key": "云服务内容",
       "section": "order",
       "type": "text",
       "required": true,
-      "label": { "zh": "云服务描述", "en": "Cloud Service" },
+      "label": { "zh": "云服务内容", "en": "Cloud Service" },
       "hint": { "zh": "所订阅产品/服务的简要描述", "en": "Short description of the subscribed product" },
-      "example": "Acme analytics platform, Team plan"
+      "example": "示例数据分析平台（团队版）"
     },
     {
-      "key": "Order Date",
+      "key": "订单日期",
       "section": "order",
       "type": "date",
       "required": true,
@@ -65,62 +63,61 @@
       "example": "2026-07-01"
     },
     {
-      "key": "Subscription Period",
+      "key": "订阅期",
       "section": "order",
       "type": "string",
       "required": true,
       "label": { "zh": "订阅期", "en": "Subscription Period" },
-      "hint": { "zh": "如 12 months；到期自动续订", "en": "e.g. 12 months; renews automatically" },
-      "example": "12 months",
-      "aliases": ["Subscription Periods"]
+      "hint": { "zh": "如 12 个月；期满自动按原期限续期", "en": "e.g. 12 months; auto-renews" },
+      "example": "12 个月"
     },
     {
-      "key": "Non-Renewal Notice Date",
+      "key": "不续约通知期",
       "section": "order",
       "type": "string",
       "required": true,
-      "label": { "zh": "不续约通知期限", "en": "Non-Renewal Notice Date" },
-      "hint": { "zh": "在当前订阅期结束前多久须发出不续约通知", "en": "How long before the period ends notice must be given" },
-      "example": "30 days before the end of the current Subscription Period"
+      "label": { "zh": "不续约通知期", "en": "Non-Renewal Notice Period" },
+      "hint": { "zh": "订阅期届满前多久须发出不续约书面通知", "en": "Notice window before the period ends" },
+      "example": "订阅期届满前 30 日"
     },
     {
-      "key": "Fees",
+      "key": "服务费",
       "section": "order",
       "type": "text",
       "required": true,
-      "label": { "zh": "费用", "en": "Fees" },
-      "hint": { "zh": "金额与计费口径", "en": "Amount and pricing basis" },
-      "example": "$2,000 per month"
+      "label": { "zh": "服务费", "en": "Fees" },
+      "hint": { "zh": "金额与计费口径（人民币，含税/不含税）", "en": "Amount and pricing basis" },
+      "example": "人民币 20,000 元/月（含税）"
     },
     {
-      "key": "Payment Process",
+      "key": "付款方式",
       "section": "order",
       "type": "string",
       "required": true,
       "label": { "zh": "付款方式", "en": "Payment Process" },
-      "hint": { "zh": "开票或自动扣款，及账期", "en": "Invoicing or automatic payment, and terms" },
-      "example": "Invoicing, net 30"
+      "hint": { "zh": "付款方式与账期", "en": "Payment method and terms" },
+      "example": "按季度预付，收到发票后 30 日内付款"
     },
     {
-      "key": "Technical Support",
+      "key": "技术支持",
       "section": "order",
       "type": "text",
       "required": false,
       "label": { "zh": "技术支持", "en": "Technical Support" },
-      "hint": { "zh": "支持渠道与响应承诺（可选）", "en": "Support channels and response commitments (optional)" },
-      "example": "Email support, business hours (9-5 Pacific)"
+      "hint": { "zh": "支持渠道与响应承诺（可选）", "en": "Support channels and commitments (optional)" },
+      "example": "工作日 9:00-18:00 邮件与在线工单支持"
     },
     {
-      "key": "Use Limitations",
+      "key": "使用限制",
       "section": "order",
       "type": "text",
       "required": false,
       "label": { "zh": "使用限制", "en": "Use Limitations" },
       "hint": { "zh": "席位数、用量或其他限制（可选）", "en": "Seats, usage, or other limits (optional)" },
-      "example": "Up to 50 Users"
+      "example": "不超过 50 个用户账号"
     },
     {
-      "key": "Effective Date",
+      "key": "生效日期",
       "section": "keyterms",
       "type": "date",
       "required": true,
@@ -129,96 +126,85 @@
       "example": "2026-07-01"
     },
     {
-      "key": "Governing Law",
+      "key": "争议解决",
       "section": "keyterms",
       "type": "string",
       "required": true,
-      "label": { "zh": "适用法律", "en": "Governing Law" },
-      "hint": { "zh": "美国州，如 Delaware", "en": "U.S. state, e.g. Delaware" },
-      "example": "Delaware"
+      "label": { "zh": "争议解决", "en": "Dispute Resolution" },
+      "hint": { "zh": "仲裁机构或管辖法院", "en": "Arbitration commission or competent court" },
+      "example": "上海仲裁委员会按其仲裁规则进行仲裁"
     },
     {
-      "key": "Chosen Courts",
+      "key": "一般责任上限",
       "section": "keyterms",
       "type": "string",
       "required": true,
-      "label": { "zh": "管辖法院", "en": "Chosen Courts" },
-      "hint": { "zh": "城市/县与州", "en": "City/county and state" },
-      "example": "courts located in New Castle County, Delaware"
+      "label": { "zh": "一般责任上限", "en": "General Liability Cap" },
+      "hint": { "zh": "常见写法：索赔前 12 个月已付服务费总额", "en": "Commonly fees paid in the prior 12 months" },
+      "example": "索赔发生前 12 个月内客户实际支付的服务费总额"
     },
     {
-      "key": "General Cap Amount",
-      "section": "keyterms",
-      "type": "string",
-      "required": true,
-      "label": { "zh": "一般责任上限", "en": "General Cap Amount" },
-      "hint": { "zh": "常见写法：过去 12 个月已付费用的 1 倍", "en": "Commonly 1x Fees paid in the prior 12 months" },
-      "example": "1x the Fees paid or payable in the 12 months before the claim"
-    },
-    {
-      "key": "Increased Cap Amount",
+      "key": "提高责任上限",
       "section": "keyterms",
       "type": "string",
       "required": false,
-      "label": { "zh": "提高的责任上限", "en": "Increased Cap Amount" },
-      "hint": { "zh": "适用于 Increased Claims 的更高上限（可选）", "en": "Higher cap applying to Increased Claims (optional)" },
-      "example": "2x the General Cap Amount"
+      "label": { "zh": "提高责任上限", "en": "Increased Liability Cap" },
+      "hint": { "zh": "适用于特别违约情形的更高上限（可选）", "en": "Higher cap for special breaches (optional)" },
+      "example": "一般责任上限的 2 倍"
     },
     {
-      "key": "Increased Claims",
+      "key": "特别违约情形",
       "section": "keyterms",
       "type": "text",
       "required": false,
-      "label": { "zh": "适用提高上限的索赔", "en": "Increased Claims" },
-      "hint": { "zh": "如违反保密义务、数据泄露（可选）", "en": "e.g. breach of confidentiality, security incidents (optional)" },
-      "example": "Breach of Section 6 (Confidentiality); security incidents caused by Provider"
+      "label": { "zh": "特别违约情形", "en": "Special Breach Events" },
+      "hint": { "zh": "适用提高责任上限的违约类型（可选）", "en": "Breaches subject to the increased cap (optional)" },
+      "example": "违反第 10 条保密义务；因服务方原因导致的数据安全事件"
     },
     {
-      "key": "Unlimited Claims",
+      "key": "不设上限责任",
       "section": "keyterms",
       "type": "text",
       "required": false,
-      "label": { "zh": "不设上限的索赔", "en": "Unlimited Claims" },
-      "hint": { "zh": "完全不受责任上限约束的索赔类型（可选）", "en": "Claims outside any liability cap (optional)" },
-      "example": "Customer's payment obligations; IP infringement claims"
+      "label": { "zh": "不设上限责任", "en": "Uncapped Liabilities" },
+      "hint": { "zh": "完全不受责任上限约束的责任类型（可选）", "en": "Liabilities outside any cap (optional)" },
+      "example": "客户的付款义务；侵犯对方知识产权的责任"
     },
     {
-      "key": "Provider Covered Claims",
+      "key": "服务方赔偿范围",
       "section": "keyterms",
       "type": "text",
       "required": true,
-      "label": { "zh": "服务商承保索赔", "en": "Provider Covered Claims" },
-      "hint": { "zh": "服务商为客户抗辩/赔偿的第三方索赔类型", "en": "Third-party claims Provider defends Customer against" },
-      "example": "Claims that the Cloud Service infringes third-party IP rights",
-      "aliases": ["Provider Covered Claim"]
+      "label": { "zh": "服务方赔偿范围", "en": "Provider Indemnity Scope" },
+      "hint": { "zh": "服务方为客户处理并赔偿的第三方权利主张类型", "en": "Third-party claims Provider handles for Customer" },
+      "example": "第三方主张云服务侵犯其知识产权的权利主张"
     },
     {
-      "key": "Customer Covered Claims",
+      "key": "客户赔偿范围",
       "section": "keyterms",
       "type": "text",
       "required": true,
-      "label": { "zh": "客户承保索赔", "en": "Customer Covered Claims" },
-      "hint": { "zh": "客户为服务商抗辩/赔偿的第三方索赔类型", "en": "Third-party claims Customer defends Provider against" },
-      "example": "Claims arising from Customer Content or Customer's breach of Section 2",
-      "aliases": ["Customer Covered Claim"]
+      "label": { "zh": "客户赔偿范围", "en": "Customer Indemnity Scope" },
+      "hint": { "zh": "客户为服务方处理并赔偿的第三方权利主张类型", "en": "Third-party claims Customer handles for Provider" },
+      "example": "因客户数据或客户违法使用云服务引起的第三方权利主张"
     },
     {
-      "key": "DPA",
+      "key": "数据处理协议",
       "section": "keyterms",
       "type": "string",
       "required": false,
-      "label": { "zh": "数据处理协议（DPA）", "en": "DPA" },
-      "hint": { "zh": "是否附有 DPA（可选）", "en": "Whether a DPA is attached (optional)" },
-      "example": "The Common Paper DPA attached to this Cover Page"
+      "label": { "zh": "数据处理协议", "en": "Data Processing Agreement" },
+      "hint": { "zh": "是否另行签署个人信息委托处理协议（可选）", "en": "Whether a separate DPA is signed (optional)" },
+      "example": "双方另行签署的《个人信息委托处理协议》"
     },
     {
-      "key": "Additional Warranties",
+      "key": "附加保证",
       "section": "keyterms",
       "type": "text",
       "required": false,
       "label": { "zh": "附加保证", "en": "Additional Warranties" },
       "hint": { "zh": "标准条款之外的额外保证（可选）", "en": "Warranties beyond the standard terms (optional)" },
-      "example": "Provider warrants the Cloud Service will comply with the Documentation"
+      "example": "服务方保证云服务符合双方确认的产品文档"
     }
   ]
 }

@@ -68,13 +68,10 @@ test.describe("Mutual NDA generator", () => {
       page.getByRole("heading", { name: "法律协议生成器" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", {
-        name: "Mutual Non-Disclosure Agreement",
-        level: 1,
-      }),
+      page.getByRole("heading", { name: "双方保密协议", level: 1 }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Standard Terms", level: 2 }),
+      page.getByRole("heading", { name: "标准条款", level: 2 }),
     ).toBeVisible();
   });
 
@@ -109,15 +106,15 @@ test.describe("Mutual NDA generator", () => {
     await openFormTab(page);
 
     const doc = page.locator("[data-print-root]");
-    await expect(doc).toContainText("1 year(s) from the Effective Date");
+    await expect(doc).toContainText("自生效日期起 1 年");
 
     // Select the second MNDA-term radio (continues).
     await page.locator('input[name="mndaTermMode"]').nth(1).check();
-    await expect(doc).toContainText("term until terminated");
+    await expect(doc).toContainText("持续有效，直至依约终止");
 
     // Select the second confidentiality radio (perpetual).
     await page.locator('input[name="confidentialityMode"]').nth(1).check();
-    await expect(doc).toContainText("in perpetuity");
+    await expect(doc).toContainText("永久");
   });
 
   test("editing the year number auto-selects the expires radio", async ({
@@ -140,11 +137,11 @@ test.describe("Mutual NDA generator", () => {
       page.locator('input[name="mndaTermMode"]').first(),
     ).toBeChecked();
     await expect(page.locator("[data-print-root]")).toContainText(
-      "3 year(s) from the Effective Date",
+      "自生效日期起 3 年",
     );
   });
 
-  test("language toggle swaps UI labels but keeps legal text in English", async ({
+  test("language toggle swaps UI labels but keeps legal text in Chinese", async ({
     page,
   }) => {
     await page.goto("/");
@@ -153,12 +150,9 @@ test.describe("Mutual NDA generator", () => {
     // Default locale is zh. The Purpose label text starts with "目的".
     await expect(page.locator('label[for="purpose"]')).toContainText("目的");
 
-    // Legal doc stays English.
+    // Legal doc stays Chinese (PRC-law template) regardless of UI locale.
     await expect(
-      page.getByRole("heading", {
-        name: "Mutual Non-Disclosure Agreement",
-        level: 1,
-      }),
+      page.getByRole("heading", { name: "双方保密协议", level: 1 }),
     ).toBeVisible();
 
     // Switch to English.

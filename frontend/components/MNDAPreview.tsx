@@ -1,16 +1,17 @@
 import type { MndaState, PartyInfo } from "@/lib/mndaState";
 import { formatEffectiveDate } from "@/lib/mndaState";
 import {
-  ATTRIBUTION_LICENSE_URL,
-  ATTRIBUTION_VERSION_URL,
   type PlaceholderKey,
   STANDARD_TERMS_SECTIONS,
+  TEMPLATE_NOTICE,
+  TEMPLATE_VERSION_LABEL,
   parseSegments,
 } from "@/lib/mndaTemplate";
 
 type Props = { value: MndaState };
 
-// The Common Paper template is English-only; translating it would alter its legal meaning.
+// 中国法《双方保密协议》范本（Prelegal v1.0）——合同正文为简体中文；
+// 界面语言切换只影响 UI chrome，不改变合同文本。
 export function MNDAPreview({ value }: Props) {
   const lookup = buildPlaceholderLookup(value);
   return (
@@ -24,15 +25,7 @@ export function MNDAPreview({ value }: Props) {
         <StandardTerms lookup={lookup} />
       </div>
       <p className="mt-8 text-xs italic text-neutral-600">
-        Common Paper Mutual Non-Disclosure Agreement{" "}
-        <a href={ATTRIBUTION_VERSION_URL} className="underline">
-          Version 1.0
-        </a>{" "}
-        free to use under{" "}
-        <a href={ATTRIBUTION_LICENSE_URL} className="underline">
-          CC BY 4.0
-        </a>
-        .
+        {TEMPLATE_VERSION_LABEL} · {TEMPLATE_NOTICE}
       </p>
     </article>
   );
@@ -43,12 +36,12 @@ type Lookup = Record<PlaceholderKey, string>;
 function buildPlaceholderLookup(v: MndaState): Lookup {
   const mndaTerm =
     v.mndaTermMode === "expires"
-      ? `${v.mndaTermYears} year(s) from the Effective Date`
-      : "term until terminated";
+      ? `自生效日期起 ${v.mndaTermYears} 年`
+      : "持续有效，直至依约终止";
   const confidentialityTerm =
     v.confidentialityMode === "years"
-      ? `${v.confidentialityYears} year(s) from the Effective Date`
-      : "in perpetuity";
+      ? `自生效日期起 ${v.confidentialityYears} 年`
+      : "永久";
   return {
     purpose: v.purpose,
     governingLaw: v.governingLaw,
@@ -62,85 +55,82 @@ function buildPlaceholderLookup(v: MndaState): Lookup {
 function CoverPage({ value, lookup }: { value: MndaState; lookup: Lookup }) {
   return (
     <section>
-      <h1>Mutual Non-Disclosure Agreement</h1>
+      <h1>双方保密协议</h1>
 
-      <h3>Purpose</h3>
+      <h3>保密用途</h3>
       <p>
-        <Filled value={lookup.purpose} placeholder="[Purpose]" />
+        <Filled value={lookup.purpose} placeholder="[保密用途]" />
       </p>
 
-      <h3>Effective Date</h3>
+      <h3>生效日期</h3>
       <p>
-        <Filled value={lookup.effectiveDate} placeholder="[Effective Date]" />
+        <Filled value={lookup.effectiveDate} placeholder="[生效日期]" />
       </p>
 
-      <h3>MNDA Term</h3>
+      <h3>协议期限</h3>
       <ul className="list-none pl-0">
         <li>
-          <Checkbox checked={value.mndaTermMode === "expires"} /> Expires{" "}
+          <Checkbox checked={value.mndaTermMode === "expires"} /> 自生效日期起{" "}
           <Filled
             value={
               value.mndaTermMode === "expires"
-                ? `${value.mndaTermYears} year(s)`
+                ? `${value.mndaTermYears} 年`
                 : ""
             }
-            placeholder="[N year(s)]"
+            placeholder="[N 年]"
           />{" "}
-          from Effective Date.
+          届满时到期。
         </li>
         <li>
-          <Checkbox checked={value.mndaTermMode === "continues"} /> Continues
-          until terminated in accordance with the terms of the MNDA.
+          <Checkbox checked={value.mndaTermMode === "continues"} />{" "}
+          持续有效，直至依本协议约定终止。
         </li>
       </ul>
 
-      <h3>Term of Confidentiality</h3>
+      <h3>保密期限</h3>
       <ul className="list-none pl-0">
         <li>
-          <Checkbox checked={value.confidentialityMode === "years"} />{" "}
+          <Checkbox checked={value.confidentialityMode === "years"} /> 自生效日期起{" "}
           <Filled
             value={
               value.confidentialityMode === "years"
-                ? `${value.confidentialityYears} year(s)`
+                ? `${value.confidentialityYears} 年`
                 : ""
             }
-            placeholder="[N year(s)]"
-          />{" "}
-          from Effective Date, but in the case of trade secrets until
-          Confidential Information is no longer considered a trade secret under
-          applicable laws.
+            placeholder="[N 年]"
+          />
+          ；构成商业秘密的信息，至其依法不再构成商业秘密时止。
         </li>
         <li>
-          <Checkbox checked={value.confidentialityMode === "perpetual"} /> In
-          perpetuity.
+          <Checkbox checked={value.confidentialityMode === "perpetual"} /> 永久。
         </li>
       </ul>
 
-      <h3>Governing Law &amp; Jurisdiction</h3>
+      <h3>适用法律与争议解决</h3>
       <p>
-        Governing Law:{" "}
-        <Filled value={lookup.governingLaw} placeholder="[Fill in state]" />
+        适用法律：{" "}
+        <Filled
+          value={lookup.governingLaw}
+          placeholder="[默认：中华人民共和国法律]"
+        />
       </p>
       <p>
-        Jurisdiction:{" "}
+        争议解决：{" "}
         <Filled
           value={lookup.jurisdiction}
-          placeholder="[Fill in city or county and state]"
+          placeholder="[填写仲裁机构或管辖法院]"
         />
       </p>
 
-      <h3>MNDA Modifications</h3>
+      <h3>对标准条款的修订</h3>
       <p>
         <Filled
           value={value.modifications}
-          placeholder="[None — list any modifications to the MNDA]"
+          placeholder="[无——如需修订标准条款请在此列明]"
         />
       </p>
 
-      <p className="mt-6">
-        By signing this Cover Page, each party agrees to enter into this MNDA as
-        of the Effective Date.
-      </p>
+      <p className="mt-6">双方签署本封面页，即同意自生效日期起订立本协议。</p>
 
       <SignatureTable value={value} />
     </section>
@@ -148,12 +138,12 @@ function CoverPage({ value, lookup }: { value: MndaState; lookup: Lookup }) {
 }
 
 const SIGNATURE_ROWS: { label: string; key?: keyof PartyInfo }[] = [
-  { label: "Signature" },
-  { label: "Print Name", key: "signerName" },
-  { label: "Title", key: "signerTitle" },
-  { label: "Company", key: "company" },
-  { label: "Notice Address", key: "noticeAddress" },
-  { label: "Date" },
+  { label: "签字" },
+  { label: "姓名", key: "signerName" },
+  { label: "职务", key: "signerTitle" },
+  { label: "公司名称", key: "company" },
+  { label: "通知地址", key: "noticeAddress" },
+  { label: "签署日期" },
 ];
 
 const PARTIES = ["party1", "party2"] as const;
@@ -164,8 +154,8 @@ function SignatureTable({ value }: { value: MndaState }) {
       <thead>
         <tr>
           <th></th>
-          <th>Party 1</th>
-          <th>Party 2</th>
+          <th>甲方</th>
+          <th>乙方</th>
         </tr>
       </thead>
       <tbody>
@@ -184,14 +174,23 @@ function SignatureTable({ value }: { value: MndaState }) {
   );
 }
 
+const PLACEHOLDER_LABELS: Record<PlaceholderKey, string> = {
+  purpose: "保密用途",
+  governingLaw: "适用法律",
+  jurisdiction: "争议解决",
+  effectiveDate: "生效日期",
+  mndaTerm: "协议期限",
+  confidentialityTerm: "保密期限",
+};
+
 function StandardTerms({ lookup }: { lookup: Lookup }) {
   return (
     <section>
-      <h2>Standard Terms</h2>
+      <h2>标准条款</h2>
       <ol>
         {STANDARD_TERMS_SECTIONS.map((section) => (
           <li key={section.heading}>
-            <strong>{section.heading}.</strong>{" "}
+            <strong>{section.heading}。</strong>
             {parseSegments(section.body).map((seg, i) => {
               if (seg.type === "text") return <span key={i}>{seg.value}</span>;
               if (seg.type === "bold")
@@ -200,7 +199,7 @@ function StandardTerms({ lookup }: { lookup: Lookup }) {
                 <Filled
                   key={i}
                   value={lookup[seg.key]}
-                  placeholder={`[${seg.key}]`}
+                  placeholder={`[${PLACEHOLDER_LABELS[seg.key]}]`}
                 />
               );
             })}

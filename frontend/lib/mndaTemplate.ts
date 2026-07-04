@@ -1,10 +1,13 @@
-// Common Paper Mutual Non-Disclosure Agreement, Standard Terms v1.0.
-// Source: https://github.com/CommonPaper/Mutual-NDA
-// Upstream commit: 2a3068b6c0ab6015c440f541d5b215bc3ac2f4cb (matches templates.json)
-// Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+// 《双方保密协议》标准条款 —— 中华人民共和国法律范本（Prelegal 范本 v1.0）。
 //
-// {{placeholder}} tokens correspond 1:1 to the <span class="coverpage_link">…</span>
-// anchors in the upstream markdown and are substituted at render time.
+// 由 AI 辅助起草的自研范本，术语体系遵循《民法典》合同编与
+// 《反不正当竞争法》（商业秘密）。本范本不构成法律意见；
+// 预览页与 PDF 均带有"签署前请由执业律师审核"的提示。
+//
+// {{placeholder}} 令牌与封面页字段一一对应，渲染时替换为用户填写的值。
+// 键名保持既有 MndaState 的字段名（purpose/governingLaw/...），在中国法
+// 语境下的语义为：governingLaw = 适用法律（默认"中华人民共和国法律"），
+// jurisdiction = 争议解决方式（仲裁机构或管辖法院）。
 
 export type PlaceholderKey =
   | "purpose"
@@ -16,57 +19,55 @@ export type PlaceholderKey =
 
 export const STANDARD_TERMS_SECTIONS: { heading: string; body: string }[] = [
   {
-    heading: "Introduction",
-    body: 'This Mutual Non-Disclosure Agreement (which incorporates these Standard Terms and the Cover Page (defined below)) ("**MNDA**") allows each party ("**Disclosing Party**") to disclose or make available information in connection with the {{purpose}} which (1) the Disclosing Party identifies to the receiving party ("**Receiving Party**") as "confidential", "proprietary", or the like or (2) should be reasonably understood as confidential or proprietary due to its nature and the circumstances of its disclosure ("**Confidential Information**"). Each party\'s Confidential Information also includes the existence and status of the parties\' discussions and information on the Cover Page. Confidential Information includes technical or business information, product designs or roadmaps, requirements, pricing, security and compliance documentation, technology, inventions and know-how. To use this MNDA, the parties must complete and sign a cover page incorporating these Standard Terms ("**Cover Page**"). Each party is identified on the Cover Page and capitalized terms have the meanings given herein or on the Cover Page.',
+    heading: "协议构成",
+    body: "本《双方保密协议》由本标准条款及双方签署的封面页（以下合称\"**本协议**\"）构成。为{{purpose}}（以下简称\"**本目的**\"），任何一方（\"**披露方**\"）均可能向另一方（\"**接收方**\"）披露或提供：（一）披露方标明\"保密\"\"专有\"或类似字样的信息；或（二）根据信息性质及披露情形应被合理认为具有保密性质的信息（以下合称\"**保密信息**\"）。保密信息包括但不限于技术资料、经营信息、产品设计与规划、需求文档、价格、安全与合规文件、技术成果与专有技术，亦包括双方磋商的存在及进展情况和封面页所载信息。双方应填写并签署引用本标准条款的封面页（\"**封面页**\"）；封面页载明双方主体信息，本协议使用的名词以本标准条款或封面页的定义为准。",
   },
   {
-    heading: "Use and Protection of Confidential Information",
-    body: "The Receiving Party shall: (a) use Confidential Information solely for the {{purpose}}; (b) not disclose Confidential Information to third parties without the Disclosing Party's prior written approval, except that the Receiving Party may disclose Confidential Information to its employees, agents, advisors, contractors and other representatives having a reasonable need to know for the {{purpose}}, provided these representatives are bound by confidentiality obligations no less protective of the Disclosing Party than the applicable terms in this MNDA and the Receiving Party remains responsible for their compliance with this MNDA; and (c) protect Confidential Information using at least the same protections the Receiving Party uses for its own similar information but no less than a reasonable standard of care.",
+    heading: "保密信息的使用与保护",
+    body: "接收方应当：（一）仅为本目的使用保密信息；（二）未经披露方事先书面同意，不得向任何第三方披露保密信息，但接收方可以向其因本目的确有必要知悉的员工、代理人、顾问、承包商及其他代表披露，前提是该等人员受到不低于本协议标准的保密义务约束，且接收方对其遵守本协议的情况承担责任；（三）以不低于其保护自身同类信息的措施保护保密信息，且在任何情况下不得低于合理注意义务。",
   },
   {
-    heading: "Exceptions",
-    body: "The Receiving Party's obligations in this MNDA do not apply to information that it can demonstrate: (a) is or becomes publicly available through no fault of the Receiving Party; (b) it rightfully knew or possessed prior to receipt from the Disclosing Party without confidentiality restrictions; (c) it rightfully obtained from a third party without confidentiality restrictions; or (d) it independently developed without using or referencing the Confidential Information.",
+    heading: "除外情形",
+    body: "接收方能够举证证明下列情形之一的信息，不适用本协议项下的保密义务：（一）非因接收方过错已经公开或进入公有领域的；（二）接收方在披露方披露之前已经合法知悉且不负有保密义务的；（三）接收方从对该信息不负有保密义务的第三方合法获得的；（四）接收方未使用、未参考保密信息而独立开发取得的。",
   },
   {
-    heading: "Disclosures Required by Law",
-    body: "The Receiving Party may disclose Confidential Information to the extent required by law, regulation or regulatory authority, subpoena or court order, provided (to the extent legally permitted) it provides the Disclosing Party reasonable advance notice of the required disclosure and reasonably cooperates, at the Disclosing Party's expense, with the Disclosing Party's efforts to obtain confidential treatment for the Confidential Information.",
+    heading: "依法披露",
+    body: "接收方根据法律、行政法规、监管机关要求或司法程序必须披露保密信息的，可以在必需的范围内予以披露，但应当在法律允许的范围内提前书面通知披露方，并在披露方承担费用的前提下，合理配合披露方就该等保密信息寻求保密处理或其他保护措施。",
   },
   {
-    heading: "Term and Termination",
-    body: "This MNDA commences on the {{effectiveDate}} and expires at the end of the {{mndaTerm}}. Either party may terminate this MNDA for any or no reason upon written notice to the other party. The Receiving Party's obligations relating to Confidential Information will survive for the {{confidentialityTerm}}, despite any expiration or termination of this MNDA.",
+    heading: "期限与终止",
+    body: "本协议自{{effectiveDate}}起生效，有效期为{{mndaTerm}}。任何一方均可提前书面通知另一方终止本协议。无论本协议因何种原因期满或终止，接收方对保密信息承担的义务在{{confidentialityTerm}}内持续有效；对于构成商业秘密的保密信息，在其依法不再构成商业秘密之前，接收方应持续承担保密义务。",
   },
   {
-    heading: "Return or Destruction of Confidential Information",
-    body: "Upon expiration or termination of this MNDA or upon the Disclosing Party's earlier request, the Receiving Party will: (a) cease using Confidential Information; (b) promptly after the Disclosing Party's written request, destroy all Confidential Information in the Receiving Party's possession or control or return it to the Disclosing Party; and (c) if requested by the Disclosing Party, confirm its compliance with these obligations in writing. As an exception to subsection (b), the Receiving Party may retain Confidential Information in accordance with its standard backup or record retention policies or as required by law, but the terms of this MNDA will continue to apply to the retained Confidential Information.",
+    heading: "返还与销毁",
+    body: "本协议期满、终止或经披露方随时书面要求时，接收方应当：（一）立即停止使用保密信息；（二）在收到披露方书面要求后及时销毁其占有或控制的全部保密信息或将其返还披露方；（三）经披露方要求，以书面形式确认其已履行前述义务。作为第（二）项的例外，接收方可以按照其正常执行的备份或档案留存制度或法律要求留存保密信息，但本协议条款对留存的保密信息继续适用。",
   },
   {
-    heading: "Proprietary Rights",
-    body: "The Disclosing Party retains all of its intellectual property and other rights in its Confidential Information and its disclosure to the Receiving Party grants no license under such rights.",
+    heading: "权利保留",
+    body: "披露方保留其对保密信息享有的全部知识产权及其他权利。披露方向接收方披露保密信息，不构成对任何知识产权或其他权利的许可、转让或授予。",
   },
   {
-    heading: "Disclaimer",
-    body: 'ALL CONFIDENTIAL INFORMATION IS PROVIDED "AS IS", WITH ALL FAULTS, AND WITHOUT WARRANTIES, INCLUDING THE IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.',
+    heading: "不作保证",
+    body: "所有保密信息均按\"现状\"提供。披露方不对保密信息的准确性、完整性、适用性或不侵犯第三方权利作出任何明示或默示的保证。",
   },
   {
-    heading: "Governing Law and Jurisdiction",
-    body: "This MNDA and all matters relating hereto are governed by, and construed in accordance with, the laws of the State of {{governingLaw}}, without regard to the conflict of laws provisions of such {{governingLaw}}. Any legal suit, action, or proceeding relating to this MNDA must be instituted in the federal or state courts located in {{jurisdiction}}. Each party irrevocably submits to the exclusive jurisdiction of such {{jurisdiction}} in any such suit, action, or proceeding.",
+    heading: "违约责任",
+    body: "接收方违反本协议约定，给披露方造成损失的，应当赔偿披露方因此遭受的损失，包括披露方为调查违约行为、主张权利而支出的合理费用（含公证费、鉴定费及合理的律师费）。接收方的违约行为侵犯披露方商业秘密的，披露方还有权依照《中华人民共和国反不正当竞争法》等法律法规追究其法律责任。金钱赔偿不足以弥补损害的，披露方有权依法申请行为保全、禁令等救济措施。",
   },
   {
-    heading: "Equitable Relief",
-    body: "A breach of this MNDA may cause irreparable harm for which monetary damages are an insufficient remedy. Upon a breach of this MNDA, the Disclosing Party is entitled to seek appropriate equitable relief, including an injunction, in addition to its other remedies.",
+    heading: "适用法律与争议解决",
+    body: "本协议的订立、效力、解释、履行及争议解决，均适用{{governingLaw}}（不含其冲突法规则）。因本协议引起的或与本协议有关的任何争议，双方应首先友好协商解决；自一方书面提出协商之日起三十（30）日内未能解决的，任何一方均有权提交{{jurisdiction}}。",
   },
   {
-    heading: "General",
-    body: "Neither party has an obligation under this MNDA to disclose Confidential Information to the other or proceed with any proposed transaction. Neither party may assign this MNDA without the prior written consent of the other party, except that either party may assign this MNDA in connection with a merger, reorganization, acquisition or other transfer of all or substantially all its assets or voting securities. Any assignment in violation of this Section is null and void. This MNDA will bind and inure to the benefit of each party's permitted successors and assigns. Waivers must be signed by the waiving party's authorized representative and cannot be implied from conduct. If any provision of this MNDA is held unenforceable, it will be limited to the minimum extent necessary so the rest of this MNDA remains in effect. This MNDA (including the Cover Page) constitutes the entire agreement of the parties with respect to its subject matter, and supersedes all prior and contemporaneous understandings, agreements, representations, and warranties, whether written or oral, regarding such subject matter. This MNDA may only be amended, modified, waived, or supplemented by an agreement in writing signed by both parties. Notices, requests and approvals under this MNDA must be sent in writing to the email or postal addresses on the Cover Page and are deemed delivered on receipt. This MNDA may be executed in counterparts, including electronic copies, each of which is deemed an original and which together form the same agreement.",
+    heading: "其他约定",
+    body: "本协议不构成任何一方向另一方披露保密信息或进行任何交易的义务。未经另一方事先书面同意，任何一方不得转让本协议项下的权利义务，但因合并、重组、收购或全部或实质全部资产转让而概括转让的除外；违反本条的转让行为无效。本协议对双方经许可的继受人具有约束力。任何弃权应由弃权方授权代表以书面形式作出，不得以行为推定。本协议任何条款被认定无效或不可执行的，不影响其余条款的效力。本协议（含封面页）构成双方就本协议标的达成的完整约定，并取代双方此前就该标的达成的全部口头或书面的谅解与约定。对本协议的任何变更、补充均应以双方签署的书面文件作出。与本协议有关的通知应以书面形式发送至封面页所载的电子邮箱或通讯地址，自送达时生效。本协议可以一式多份（含电子文本）签署，各份具有同等法律效力。",
   },
 ];
 
-// Upstream versioned page + CC BY 4.0 license — both URLs must appear in the
-// rendered attribution for the PDF to remain license-compliant.
-export const ATTRIBUTION_VERSION_URL =
-  "https://commonpaper.com/standards/mutual-nda/1.0/";
-export const ATTRIBUTION_LICENSE_URL =
-  "https://creativecommons.org/licenses/by/4.0/";
+// 范本出处与许可说明 —— 渲染在预览页脚，替代原 Common Paper 归属声明。
+export const TEMPLATE_VERSION_LABEL = "Prelegal 双方保密协议范本 v1.0";
+export const TEMPLATE_NOTICE =
+  "本范本由 AI 辅助起草，仅供参考，不构成法律意见；签署前请由执业律师审核。";
 
 type Segment =
   | { type: "text"; value: string }

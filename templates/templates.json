@@ -1,180 +1,200 @@
 {
   "schema_version": "1",
   "source": {
-    "publisher": "Common Paper",
-    "organization_url": "https://commonpaper.com/",
-    "github_org": "https://github.com/CommonPaper",
-    "license": {
-      "spdx_id": "CC-BY-4.0",
-      "name": "Creative Commons Attribution 4.0 International",
-      "url": "https://creativecommons.org/licenses/by/4.0/"
-    }
+    "publisher": "Prelegal",
+    "law": "PRC",
+    "note": "中国法中文范本，由 AI 辅助起草（v1.0），未经执业律师审定；仅供参考，不构成法律意见，签署前请由执业律师审核。"
   },
   "templates": [
     {
       "id": "mutual-nda",
-      "title": "Mutual Non-Disclosure Agreement (MNDA)",
-      "description": "Standard bilateral non-disclosure agreement for exchanging confidential information between two parties.",
+      "title": "双方保密协议",
+      "description": "中国法下的双向保密协议标准范本，含商业秘密持续保密义务。",
       "category": "nda",
       "path": "mutual-nda",
       "files": [
-        { "type": "cover_page", "path": "mutual-nda/Mutual-NDA-coverpage.md" },
-        { "type": "standard_terms", "path": "mutual-nda/Mutual-NDA.md" }
+        {
+          "type": "cover_page",
+          "path": "mutual-nda/Mutual-NDA-coverpage.md"
+        },
+        {
+          "type": "standard_terms",
+          "path": "mutual-nda/Mutual-NDA.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/Mutual-NDA",
-        "commit": "2a3068b6c0ab6015c440f541d5b215bc3ac2f4cb",
-        "commit_date": "2022-06-07T18:24:38Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "cloud-service-agreement",
-      "title": "Cloud Service Agreement (CSA)",
-      "description": "Standard agreement for SaaS/cloud service providers to contract with customers, covering access, data, support, and commercial terms.",
+      "title": "SaaS 服务协议",
+      "description": "中国法下的 SaaS 订阅服务协议标准范本，覆盖访问授权、数据与个人信息保护、费用、责任限制与赔偿。",
       "category": "commercial",
       "path": "cloud-service-agreement",
       "files": [
-        { "type": "standard_terms", "path": "cloud-service-agreement/CSA.md" }
+        {
+          "type": "standard_terms",
+          "path": "cloud-service-agreement/CSA.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/CSA",
-        "commit": "4afc1f9d9ebad949a67a9585ed527e19f482492b",
-        "commit_date": "2025-05-20T15:02:43Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "design-partner-agreement",
-      "title": "Design Partner Agreement",
-      "description": "Agreement for early-stage vendors collaborating with a design partner to co-develop and validate a product.",
+      "title": "设计合作伙伴协议",
+      "description": "中国法下的设计合作伙伴协议范本：联合开发反馈、试用授权、知识产权归属与退出机制。",
       "category": "commercial",
       "path": "design-partner-agreement",
       "files": [
-        { "type": "standard_terms", "path": "design-partner-agreement/design-partner-agreement.md" }
+        {
+          "type": "standard_terms",
+          "path": "design-partner-agreement/design-partner-agreement.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/Design-Partner-Agreement",
-        "commit": "ff8ed1049d5546ea6bd96a17b4c910d831cde3be",
-        "commit_date": "2026-04-10T14:59:49Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "service-level-agreement",
-      "title": "Service Level Agreement (SLA)",
-      "description": "Service level commitments (uptime, incident response) intended to be attached to a cloud or software agreement.",
+      "title": "服务等级协议（SLA）",
+      "description": "中国法下的 SLA 附件范本：可用率承诺、故障分级响应、服务积分补偿与除外情形。",
       "category": "commercial-addendum",
       "path": "service-level-agreement",
       "files": [
-        { "type": "standard_terms", "path": "service-level-agreement/sla.md" }
+        {
+          "type": "standard_terms",
+          "path": "service-level-agreement/sla.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/SLA",
-        "commit": "5b0e6336f058a66c4976d70ecabf1f5fb9ef3af4",
-        "commit_date": "2025-05-20T15:02:48Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "professional-services-agreement",
-      "title": "Professional Services Agreement (PSA)",
-      "description": "Agreement for a service provider delivering professional/consulting services against one or more Statements of Work.",
+      "title": "专业服务协议",
+      "description": "中国法下的专业服务协议范本：SOW 机制、交付验收、增值税发票、知识产权归属。",
       "category": "commercial",
       "path": "professional-services-agreement",
       "files": [
-        { "type": "standard_terms", "path": "professional-services-agreement/psa.md" }
+        {
+          "type": "standard_terms",
+          "path": "professional-services-agreement/psa.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/PSA",
-        "commit": "3fb650a72d229f6d6e6d64abebae5e83c6699535",
-        "commit_date": "2025-05-23T13:38:36Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "data-processing-agreement",
-      "title": "Data Processing Agreement (DPA)",
-      "description": "Controller-to-processor data protection terms covering GDPR / UK GDPR / CCPA obligations, sub-processing, and international transfers.",
+      "title": "个人信息委托处理协议",
+      "description": "依据《中华人民共和国个人信息保护法》第 21 条起草的委托处理协议范本。",
       "category": "privacy-addendum",
       "path": "data-processing-agreement",
       "files": [
-        { "type": "standard_terms", "path": "data-processing-agreement/DPA.md" }
+        {
+          "type": "standard_terms",
+          "path": "data-processing-agreement/DPA.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/DPA",
-        "commit": "9f1c40d3fb0bb900397a919d058a9c0870f6b0f0",
-        "commit_date": "2025-05-09T21:29:46Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "software-license-agreement",
-      "title": "Software License Agreement",
-      "description": "Standard agreement licensing on-prem or otherwise installable software, covering scope of license, support, and commercial terms.",
+      "title": "软件许可协议",
+      "description": "中国法下的软件许可协议范本：非独占许可、交付验证、维护分级、审计条款。",
       "category": "commercial",
       "path": "software-license-agreement",
       "files": [
-        { "type": "standard_terms", "path": "software-license-agreement/Software-License-Agreement.md" }
+        {
+          "type": "standard_terms",
+          "path": "software-license-agreement/Software-License-Agreement.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/Software-License-Agreement",
-        "commit": "8ea7de38148a8a0c235b7aaf31487028c2e519ca",
-        "commit_date": "2025-05-20T15:02:27Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "partnership-agreement",
-      "title": "Partnership Agreement",
-      "description": "Agreement between two companies to jointly market, resell, or refer each other's offerings.",
+      "title": "渠道合作协议",
+      "description": "中国法下的渠道合作协议范本：合作模式、商机报备、返佣结算、商标使用。",
       "category": "commercial",
       "path": "partnership-agreement",
       "files": [
-        { "type": "standard_terms", "path": "partnership-agreement/Partnership-Agreement.md" }
+        {
+          "type": "standard_terms",
+          "path": "partnership-agreement/Partnership-Agreement.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/Partnership-Agreement",
-        "commit": "6edeb5a285206893cfd0ac482267db44d90f317c",
-        "commit_date": "2025-05-23T13:38:27Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "pilot-agreement",
-      "title": "Pilot Agreement",
-      "description": "Short-form agreement for a limited paid or free pilot/trial of a product with a prospective customer.",
+      "title": "试点协议",
+      "description": "中国法下的试点协议范本：试点范围与期限、费用、数据处理、评估与转正式协议。",
       "category": "commercial",
       "path": "pilot-agreement",
       "files": [
-        { "type": "standard_terms", "path": "pilot-agreement/Pilot-Agreement.md" }
+        {
+          "type": "standard_terms",
+          "path": "pilot-agreement/Pilot-Agreement.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/Pilot-Agreement",
-        "commit": "5e7cdd4678cd9d6b3178872cce4a01d632f41f14",
-        "commit_date": "2025-07-22T20:13:15Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "business-associate-agreement",
-      "title": "Business Associate Agreement (BAA)",
-      "description": "HIPAA-required agreement between a covered entity and a business associate that handles protected health information.",
+      "title": "医疗健康数据合作协议",
+      "description": "依据《中华人民共和国个人信息保护法》敏感个人信息条款与《中华人民共和国数据安全法》起草的医疗健康数据合作协议范本。",
       "category": "privacy-addendum",
       "path": "business-associate-agreement",
       "files": [
-        { "type": "standard_terms", "path": "business-associate-agreement/BAA.md" }
+        {
+          "type": "standard_terms",
+          "path": "business-associate-agreement/BAA.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/BAA",
-        "commit": "5f1fd992df1d0c78bf69997e1881e4107fa75695",
-        "commit_date": "2025-05-23T13:38:19Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     },
     {
       "id": "ai-addendum",
-      "title": "AI Addendum",
-      "description": "Addendum layering AI-specific terms (training data, model inputs/outputs, acceptable use) onto an underlying services agreement.",
+      "title": "人工智能服务附加条款",
+      "description": "依据《生成式人工智能服务管理暂行办法》《互联网信息服务深度合成管理规定》起草的 AI 附加条款范本。",
       "category": "commercial-addendum",
       "path": "ai-addendum",
       "files": [
-        { "type": "standard_terms", "path": "ai-addendum/AI-Addendum.md" }
+        {
+          "type": "standard_terms",
+          "path": "ai-addendum/AI-Addendum.md"
+        }
       ],
       "source": {
-        "repo": "https://github.com/CommonPaper/AI-Addendum",
-        "commit": "6d9b044df73a2477c177e5989fca7f8d27df9387",
-        "commit_date": "2025-08-07T16:07:20Z"
+        "origin": "prelegal",
+        "version": "1.0"
       }
     }
   ]

@@ -1,82 +1,82 @@
 {
   "schema_version": "1",
-  "description": "Catalog of legal documents the prelegal system can draft. The AI chat uses this index to suggest documents to users and to identify which template to populate. Underlying template files, source repos, and commit pinning live in templates/templates.json.",
+  "description": "Prelegal 可起草的法律文件目录（中国法中文范本）。AI 对话用本索引向用户推荐文档并确定要填充的模板。模板文件与字段清单见 templates/templates.json 与 templates/manifests/。",
   "documents": [
     {
       "id": "mutual-nda",
-      "title": "Mutual Non-Disclosure Agreement (MNDA)",
+      "title": "双方保密协议",
       "category": "nda",
-      "use_when": "Two parties need to exchange confidential information bilaterally — e.g. evaluating a partnership, due diligence, or before sharing sensitive data.",
+      "use_when": "双方需要相互披露保密信息——例如评估合作、尽职调查或共享敏感资料之前。",
       "status": "available"
     },
     {
       "id": "cloud-service-agreement",
-      "title": "Cloud Service Agreement (CSA)",
+      "title": "SaaS 服务协议",
       "category": "commercial",
-      "use_when": "A SaaS or cloud provider is contracting with a customer for ongoing access to a hosted service. Covers access, data, support, and commercial terms.",
+      "use_when": "SaaS/云服务商与客户就持续订阅使用在线服务签约，覆盖访问、数据安全、支持与商务条款。",
       "status": "available"
     },
     {
       "id": "design-partner-agreement",
-      "title": "Design Partner Agreement",
+      "title": "设计合作伙伴协议",
       "category": "commercial",
-      "use_when": "An early-stage vendor is collaborating with a design partner to co-develop and validate a product, typically pre-GA.",
+      "use_when": "早期产品厂商与设计合作伙伴共同打磨、验证产品（通常在正式发布前）。",
       "status": "planned"
     },
     {
       "id": "service-level-agreement",
-      "title": "Service Level Agreement (SLA)",
+      "title": "服务等级协议（SLA）",
       "category": "commercial-addendum",
-      "use_when": "Attach uptime and incident-response commitments to a cloud or software agreement.",
+      "use_when": "为云服务或软件协议附加可用性与故障响应承诺。",
       "status": "planned"
     },
     {
       "id": "professional-services-agreement",
-      "title": "Professional Services Agreement (PSA)",
+      "title": "专业服务协议",
       "category": "commercial",
-      "use_when": "A service provider is delivering professional or consulting work against one or more Statements of Work.",
+      "use_when": "服务方按工作说明书（SOW）交付咨询、实施等专业服务。",
       "status": "planned"
     },
     {
       "id": "data-processing-agreement",
-      "title": "Data Processing Agreement (DPA)",
+      "title": "个人信息委托处理协议",
       "category": "privacy-addendum",
-      "use_when": "Personal data is being processed on a controller's behalf — covers GDPR / UK GDPR / CCPA obligations, sub-processing, and international transfers.",
+      "use_when": "受托处理个人信息的场景——对应《个人信息保护法》第 21 条委托处理，覆盖安全措施、转委托与出境限制。",
       "status": "planned"
     },
     {
       "id": "software-license-agreement",
-      "title": "Software License Agreement",
+      "title": "软件许可协议",
       "category": "commercial",
-      "use_when": "Licensing on-prem or otherwise installable software (not SaaS). Covers scope of license, support, and commercial terms.",
+      "use_when": "许可本地部署或可安装软件（非 SaaS），覆盖许可范围、维护支持与商务条款。",
       "status": "planned"
     },
     {
       "id": "partnership-agreement",
-      "title": "Partnership Agreement",
+      "title": "渠道合作协议",
       "category": "commercial",
-      "use_when": "Two companies want to jointly market, resell, or refer each other's offerings.",
+      "use_when": "两家公司联合营销、转售或相互转介绍产品。",
       "status": "planned"
     },
     {
       "id": "pilot-agreement",
-      "title": "Pilot Agreement",
+      "title": "试点协议",
       "category": "commercial",
-      "use_when": "Short-form agreement for a limited paid or free pilot/trial of a product with a prospective customer.",
+      "use_when": "限定期限或范围的付费/免费试点、试用。",
       "status": "planned"
     },
     {
       "id": "business-associate-agreement",
-      "title": "Business Associate Agreement (BAA)",
+      "title": "医疗健康数据合作协议",
       "category": "privacy-addendum",
-      "use_when": "Required by HIPAA when a vendor (business associate) handles protected health information for a covered entity.",
+      "use_when": "医疗机构或健康服务方委托技术服务方处理医疗健康数据（敏感个人信息）。",
       "status": "planned"
     },
     {
       "id": "ai-addendum",
-      "title": "AI Addendum",
+      "title": "人工智能服务附加条款",
       "category": "commercial-addendum",
-      "use_when": "Layer AI-specific terms (training data, model inputs/outputs, acceptable use) onto an existing services agreement.",
+      "use_when": "在既有服务协议上叠加 AI 专项条款（训练数据、输入输出权属、内容标识、禁止用途）。",
       "status": "planned"
     }
   ]

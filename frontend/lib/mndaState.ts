@@ -35,14 +35,14 @@ function todayLocalISO(): string {
 }
 
 export const INITIAL_STATE: MndaState = {
-  purpose: "Evaluating whether to enter into a business relationship with the other party.",
+  purpose: "评估双方之间的业务合作机会。",
   effectiveDate: todayLocalISO(),
   mndaTermMode: "expires",
   mndaTermYears: 1,
   confidentialityMode: "years",
   confidentialityYears: 1,
-  governingLaw: "Delaware",
-  jurisdiction: "courts located in New Castle, DE",
+  governingLaw: "中华人民共和国法律",
+  jurisdiction: "甲方住所地有管辖权的人民法院",
   modifications: "",
   party1: {
     company: "",
@@ -115,12 +115,9 @@ export function mergeMndaUpdates(
 export function formatEffectiveDate(iso: string): string {
   if (!iso) return "";
   // Parse as a local calendar date — `new Date("2026-04-23")` would be midnight
-  // UTC, which renders as the previous day in negative timezones.
+  // UTC, which renders as the previous day in negative timezones. The PRC
+  // contract renders dates in the standard Chinese form (2026年4月23日).
   const [y, m, d] = iso.split("-").map((n) => parseInt(n, 10));
   if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return `${y}年${m}月${d}日`;
 }

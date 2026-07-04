@@ -168,7 +168,7 @@ test.describe("MNDA chat", () => {
 
     // Header now reflects the new doc.
     await expect(page.getByText(/Drafting:/)).toContainText(
-      "Cloud Service Agreement",
+      "SaaS Service Agreement",
     );
     // The generic preview rendered the fetched template title (with the
     // catalog title format including the abbreviation in parentheses) and
