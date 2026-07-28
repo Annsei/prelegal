@@ -529,6 +529,7 @@ export default function Home() {
               key={activeDocId ?? "new"}
               locale={locale}
               state={state}
+              fields={genericFields}
               docId={docId}
               getDraftEpoch={getDraftEpoch}
               onStateChange={setState}

@@ -113,9 +113,11 @@ def test_chat_complete_parses_structured_response(monkeypatch):
         "allow_fallbacks": False,
     }
     assert captured["response_format"]["type"] == "json_schema"
-    # System prompt should embed the current MNDA state for grounding.
+    # System prompt should embed the current document state for grounding.
     system = captured["messages"][0]
     assert system["role"] == "system"
+    assert "Current document state" in system["content"]
+    assert '"mnda"' in system["content"]
     assert '"purpose"' in system["content"]
 
 
@@ -398,6 +400,77 @@ def test_chat_complete_injects_manifest_checklist_for_csa(monkeypatch):
     assert field_schema["additionalProperties"] is False
     assert "订阅期" in field_schema["properties"]
     assert "服务方赔偿范围" in field_schema["properties"]
+
+
+def test_chat_complete_embeds_manifest_doc_fields_in_current_state(monkeypatch):
+    """Manifest docs must feed chat-collected/manual fields back into the
+    next LLM turn, not only the legacy MNDA state."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "服务费是多少？",
+                "mnda_updates": {},
+                "done": False,
+            },
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    llm.chat_complete(
+        messages=[{"role": "user", "content": "服务期 12 个月"}],
+        mnda_state={},
+        doc_id="cloud-service-agreement",
+        document_state={
+            "doc_id": "cloud-service-agreement",
+            "mnda": {},
+            "fields": {"客户": "示例科技（北京）有限公司", "订阅期": "12 个月"},
+        },
+    )
+
+    system = captured["messages"][0]["content"]
+    assert "Current document state" in system
+    assert '"fields"' in system
+    assert '"客户": "示例科技（北京）有限公司"' in system
+    assert '"订阅期": "12 个月"' in system
+
+
+def test_chat_complete_filters_field_updates_to_manifest_keys(monkeypatch):
+    """The schema is advisory without strict mode; normalization is the
+    server-side enforcement boundary for manifest field keys."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    payload = {
+        "assistant_message": "还需要服务费是多少？",
+        "selected_doc_id": "cloud-service-agreement",
+        "mnda_updates": {},
+        "field_updates": {
+            "客户": "示例科技（北京）有限公司",
+            "订阅期": 12,
+            "Unknown": "must be dropped",
+        },
+        "done": False,
+    }
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda **_kw: _fake_response(payload),
+    )
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "客户是示例科技，服务期 12 个月"}],
+        mnda_state={},
+        doc_id="cloud-service-agreement",
+    )
+
+    assert result["field_updates"] == {
+        "客户": "示例科技（北京）有限公司",
+        "订阅期": "12",
+    }
 
 
 def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):

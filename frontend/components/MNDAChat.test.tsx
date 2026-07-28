@@ -9,6 +9,7 @@ import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 function Harness({
   locale = "en" as "en" | "zh",
   docId = "mutual-nda",
+  fields = {},
   onDocChange = () => {},
   onFieldUpdates = () => {},
   initialHistory = [] as ChatTurn[],
@@ -16,6 +17,7 @@ function Harness({
 }: {
   locale?: "en" | "zh";
   docId?: string;
+  fields?: Record<string, string>;
   onDocChange?: (id: string) => void;
   onFieldUpdates?: (updates: Record<string, string>) => void;
   initialHistory?: ChatTurn[];
@@ -29,6 +31,7 @@ function Harness({
       <MNDAChat
         locale={locale}
         state={state}
+        fields={fields}
         docId={docId}
         getDraftEpoch={getDraftEpoch}
         onStateChange={setState}
@@ -114,9 +117,51 @@ describe("MNDAChat", () => {
       content: "We're evaluating a partnership.",
     });
     expect(body.mnda_state).toMatchObject({ purpose: expect.any(String) });
+    expect(body.document_state).toMatchObject({
+      doc_id: "mutual-nda",
+      mnda: { purpose: expect.any(String) },
+      fields: {},
+    });
     // The open doc travels with every turn so the backend can inject its
     // cover-page field checklist.
     expect(body.doc_id).toBe("mutual-nda");
+  });
+
+  it("sends manifest document fields as the unified current state", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          assistant_message: "还需要服务费是多少？",
+          selected_doc_id: "cloud-service-agreement",
+          mnda_updates: {},
+          field_updates: {},
+          done: false,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <Harness
+        locale="zh"
+        docId="cloud-service-agreement"
+        fields={{ 客户: "示例科技", 订阅期: "12 个月" }}
+      />,
+    );
+    await userEvent.type(screen.getByLabelText(/输入消息/), "服务方是云服务商");
+    await userEvent.click(screen.getByRole("button", { name: /发送/ }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/服务费是多少/)).toBeInTheDocument(),
+    );
+
+    const init = fetchMock.mock.calls[0][1];
+    const body = JSON.parse(init.body as string);
+    expect(body.document_state).toMatchObject({
+      doc_id: "cloud-service-agreement",
+      fields: { 客户: "示例科技", 订阅期: "12 个月" },
+    });
   });
 
   it("shows an error message when the chat API fails and keeps the user turn visible", async () => {

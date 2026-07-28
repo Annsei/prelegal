@@ -13,6 +13,7 @@ import { clearSession, readToken } from "@/lib/session";
 type Props = {
   locale: Locale;
   state: MndaState;
+  fields: Record<string, string>;
   // The catalog doc currently open. Sent with each chat turn so the
   // backend can inject that document's cover-page field checklist into
   // the LLM prompt (see backend/app/manifests.py).
@@ -53,6 +54,7 @@ type Props = {
 export function MNDAChat({
   locale,
   state,
+  fields,
   docId,
   getDraftEpoch,
   onStateChange,
@@ -99,6 +101,11 @@ export function MNDAChat({
         nextHistory,
         state as unknown as Record<string, unknown>,
         docId,
+        {
+          doc_id: docId,
+          mnda: state as unknown as Record<string, unknown>,
+          fields,
+        },
       );
       if (getDraftEpoch() !== epochAtSend) {
         // The user switched to another draft while this request was in

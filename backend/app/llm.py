@@ -334,6 +334,7 @@ def _call_llm(
     system: str,
     api_key: str,
     schema: dict[str, Any],
+    manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     try:
         response = litellm.completion(
@@ -364,10 +365,13 @@ def _call_llm(
         raise LLMUnavailableError(
             f"LLM returned an unparseable response: {exc}",
         ) from exc
-    return _normalize_result(parsed)
+    return _normalize_result(parsed, manifest)
 
 
-def _normalize_result(data: Any) -> dict[str, Any]:
+def _normalize_result(
+    data: Any,
+    manifest: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Coerce parsed LLM JSON into the exact shape the route layer expects.
 
     Structured Outputs run without strict mode (see the response_format
@@ -388,9 +392,15 @@ def _normalize_result(data: Any) -> dict[str, Any]:
     mnda_updates = data.get("mnda_updates")
     raw_fields = data.get("field_updates")
     field_updates: dict[str, str] = {}
+    allowed_fields = set(manifest_field_keys(manifest)) if manifest else None
     if isinstance(raw_fields, dict):
         for key, value in raw_fields.items():
-            field_updates[str(key)] = (
+            field_key = str(key)
+            # Structured outputs are intentionally non-strict for partial
+            # MNDA updates, so manifest enforcement happens again here.
+            if allowed_fields is not None and field_key not in allowed_fields:
+                continue
+            field_updates[field_key] = (
                 value if isinstance(value, str)
                 else json.dumps(value, ensure_ascii=False)
             )
@@ -407,6 +417,7 @@ def chat_complete(
     messages: list[dict[str, str]],
     mnda_state: dict[str, Any],
     doc_id: str = "",
+    document_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Call the LLM and return the parsed structured response.
 
@@ -433,10 +444,18 @@ def chat_complete(
     if manifest:
         system += "\n\n" + _manifest_prompt_section(manifest)
 
-    state_summary = json.dumps(mnda_state, indent=2, ensure_ascii=False)
-    system += f"\n\nCurrent MNDA state:\n{state_summary}"
+    current_state: dict[str, Any] = {
+        "doc_id": doc_id,
+        "mnda": mnda_state,
+        "fields": {},
+    }
+    if isinstance(document_state, dict):
+        current_state.update(document_state)
 
-    result = _call_llm(messages, system, api_key, schema)
+    state_summary = json.dumps(current_state, indent=2, ensure_ascii=False)
+    system += f"\n\nCurrent document state:\n{state_summary}"
+
+    result = _call_llm(messages, system, api_key, schema, manifest)
 
     needs_followup = (
         not result.get("done")
@@ -455,7 +474,7 @@ def chat_complete(
             + "\n\nIMPORTANT: Your previous reply did not end with a question. "
             "While `done` is false, `assistant_message` MUST end with a question."
         )
-        result = _call_llm(messages, retry_system, api_key, schema)
+        result = _call_llm(messages, retry_system, api_key, schema, manifest)
         result["mnda_updates"] = {**first_mnda, **(result.get("mnda_updates") or {})}
         result["field_updates"] = {
             **first_fields,

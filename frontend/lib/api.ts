@@ -87,6 +87,12 @@ export type ChatResponse = {
   done: boolean;
 };
 
+export type ChatDocumentState = {
+  doc_id: string;
+  mnda: Record<string, unknown>;
+  fields: Record<string, string>;
+};
+
 export const chatApi = {
   // Chat is a protected endpoint (each turn costs LLM credits server-side),
   // so it takes the bearer token like the documents API. `docId` is the doc
@@ -97,6 +103,11 @@ export const chatApi = {
     messages: ChatTurn[],
     mndaState: Record<string, unknown>,
     docId: string,
+    documentState: ChatDocumentState = {
+      doc_id: docId,
+      mnda: mndaState,
+      fields: {},
+    },
   ) =>
     apiFetch<ChatResponse>("/api/chat", {
       method: "POST",
@@ -105,6 +116,7 @@ export const chatApi = {
         messages,
         mnda_state: mndaState,
         doc_id: docId,
+        document_state: documentState,
       }),
     }),
 };

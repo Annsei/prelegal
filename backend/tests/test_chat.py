@@ -34,9 +34,10 @@ def _auth_headers(client) -> dict[str, str]:
 def chat_client(client, monkeypatch):
     captured: dict = {}
 
-    def fake_chat_complete(messages, mnda_state, doc_id=""):
+    def fake_chat_complete(messages, mnda_state, doc_id="", document_state=None):
         captured["messages"] = messages
         captured["mnda_state"] = mnda_state
+        captured["document_state"] = document_state
         return {
             "assistant_message": "Got it — what's the effective date?",
             "selected_doc_id": "mutual-nda",
@@ -72,6 +73,11 @@ def test_chat_returns_assistant_message_and_updates(chat_client):
 
     # The route should have forwarded both history and state to the LLM layer.
     assert chat_client.captured["mnda_state"] == {"purpose": ""}
+    assert chat_client.captured["document_state"] == {
+        "doc_id": "",
+        "mnda": {"purpose": ""},
+        "fields": {},
+    }
     assert chat_client.captured["messages"][0]["role"] == "user"
 
 
@@ -101,7 +107,7 @@ def test_chat_rejects_empty_history(chat_client):
 
 
 def test_chat_returns_502_when_llm_unavailable(client, monkeypatch):
-    def boom(messages, mnda_state, doc_id=""):
+    def boom(messages, mnda_state, doc_id="", document_state=None):
         raise llm.LLMUnavailableError("OPENROUTER_API_KEY is not set.")
 
     monkeypatch.setattr(chat_route, "chat_complete", boom)
@@ -135,7 +141,7 @@ def test_chat_requires_auth(chat_client):
 def test_chat_forwards_doc_id_to_llm_layer(client, monkeypatch):
     captured: dict = {}
 
-    def fake_chat_complete(messages, mnda_state, doc_id=""):
+    def fake_chat_complete(messages, mnda_state, doc_id="", document_state=None):
         captured["doc_id"] = doc_id
         return {
             "assistant_message": "Noted — what's the subscription period?",
@@ -158,3 +164,41 @@ def test_chat_forwards_doc_id_to_llm_layer(client, monkeypatch):
     )
     assert res.status_code == 200
     assert captured["doc_id"] == "cloud-service-agreement"
+
+
+def test_chat_forwards_document_state_to_llm_layer(client, monkeypatch):
+    captured: dict = {}
+
+    def fake_chat_complete(messages, mnda_state, doc_id="", document_state=None):
+        captured["mnda_state"] = mnda_state
+        captured["doc_id"] = doc_id
+        captured["document_state"] = document_state
+        return {
+            "assistant_message": "Noted — what is the service fee?",
+            "selected_doc_id": "cloud-service-agreement",
+            "mnda_updates": {},
+            "field_updates": {},
+            "done": False,
+        }
+
+    monkeypatch.setattr(chat_route, "chat_complete", fake_chat_complete)
+
+    document_state = {
+        "doc_id": "cloud-service-agreement",
+        "mnda": {},
+        "fields": {"客户": "示例科技", "服务方": "云服务商"},
+    }
+    res = client.post(
+        "/api/chat",
+        headers=_auth_headers(client),
+        json={
+            "messages": [{"role": "user", "content": "服务期 12 个月"}],
+            "mnda_state": {},
+            "doc_id": "cloud-service-agreement",
+            "document_state": document_state,
+        },
+    )
+    assert res.status_code == 200
+    assert captured["doc_id"] == "cloud-service-agreement"
+    assert captured["mnda_state"] == {}
+    assert captured["document_state"] == document_state
