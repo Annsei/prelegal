@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+from app.db import get_conn
+
 
 def _register(client, email: str, password: str = "secretpw1") -> str:
     res = client.post(
@@ -36,6 +40,14 @@ def _patch(client, headers: dict, doc_id: int, body: dict):
         headers=headers,
         json=body,
     )
+
+
+def _force_state_json(doc_id: int, state: dict) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE documents SET state_json = ? WHERE id = ?",
+            (json.dumps(state, ensure_ascii=False), doc_id),
+        )
 
 
 def test_llm_patch_creates_pending_state_without_touching_legacy_fields(client):
@@ -98,7 +110,7 @@ def test_user_confirmation_syncs_confirmed_value_to_legacy_fields(client):
         {
             "patch_id": "user-1",
             "base_revision": 1,
-            "source": "user",
+            "source": "form",
             "operations": [{"op": "confirm", "key": "客户"}],
         },
     )
@@ -115,7 +127,24 @@ def test_user_confirmation_syncs_confirmed_value_to_legacy_fields(client):
 def test_new_llm_value_conflicts_with_confirmed_value_without_overwriting(client):
     token = _register(client, "alice@example.com")
     headers = _bearer(token)
-    doc = _create_csa(client, headers, {"fields": {"客户": "原客户"}})
+    doc = _create_csa(client, headers)
+
+    assert (
+        _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": "form-confirm-base",
+                "base_revision": 0,
+                "source": "form",
+                "operations": [
+                    {"op": "confirm", "key": "客户", "value": "原客户"},
+                ],
+            },
+        ).status_code
+        == 200
+    )
 
     res = _patch(
         client,
@@ -123,7 +152,7 @@ def test_new_llm_value_conflicts_with_confirmed_value_without_overwriting(client
         doc["id"],
         {
             "patch_id": "llm-2",
-            "base_revision": 0,
+            "base_revision": 1,
             "source": "llm",
             "operations": [
                 {"op": "propose", "key": "客户", "value": "新客户"},
@@ -260,7 +289,24 @@ def test_clearing_confirmed_field_removes_legacy_manifest_value(client):
     doc = _create_csa(
         client,
         headers,
-        {"fields": {"客户": "原客户", "Side Letter": "保留"}},
+        {"fields": {"Side Letter": "保留"}},
+    )
+
+    assert (
+        _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": "confirm-customer",
+                "base_revision": 0,
+                "source": "form",
+                "operations": [
+                    {"op": "confirm", "key": "客户", "value": "原客户"},
+                ],
+            },
+        ).status_code
+        == 200
     )
 
     res = _patch(
@@ -269,8 +315,8 @@ def test_clearing_confirmed_field_removes_legacy_manifest_value(client):
         doc["id"],
         {
             "patch_id": "clear-customer",
-            "base_revision": 0,
-            "source": "user",
+            "base_revision": 1,
+            "source": "form",
             "operations": [{"op": "confirm", "key": "客户", "value": ""}],
         },
     )
@@ -343,3 +389,425 @@ def test_field_patch_rejects_docs_without_manifest_but_mnda_crud_still_works(cli
     )
     assert update.status_code == 200
     assert update.json()["state"]["mnda"]["purpose"] == "更新后的用途"
+
+
+def test_public_patch_rejects_system_and_user_source_spoofing(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    system = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "system-spoof",
+            "base_revision": 0,
+            "source": "system",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "伪造客户"},
+            ],
+        },
+    )
+    assert system.status_code == 422
+    assert system.json()["detail"]["validation_errors"][0]["kind"] == (
+        "forbidden_source"
+    )
+
+    user = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "user-spoof",
+            "base_revision": 0,
+            "source": "user",
+            "operations": [
+                {"op": "confirm", "key": "客户", "value": "伪造客户"},
+            ],
+        },
+    )
+    assert user.status_code == 422
+    assert user.json()["detail"]["validation_errors"][0]["kind"] == (
+        "forbidden_source"
+    )
+
+
+def test_route_rejects_llm_reject_and_clear_without_persisting(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    assert (
+        _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": "llm-1",
+                "base_revision": 0,
+                "source": "llm",
+                "operations": [
+                    {"op": "propose", "key": "客户", "value": "候选客户"},
+                ],
+            },
+        ).status_code
+        == 200
+    )
+
+    reject = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "llm-reject",
+            "base_revision": 1,
+            "source": "llm",
+            "operations": [{"op": "reject", "key": "客户"}],
+        },
+    )
+    assert reject.status_code == 422
+    assert reject.json()["detail"]["validation_errors"][0]["kind"] == (
+        "llm_reject_forbidden"
+    )
+
+    clear = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "llm-clear",
+            "base_revision": 1,
+            "source": "llm",
+            "operations": [{"op": "propose", "key": "客户", "value": ""}],
+        },
+    )
+    assert clear.status_code == 422
+    assert clear.json()["detail"]["validation_errors"][0]["kind"] == (
+        "llm_clear_forbidden"
+    )
+
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"]["draft_state"]["revision"] == 1
+    assert fetched["state"]["draft_state"]["fields"]["客户"]["status"] == (
+        "pending_confirmation"
+    )
+
+
+def test_create_rejects_public_draft_state_injection(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+
+    res = client.post(
+        "/api/documents",
+        headers=headers,
+        json={
+            "doc_id": "cloud-service-agreement",
+            "title": "Injected",
+            "state": {
+                "draft_state": {
+                    "schema_version": "draft-state.v1",
+                    "doc_id": "cloud-service-agreement",
+                    "revision": 99,
+                    "fields": {},
+                    "applied_patches": {},
+                },
+            },
+        },
+    )
+
+    assert res.status_code == 422
+    assert res.json()["detail"]["validation_errors"][0]["kind"] == (
+        "draft_state_injection_forbidden"
+    )
+
+
+def test_stale_put_after_patch_cannot_reset_snapshot_revision(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers, {"chat": []})
+
+    patch = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "form-confirm",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [
+                {"op": "confirm", "key": "客户", "value": "示例科技"},
+            ],
+        },
+    )
+    assert patch.status_code == 200
+
+    stale_put = client.put(
+        f"/api/documents/{doc['id']}",
+        headers=headers,
+        json={"state": {"chat": [{"role": "user", "content": "stale"}]}},
+    )
+    assert stale_put.status_code == 200
+    state = stale_put.json()["state"]
+    assert state["chat"] == [{"role": "user", "content": "stale"}]
+    assert state["draft_state"]["revision"] == 1
+    assert state["fields"]["客户"] == "示例科技"
+
+
+def test_put_cannot_delete_replace_or_rollback_existing_snapshot(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    assert (
+        _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": "form-confirm",
+                "base_revision": 0,
+                "source": "form",
+                "operations": [
+                    {"op": "confirm", "key": "客户", "value": "示例科技"},
+                ],
+            },
+        ).status_code
+        == 200
+    )
+
+    rollback = client.put(
+        f"/api/documents/{doc['id']}",
+        headers=headers,
+        json={
+            "state": {
+                "fields": {"客户": "被篡改"},
+                "draft_state": {
+                    "schema_version": "draft-state.v1",
+                    "doc_id": "cloud-service-agreement",
+                    "revision": 0,
+                    "fields": {},
+                    "applied_patches": {},
+                },
+            },
+        },
+    )
+    assert rollback.status_code == 200
+    state = rollback.json()["state"]
+    assert state["draft_state"]["revision"] == 1
+    assert state["fields"]["客户"] == "示例科技"
+
+    deleted = client.put(
+        f"/api/documents/{doc['id']}",
+        headers=headers,
+        json={"state": {"fields": {}}},
+    )
+    assert deleted.status_code == 200
+    state = deleted.json()["state"]
+    assert state["draft_state"]["revision"] == 1
+    assert state["fields"]["客户"] == "示例科技"
+
+
+def test_non_field_autosave_does_not_drop_concurrent_patch(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers, {"chat": [{"role": "user", "content": "old"}]})
+
+    snapshot_update = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "form-confirm",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [
+                {"op": "confirm", "key": "客户", "value": "示例科技"},
+            ],
+        },
+    )
+    assert snapshot_update.status_code == 200
+
+    stale_autosave = client.put(
+        f"/api/documents/{doc['id']}",
+        headers=headers,
+        json={"state": {"chat": [{"role": "assistant", "content": "new"}]}},
+    )
+    assert stale_autosave.status_code == 200
+    state = stale_autosave.json()["state"]
+    assert state["chat"] == [{"role": "assistant", "content": "new"}]
+    assert state["draft_state"]["revision"] == 1
+    assert state["fields"]["客户"] == "示例科技"
+
+
+def test_same_base_revision_patches_leave_exactly_one_success(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    first = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "patch-a",
+            "base_revision": 0,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "客户 A"},
+            ],
+        },
+    )
+    second = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "patch-b",
+            "base_revision": 0,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "服务方", "value": "服务方 B"},
+            ],
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.json()["detail"]["validation_errors"][0]["kind"] == (
+        "revision_conflict"
+    )
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"]["draft_state"]["revision"] == 1
+
+
+def test_existing_invalid_draft_state_blocks_patch_without_mutation(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+    bad_state = {
+        "fields": {"客户": "保留原文"},
+        "draft_state": {
+            "schema_version": "draft-state.v1",
+            "doc_id": "wrong-doc",
+            "revision": 7,
+            "fields": {},
+            "applied_patches": {},
+        },
+    }
+    _force_state_json(doc["id"], bad_state)
+
+    res = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "patch-after-corruption",
+            "base_revision": 7,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "新客户"},
+            ],
+        },
+    )
+
+    assert res.status_code == 409
+    assert res.json()["detail"]["validation_errors"][0]["kind"] == (
+        "draft_state_doc_mismatch"
+    )
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"] == bad_state
+
+
+def test_legacy_fields_require_migration_before_field_patch(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers, {"fields": {"客户": "旧客户"}})
+
+    res = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "patch-legacy",
+            "base_revision": 0,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "新客户"},
+            ],
+        },
+    )
+
+    assert res.status_code == 409
+    assert res.json()["detail"]["validation_errors"][0]["kind"] == (
+        "migration_required"
+    )
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"]["fields"]["客户"] == "旧客户"
+    assert "draft_state" not in fetched["state"]
+
+
+def test_patch_rejects_single_large_field_when_final_state_exceeds_limit(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    res = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "large-field",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [
+                {"op": "confirm", "key": "技术支持", "value": "x" * (520 * 1024)},
+            ],
+        },
+    )
+
+    assert res.status_code == 422
+    assert res.json()["detail"]["validation_errors"][0]["kind"] == (
+        "state_too_large"
+    )
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert "draft_state" not in fetched["state"]
+
+
+def test_patch_rejects_accumulated_snapshot_over_size_limit_atomically(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+    last_revision = 0
+    rejected = None
+
+    for index in range(40):
+        res = _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": f"accumulate-{index}",
+                "base_revision": last_revision,
+                "source": "form",
+                "operations": [
+                    {
+                        "op": "confirm",
+                        "key": "技术支持",
+                        "value": f"{index}-" + ("x" * (18 * 1024)),
+                    },
+                ],
+            },
+        )
+        if res.status_code == 422:
+            rejected = res
+            break
+        assert res.status_code == 200
+        last_revision = res.json()["snapshot"]["revision"]
+
+    assert rejected is not None
+    assert rejected.json()["detail"]["validation_errors"][0]["kind"] == (
+        "state_too_large"
+    )
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"]["draft_state"]["revision"] == last_revision

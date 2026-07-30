@@ -7,6 +7,7 @@ existence of other users' rows.
 
 from __future__ import annotations
 
+import copy
 import json
 import sqlite3
 from typing import Any
@@ -24,8 +25,9 @@ from app.draft_state import (
     embed_snapshot_in_state,
     snapshot_from_document_state,
 )
-from app.manifests import load_manifest
+from app.manifests import load_manifest, manifest_field_keys
 from app.models import (
+    MAX_DOCUMENT_STATE_BYTES,
     DocumentCreateRequest,
     DocumentOut,
     DocumentSummary,
@@ -72,6 +74,113 @@ def _validation_error_detail(
     return {"validation_errors": [err.model_dump(mode="json") for err in errors]}
 
 
+def _raise_validation_errors(
+    status_code: int,
+    errors: list[ValidationErrorItem],
+) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=_validation_error_detail(errors),
+    )
+
+
+def _draft_state_injection_error() -> ValidationErrorItem:
+    return ValidationErrorItem(
+        kind="draft_state_injection_forbidden",
+        message="Public document writes cannot create or replace draft_state.",
+    )
+
+
+def _state_json_or_reject(state: dict[str, Any]) -> str:
+    state_json = json.dumps(state, ensure_ascii=False)
+    encoded = len(state_json.encode("utf-8"))
+    if encoded > MAX_DOCUMENT_STATE_BYTES:
+        _raise_validation_errors(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            [
+                ValidationErrorItem(
+                    kind="state_too_large",
+                    message=(
+                        f"state too large ({encoded} bytes > "
+                        f"{MAX_DOCUMENT_STATE_BYTES})"
+                    ),
+                ),
+            ],
+        )
+    return state_json
+
+
+def _public_patch_source_errors(
+    payload: FieldPatchRequest,
+) -> list[ValidationErrorItem]:
+    if payload.source in {"llm", "form"}:
+        return []
+    return [
+        ValidationErrorItem(
+            kind="forbidden_source",
+            message=(
+                "Public field-patch requests may only use llm proposals or "
+                "authenticated form actions."
+            ),
+        ),
+    ]
+
+
+def _merge_public_state_update(
+    *,
+    doc_id: str,
+    current_state: dict[str, Any],
+    incoming_state: dict[str, Any],
+) -> dict[str, Any]:
+    manifest = load_manifest(doc_id)
+    if "draft_state" not in current_state:
+        if "draft_state" in incoming_state:
+            raise DraftPatchRejected(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                [_draft_state_injection_error()],
+            )
+        return copy.deepcopy(incoming_state)
+
+    if manifest is None:
+        if "draft_state" in incoming_state:
+            raise DraftPatchRejected(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                [_draft_state_injection_error()],
+            )
+        return copy.deepcopy(incoming_state)
+
+    snapshot = snapshot_from_document_state(
+        doc_id=doc_id,
+        state=current_state,
+        manifest=manifest,
+    )
+    merged = copy.deepcopy(incoming_state)
+    merged.pop("draft_state", None)
+
+    managed_keys = set(manifest_field_keys(manifest))
+    current_fields = current_state.get("fields")
+    incoming_fields = merged.get("fields")
+    extras: dict[str, Any] = {}
+    if isinstance(current_fields, dict):
+        extras.update(
+            {
+                key: value
+                for key, value in current_fields.items()
+                if key not in managed_keys
+            },
+        )
+    if isinstance(incoming_fields, dict):
+        extras.update(
+            {
+                key: value
+                for key, value in incoming_fields.items()
+                if key not in managed_keys
+            },
+        )
+    merged["fields"] = extras
+    return embed_snapshot_in_state(merged, snapshot, manifest)
+
+
 _DOC_COLS = "id, doc_id, title, state_json, created_at, updated_at"
 
 
@@ -110,7 +219,12 @@ def create_document(
     payload: DocumentCreateRequest,
     user: sqlite3.Row = Depends(current_user),
 ) -> DocumentOut:
-    state_json = json.dumps(payload.state, ensure_ascii=False)
+    if "draft_state" in payload.state:
+        _raise_validation_errors(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            [_draft_state_injection_error()],
+        )
+    state_json = _state_json_or_reject(payload.state)
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO documents (user_id, doc_id, title, state_json) "
@@ -147,16 +261,24 @@ def update_document(
     # delete can't slip a TOCTOU between them. The re-fetch keeps the
     # `user_id = ?` guard for defense in depth.
     with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = _fetch_owned_in(conn, doc_pk, user["id"])
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
         new_title = row["title"] if payload.title is None else payload.title
-        new_state_json = (
-            row["state_json"]
-            if payload.state is None
-            else json.dumps(payload.state, ensure_ascii=False)
-        )
+        if payload.state is None:
+            new_state_json = row["state_json"]
+        else:
+            try:
+                new_state = _merge_public_state_update(
+                    doc_id=row["doc_id"],
+                    current_state=_safe_load_state(row["state_json"]),
+                    incoming_state=payload.state,
+                )
+                new_state_json = _state_json_or_reject(new_state)
+            except DraftPatchRejected as exc:
+                _raise_validation_errors(exc.status_code, exc.errors)
 
         conn.execute(
             "UPDATE documents "
@@ -208,33 +330,42 @@ def apply_document_field_patch(
             )
 
         state_blob = _safe_load_state(row["state_json"])
-        snapshot = snapshot_from_document_state(
-            doc_id=row["doc_id"],
-            state=state_blob,
-            manifest=manifest,
-        )
+        source_errors = _public_patch_source_errors(payload)
+        if source_errors:
+            _raise_validation_errors(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                source_errors,
+            )
+        try:
+            snapshot = snapshot_from_document_state(
+                doc_id=row["doc_id"],
+                state=state_blob,
+                manifest=manifest,
+            )
+        except DraftPatchRejected as exc:
+            _raise_validation_errors(exc.status_code, exc.errors)
+
         try:
             result = apply_field_patch(
                 snapshot=snapshot,
                 patch=payload,
                 manifest=manifest,
                 actor_user_id=int(user["id"]),
+                actor_source="llm" if payload.source == "llm" else "form",
             )
         except DraftPatchRejected as exc:
-            raise HTTPException(
-                status_code=exc.status_code,
-                detail=_validation_error_detail(exc.errors),
-            ) from exc
+            _raise_validation_errors(exc.status_code, exc.errors)
 
         if result.duplicate:
             return result
 
-        next_state = embed_snapshot_in_state(state_blob, result.snapshot)
+        next_state = embed_snapshot_in_state(state_blob, result.snapshot, manifest)
+        next_state_json = _state_json_or_reject(next_state)
         conn.execute(
             "UPDATE documents "
             "   SET state_json = ?, updated_at = datetime('now') "
             " WHERE id = ? AND user_id = ?",
-            (json.dumps(next_state, ensure_ascii=False), doc_pk, user["id"]),
+            (next_state_json, doc_pk, user["id"]),
         )
         return result
 

@@ -11,7 +11,7 @@ import copy
 import hashlib
 import json
 from datetime import UTC, date, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -22,6 +22,7 @@ FIELD_STATE_SCHEMA_VERSION = "draft-state.v1"
 FieldStatus = Literal["confirmed", "pending_confirmation", "conflict", "missing"]
 PatchSource = Literal["llm", "user", "form", "system"]
 PatchOp = Literal["propose", "confirm", "reject"]
+MessageIndexTrust = Literal["none", "client_asserted", "server_verified"]
 
 
 class ValidationErrorItem(BaseModel):
@@ -33,8 +34,12 @@ class ValidationErrorItem(BaseModel):
 class FieldProvenance(BaseModel):
     patch_id: str
     source: PatchSource
-    actor_user_id: int
+    actor_user_id: int | None = None
+    operation: str = "unknown"
+    value: str | None = None
+    client_source: str | None = None
     message_index: int | None = None
+    message_index_trust: MessageIndexTrust = "none"
     at: str
 
 
@@ -63,6 +68,7 @@ class AppliedPatchRecord(BaseModel):
 
 class DraftStateSnapshot(BaseModel):
     schema_version: Literal["draft-state.v1"] = FIELD_STATE_SCHEMA_VERSION
+    manifest_version: int | str | None = None
     doc_id: str
     revision: int = 0
     fields: dict[str, FieldState] = Field(default_factory=dict)
@@ -92,7 +98,7 @@ class FieldPatchOperation(BaseModel):
 class FieldPatchRequest(BaseModel):
     patch_id: str = Field(min_length=1, max_length=120)
     base_revision: int = Field(ge=0)
-    source: PatchSource
+    source: str = Field(min_length=1, max_length=40)
     message_index: int | None = Field(default=None, ge=0)
     operations: list[FieldPatchOperation] = Field(min_length=1, max_length=100)
 
@@ -116,40 +122,78 @@ def snapshot_from_document_state(
     manifest: dict[str, Any],
 ) -> DraftStateSnapshot:
     """Read or bootstrap a DraftStateSnapshot from a document state blob."""
+    raw_present = "draft_state" in state
     raw = state.get("draft_state")
-    if isinstance(raw, dict):
+    manifest_version = _manifest_version(manifest)
+    if raw_present:
+        if not isinstance(raw, dict):
+            raise _draft_state_rejected(
+                "invalid_draft_state",
+                "Stored draft_state must be a JSON object.",
+            )
+        raw_schema = raw.get("schema_version")
+        if raw_schema != FIELD_STATE_SCHEMA_VERSION:
+            kind = (
+                "unsupported_draft_state_schema"
+                if isinstance(raw_schema, str)
+                else "invalid_draft_state"
+            )
+            raise _draft_state_rejected(
+                kind,
+                "Stored draft_state uses an unsupported schema version.",
+            )
         try:
             snapshot = DraftStateSnapshot.model_validate(raw)
-            if snapshot.doc_id == doc_id:
-                return _ensure_manifest_fields(snapshot, manifest)
-        except ValueError:
-            pass
+        except ValueError as exc:
+            raise _draft_state_rejected(
+                "invalid_draft_state",
+                "Stored draft_state is not a valid DraftStateSnapshot.",
+            ) from exc
+        if snapshot.doc_id != doc_id:
+            raise _draft_state_rejected(
+                "draft_state_doc_mismatch",
+                "Stored draft_state belongs to a different document type.",
+            )
+        if snapshot.manifest_version != manifest_version:
+            raise _draft_state_rejected(
+                "manifest_version_mismatch",
+                "Stored draft_state was created for a different manifest version.",
+            )
+        return _ensure_manifest_fields(snapshot, manifest)
 
-    snapshot = DraftStateSnapshot(doc_id=doc_id)
+    legacy_fields = state.get("fields")
+    if isinstance(legacy_fields, dict):
+        legacy_managed_values = [
+            key
+            for key in manifest_field_keys(manifest)
+            if isinstance(legacy_fields.get(key), str)
+            and legacy_fields[key].strip()
+        ]
+        if legacy_managed_values:
+            raise DraftPatchRejected(
+                409,
+                [
+                    ValidationErrorItem(
+                        kind="migration_required",
+                        message=(
+                            "This draft has legacy manifest fields without a "
+                            "DraftStateSnapshot. An explicit migration must "
+                            "classify those values before field patches can "
+                            "modify them."
+                        ),
+                    ),
+                ],
+            )
+
+    snapshot = DraftStateSnapshot(
+        doc_id=doc_id,
+        manifest_version=manifest_version,
+    )
     legacy_fields = state.get("fields")
     if not isinstance(legacy_fields, dict):
         legacy_fields = {}
-    now = _now_iso()
     for key in manifest_field_keys(manifest):
-        value = legacy_fields.get(key)
-        text = value.strip() if isinstance(value, str) else ""
-        if text:
-            provenance = FieldProvenance(
-                patch_id="legacy-import",
-                source="system",
-                actor_user_id=0,
-                at=now,
-            )
-            snapshot.fields[key] = FieldState(
-                key=key,
-                status="confirmed",
-                value=text,
-                provenance=[provenance],
-                confirmed_at=now,
-                confirmed_by_user_id=0,
-            )
-        else:
-            snapshot.fields[key] = FieldState(key=key)
+        snapshot.fields[key] = FieldState(key=key)
     return snapshot
 
 
@@ -159,9 +203,22 @@ def apply_field_patch(
     patch: FieldPatchRequest,
     manifest: dict[str, Any],
     actor_user_id: int,
+    actor_source: PatchSource | None = None,
+    message_index_verified: bool = False,
     now: str | None = None,
 ) -> FieldPatchResponse:
     """Validate and apply one atomic field patch to a draft snapshot."""
+    resolved_source = actor_source or _coerce_patch_source(patch.source)
+    if resolved_source is None:
+        raise DraftPatchRejected(
+            422,
+            [
+                ValidationErrorItem(
+                    kind="invalid_source",
+                    message="Patch source is not recognized.",
+                ),
+            ],
+        )
     fingerprint = _patch_fingerprint(patch)
     existing_patch = snapshot.applied_patches.get(patch.patch_id)
     if existing_patch is not None and existing_patch.fingerprint == fingerprint:
@@ -194,24 +251,39 @@ def apply_field_patch(
             ],
         )
 
-    errors = _validate_patch(patch, manifest)
+    errors = _validate_patch(patch, manifest, snapshot, resolved_source)
     if errors:
         raise DraftPatchRejected(422, errors)
 
     next_snapshot = copy.deepcopy(snapshot)
     next_revision = snapshot.revision + 1
-    provenance = FieldProvenance(
-        patch_id=patch.patch_id,
-        source=patch.source,
-        actor_user_id=actor_user_id,
-        message_index=patch.message_index,
-        at=now or _now_iso(),
+    at = now or _now_iso()
+    provenance_user_id = (
+        actor_user_id if resolved_source in {"user", "form"} else None
     )
+    message_index_trust: MessageIndexTrust
+    if patch.message_index is None:
+        message_index_trust = "none"
+    elif message_index_verified:
+        message_index_trust = "server_verified"
+    else:
+        message_index_trust = "client_asserted"
 
     for operation in patch.operations:
         field = next_snapshot.fields.setdefault(
             operation.key,
             FieldState(key=operation.key),
+        )
+        provenance = FieldProvenance(
+            patch_id=patch.patch_id,
+            source=resolved_source,
+            actor_user_id=provenance_user_id,
+            operation=operation.op,
+            value=_provenance_value(operation, field),
+            client_source=patch.source,
+            message_index=patch.message_index,
+            message_index_trust=message_index_trust,
+            at=at,
         )
         if operation.op == "propose":
             _apply_proposal(field, _normalize_value(operation.value), provenance)
@@ -270,6 +342,7 @@ def unresolved_required_field_keys(
 def embed_snapshot_in_state(
     state: dict[str, Any],
     snapshot: DraftStateSnapshot,
+    manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a document state blob with the normalized draft snapshot added.
 
@@ -289,7 +362,11 @@ def embed_snapshot_in_state(
         and isinstance(field.value, str)
     }
     existing = next_state.get("fields")
-    manifest_keys = set(snapshot.fields)
+    manifest_keys = (
+        set(manifest_field_keys(manifest))
+        if manifest is not None
+        else set(snapshot.fields)
+    )
     extras = {
         key: value
         for key, value in (existing if isinstance(existing, dict) else {}).items()
@@ -307,18 +384,18 @@ def _ensure_manifest_fields(
     manifest: dict[str, Any],
 ) -> DraftStateSnapshot:
     changed = copy.deepcopy(snapshot)
+    changed.manifest_version = _manifest_version(manifest)
     known = set(manifest_field_keys(manifest))
     for key in known:
         changed.fields.setdefault(key, FieldState(key=key))
-    changed.fields = {
-        key: field for key, field in changed.fields.items() if key in known
-    }
     return changed
 
 
 def _validate_patch(
     patch: FieldPatchRequest,
     manifest: dict[str, Any],
+    snapshot: DraftStateSnapshot,
+    actor_source: PatchSource,
 ) -> list[ValidationErrorItem]:
     errors: list[ValidationErrorItem] = []
     fields = _manifest_fields_by_key(manifest)
@@ -346,7 +423,7 @@ def _validate_patch(
             )
             continue
 
-        if patch.source == "llm" and operation.op == "confirm":
+        if actor_source == "llm" and operation.op == "confirm":
             errors.append(
                 ValidationErrorItem(
                     kind="llm_confirm_forbidden",
@@ -354,8 +431,34 @@ def _validate_patch(
                     message="LLM patches may propose values but cannot confirm them.",
                 ),
             )
+        if actor_source == "llm" and operation.op == "reject":
+            errors.append(
+                ValidationErrorItem(
+                    kind="llm_reject_forbidden",
+                    field_key=operation.key,
+                    message="LLM patches cannot reject field candidates.",
+                ),
+            )
 
-        if operation.op in {"propose", "confirm"} and operation.value is not None:
+        normalized_value = _normalize_value(operation.value)
+        if (
+            actor_source == "llm"
+            and operation.op == "propose"
+            and normalized_value == ""
+        ):
+            errors.append(
+                ValidationErrorItem(
+                    kind="llm_clear_forbidden",
+                    field_key=operation.key,
+                    message="LLM patches cannot clear fields.",
+                ),
+            )
+
+        if (
+            operation.op in {"propose", "confirm"}
+            and operation.value is not None
+            and normalized_value
+        ):
             errors.extend(_validate_value(operation.key, operation.value, field_def))
         elif operation.op == "propose" and operation.value is None:
             errors.append(
@@ -365,6 +468,14 @@ def _validate_patch(
                     message="Propose operations must include a value.",
                 ),
             )
+        if not any(err.field_key == operation.key for err in errors):
+            transition_error = _validate_transition(
+                operation,
+                snapshot.fields.get(operation.key, FieldState(key=operation.key)),
+                actor_source,
+            )
+            if transition_error is not None:
+                errors.append(transition_error)
 
     return errors
 
@@ -414,14 +525,41 @@ def _apply_proposal(
     value: str,
     provenance: FieldProvenance,
 ) -> None:
-    if value == "":
-        field.status = "missing"
-        field.value = None
+    if field.status == "confirmed" and field.value:
+        if field.value == value:
+            field.provenance.append(provenance)
+            return
+        field.status = "conflict"
+        field.conflict = FieldConflict(
+            proposed_value=value,
+            base_value=field.value,
+            provenance=provenance,
+        )
+        field.provenance.append(provenance)
+        return
+
+    if field.status == "conflict":
+        base_value = field.conflict.base_value if field.conflict else field.value
+        field.conflict = FieldConflict(
+            proposed_value=value,
+            base_value=base_value,
+            provenance=provenance,
+        )
+        field.provenance.append(provenance)
+        return
+
+    if field.status == "pending_confirmation" and field.value:
+        if field.value == value:
+            field.provenance.append(provenance)
+            return
+        field.value = value
+        field.confirmed_at = None
+        field.confirmed_by_user_id = None
         field.conflict = None
         field.provenance.append(provenance)
         return
 
-    if field.status in {"confirmed", "pending_confirmation"} and field.value:
+    if field.value:
         if field.value != value:
             field.status = "conflict"
             field.conflict = FieldConflict(
@@ -434,6 +572,8 @@ def _apply_proposal(
 
     field.status = "pending_confirmation"
     field.value = value
+    field.confirmed_at = None
+    field.confirmed_by_user_id = None
     field.conflict = None
     field.provenance.append(provenance)
 
@@ -471,10 +611,20 @@ def _apply_rejection(
     field: FieldState,
     provenance: FieldProvenance,
 ) -> None:
-    if field.confirmed_at:
+    if field.status == "conflict" and field.conflict is not None:
+        if field.conflict.base_value is not None:
+            field.value = field.conflict.base_value
+        if field.confirmed_at:
+            field.status = "confirmed"
+        else:
+            field.status = "pending_confirmation" if field.value else "missing"
+    elif field.status == "pending_confirmation":
+        field.status = "missing"
+        field.value = None
+        field.confirmed_at = None
+        field.confirmed_by_user_id = None
+    elif field.confirmed_at:
         field.status = "confirmed"
-    elif field.value:
-        field.status = "pending_confirmation"
     else:
         field.status = "missing"
     field.conflict = None
@@ -491,6 +641,116 @@ def _manifest_fields_by_key(manifest: dict[str, Any]) -> dict[str, dict[str, Any
 
 def _normalize_value(value: Any | None) -> str:
     return value.strip() if isinstance(value, str) else ""
+
+
+def _provenance_value(
+    operation: FieldPatchOperation,
+    field: FieldState,
+) -> str | None:
+    if operation.op in {"propose", "confirm"} and operation.value is not None:
+        return _normalize_value(operation.value)
+    if operation.op == "confirm":
+        if field.conflict is not None:
+            return field.conflict.proposed_value
+        return field.value
+    if operation.op == "reject":
+        if field.conflict is not None:
+            return field.conflict.proposed_value
+        return field.value
+    return None
+
+
+def _coerce_patch_source(source: str) -> PatchSource | None:
+    if source in {"llm", "user", "form", "system"}:
+        return cast(PatchSource, source)
+    return None
+
+
+def _manifest_version(manifest: dict[str, Any]) -> int | str | None:
+    version = manifest.get("version")
+    return version if isinstance(version, (int, str)) else None
+
+
+def _draft_state_rejected(kind: str, message: str) -> DraftPatchRejected:
+    return DraftPatchRejected(
+        409,
+        [
+            ValidationErrorItem(
+                kind=kind,
+                message=message,
+            ),
+        ],
+    )
+
+
+def _validate_transition(
+    operation: FieldPatchOperation,
+    field: FieldState,
+    actor_source: PatchSource,
+) -> ValidationErrorItem | None:
+    value = _normalize_value(operation.value)
+    if operation.op == "propose":
+        if value == "":
+            return ValidationErrorItem(
+                kind="invalid_transition",
+                field_key=operation.key,
+                message="Propose operations require a non-empty candidate value.",
+            )
+        if field.status in {"pending_confirmation", "conflict"}:
+            current_candidate = (
+                field.conflict.proposed_value
+                if field.conflict is not None
+                else field.value
+            )
+            if current_candidate == value:
+                return ValidationErrorItem(
+                    kind="invalid_transition",
+                    field_key=operation.key,
+                    message="The candidate value is already active.",
+                )
+        return None
+
+    if operation.op in {"confirm", "reject"} and actor_source not in {
+        "form",
+        "user",
+    }:
+        return ValidationErrorItem(
+            kind="invalid_transition",
+            field_key=operation.key,
+            message="Only an authenticated user action can confirm or reject.",
+        )
+
+    if operation.op == "confirm":
+        if operation.value is not None:
+            if value == "" and field.status == "missing":
+                return ValidationErrorItem(
+                    kind="invalid_transition",
+                    field_key=operation.key,
+                    message="Cannot clear a missing field.",
+                )
+            return None
+        if field.status == "pending_confirmation" and field.value:
+            return None
+        if field.status == "conflict" and field.conflict is not None:
+            return None
+        return ValidationErrorItem(
+            kind="invalid_transition",
+            field_key=operation.key,
+            message="No active candidate exists to confirm.",
+        )
+
+    if operation.op == "reject":
+        if field.status == "pending_confirmation" and field.value:
+            return None
+        if field.status == "conflict" and field.conflict is not None:
+            return None
+        return ValidationErrorItem(
+            kind="invalid_transition",
+            field_key=operation.key,
+            message="No active candidate exists to reject.",
+        )
+
+    return None
 
 
 def _patch_fingerprint(patch: FieldPatchRequest) -> str:
@@ -541,9 +801,13 @@ def _single_condition_matches(
 
 def _confirmed_value(snapshot: DraftStateSnapshot, key: str) -> str | None:
     field = snapshot.fields.get(key)
-    if field is None or field.status != "confirmed" or not field.value:
+    if field is None or not field.value:
         return None
-    return field.value
+    if field.status == "confirmed":
+        return field.value
+    if field.status == "conflict" and field.confirmed_at is not None:
+        return field.value
+    return None
 
 
 def _now_iso() -> str:

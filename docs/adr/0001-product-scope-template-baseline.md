@@ -15,24 +15,36 @@ must not mix those two baselines.
 The formal product line in this repository is PRC-law Simplified Chinese legal
 drafting unless a later ADR changes that scope.
 
-MNDA and CSA remain the current supported regression documents:
+Current document baselines:
 
-- MNDA is a complete bespoke vertical slice and must not regress while it is
-  waiting for manifest migration.
-- CSA is the first manifest-driven document and the current pipeline pilot.
+| Document | Product status | Governing law | Language | Template source and version | Manifest / implementation version | Legal review status | Legal review responsibility |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| MNDA (`mutual-nda`) | Prototype and regression sample. It is catalogued as available and has the complete bespoke vertical slice, but it is not a lawyer-reviewed paid product. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | No manifest yet. Bespoke MNDA form/preview/PDF implementation remains the current regression path until a later manifest migration. | Not lawyer-reviewed in this repo. | unassigned |
+| CSA (`cloud-service-agreement`) | Manifest pipeline pilot. It is catalogued as available, but PL-14 only establishes the server document-state kernel; authoritative CSA adoption of that kernel is still pending. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | Manifest version 2 (`templates/manifests/cloud-service-agreement.json`). Server kernel schema `draft-state.v1` is introduced by PL-14 but is not yet the authoritative CSA frontend/chat/save path. | Not lawyer-reviewed in this repo. | unassigned |
 
-PSA/SOW is a planned expansion candidate, but not yet a production pricing
-proof. A Common Paper PSA or English-market pricing analysis may be used as a
-technical or commercial research fixture only; it is not a launch-ready product
-template for this PRC-law product line.
+Because legal review responsibility is unassigned for both documents, formal
+paid legal-document claims and any "lawyer review" product wording remain
+blocked. The existing disclaimer remains mandatory: these are draft templates
+for review by a qualified lawyer, not legal advice.
+
+PSA/SOW must stay split into two separate concepts:
+
+- The repository contains a PRC-law Simplified Chinese PSA candidate
+  (`professional-services-agreement`) with catalog status `planned` and
+  Prelegal template source v1.0. It is not a production pricing proof until its
+  manifest, support status, and legal review responsibility are explicit.
+- Any Common Paper English PSA, English-market pricing analysis, or
+  Common-Paper-derived workflow is a research or architecture fixture only. It
+  is not the production PSA/SOW template for this PRC-law Chinese product line.
 
 Every template that moves toward production support must identify:
 
 - governing law and language;
 - template source and source version;
-- manifest version;
+- manifest version or implementation path;
 - legal review status and responsible party;
-- whether it is a product-supported document or an architecture fixture.
+- whether it is a supported product document, prototype, regression sample, or
+  architecture fixture.
 
 ## Consequences
 
