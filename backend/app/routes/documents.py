@@ -15,6 +15,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import current_user
 from app.db import get_conn
+from app.draft_state import (
+    DraftPatchRejected,
+    FieldPatchRequest,
+    FieldPatchResponse,
+    ValidationErrorItem,
+    apply_field_patch,
+    embed_snapshot_in_state,
+    snapshot_from_document_state,
+)
+from app.manifests import load_manifest
 from app.models import (
     DocumentCreateRequest,
     DocumentOut,
@@ -54,6 +64,12 @@ def _row_to_full(row: sqlite3.Row) -> DocumentOut:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
+
+
+def _validation_error_detail(
+    errors: list[ValidationErrorItem],
+) -> dict[str, list[dict[str, Any]]]:
+    return {"validation_errors": [err.model_dump(mode="json") for err in errors]}
 
 
 _DOC_COLS = "id, doc_id, title, state_json, created_at, updated_at"
@@ -154,6 +170,73 @@ def update_document(
         # but if it did, surface a clean 404 instead of a 500.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return _row_to_full(updated)
+
+
+@router.post("/{doc_pk}/field-patches", response_model=FieldPatchResponse)
+def apply_document_field_patch(
+    doc_pk: int,
+    payload: FieldPatchRequest,
+    user: sqlite3.Row = Depends(current_user),
+) -> FieldPatchResponse:
+    """Apply one atomic FieldPatch to a manifest-backed draft.
+
+    This is the first server-owned write path for normalized document fields:
+    LLM/form inputs submit proposals, and only explicit user confirmation can
+    turn them into confirmed values used by legacy preview/export state.
+    """
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = _fetch_owned_in(conn, doc_pk, user["id"])
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        manifest = load_manifest(row["doc_id"])
+        if manifest is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_validation_error_detail(
+                    [
+                        ValidationErrorItem(
+                            kind="unsupported_document_schema",
+                            message=(
+                                "Field patches require a manifest-backed "
+                                "document schema."
+                            ),
+                        ),
+                    ],
+                ),
+            )
+
+        state_blob = _safe_load_state(row["state_json"])
+        snapshot = snapshot_from_document_state(
+            doc_id=row["doc_id"],
+            state=state_blob,
+            manifest=manifest,
+        )
+        try:
+            result = apply_field_patch(
+                snapshot=snapshot,
+                patch=payload,
+                manifest=manifest,
+                actor_user_id=int(user["id"]),
+            )
+        except DraftPatchRejected as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail=_validation_error_detail(exc.errors),
+            ) from exc
+
+        if result.duplicate:
+            return result
+
+        next_state = embed_snapshot_in_state(state_blob, result.snapshot)
+        conn.execute(
+            "UPDATE documents "
+            "   SET state_json = ?, updated_at = datetime('now') "
+            " WHERE id = ? AND user_id = ?",
+            (json.dumps(next_state, ensure_ascii=False), doc_pk, user["id"]),
+        )
+        return result
 
 
 @router.delete("/{doc_pk}", status_code=status.HTTP_204_NO_CONTENT)
