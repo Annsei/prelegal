@@ -161,29 +161,25 @@ def snapshot_from_document_state(
             )
         return _ensure_manifest_fields(snapshot, manifest)
 
-    legacy_fields = state.get("fields")
-    if isinstance(legacy_fields, dict):
-        legacy_managed_values = [
-            key
-            for key in manifest_field_keys(manifest)
-            if isinstance(legacy_fields.get(key), str)
-            and legacy_fields[key].strip()
-        ]
-        if legacy_managed_values:
-            raise DraftPatchRejected(
-                409,
-                [
-                    ValidationErrorItem(
-                        kind="migration_required",
-                        message=(
-                            "This draft has legacy manifest fields without a "
-                            "DraftStateSnapshot. An explicit migration must "
-                            "classify those values before field patches can "
-                            "modify them."
-                        ),
+    if _legacy_manifest_values(
+        doc_id=doc_id,
+        state=state,
+        manifest=manifest,
+    ):
+        raise DraftPatchRejected(
+            409,
+            [
+                ValidationErrorItem(
+                    kind="migration_required",
+                    message=(
+                        "This draft has legacy manifest fields without a "
+                        "DraftStateSnapshot. An explicit migration must "
+                        "classify those values before field patches can "
+                        "modify them."
                     ),
-                ],
-            )
+                ),
+            ],
+        )
 
     snapshot = DraftStateSnapshot(
         doc_id=doc_id,
@@ -250,13 +246,11 @@ def migrate_document_state_if_needed(
         )
         return next_state, snapshot, False
 
-    legacy_fields = next_state.get("fields")
-    managed_values: dict[str, str] = {}
-    if isinstance(legacy_fields, dict):
-        for key in manifest_field_keys(manifest):
-            value = legacy_fields.get(key)
-            if isinstance(value, str) and value.strip():
-                managed_values[key] = value.strip()
+    managed_values = _legacy_manifest_values(
+        doc_id=doc_id,
+        state=next_state,
+        manifest=manifest,
+    )
 
     if managed_values:
         snapshot = DraftStateSnapshot(
@@ -281,6 +275,10 @@ def migrate_document_state_if_needed(
                     ),
                 ],
             )
+        legacy_fields = next_state.get("fields")
+        next_fields = dict(legacy_fields) if isinstance(legacy_fields, dict) else {}
+        next_fields.update(managed_values)
+        next_state["fields"] = next_fields
         next_state["draft_state"] = snapshot.model_dump(mode="json")
         return next_state, snapshot, True
 
@@ -290,6 +288,109 @@ def migrate_document_state_if_needed(
         manifest=manifest,
     )
     return next_state, snapshot, False
+
+
+def legacy_mnda_to_manifest_fields(value: Any) -> dict[str, str]:
+    """Normalize the retired typed MNDA state into manifest field strings.
+
+    Legacy MNDA drafts stored a bespoke `state.mnda` object. Those values
+    have unknown provenance, so migration classifies them as
+    `pending_confirmation` elsewhere; this pure helper only maps the shape to
+    the new canonical manifest keys without adding any actor or time metadata.
+    """
+    if not isinstance(value, dict):
+        return {}
+
+    mapped: dict[str, str] = {}
+    _put_string(mapped, "保密用途", value.get("purpose"))
+    _put_string(mapped, "生效日期", value.get("effectiveDate"))
+    _put_string(mapped, "适用法律", value.get("governingLaw"))
+    _put_string(mapped, "争议解决", value.get("jurisdiction"))
+    _put_string(mapped, "对标准条款的修订", value.get("modifications"))
+
+    mnda_term = _legacy_mnda_term(value)
+    if mnda_term:
+        mapped["协议期限"] = mnda_term
+    confidentiality_term = _legacy_confidentiality_term(value)
+    if confidentiality_term:
+        mapped["保密期限"] = confidentiality_term
+
+    party_map = {
+        "party1": "甲方",
+        "party2": "乙方",
+    }
+    field_map = {
+        "company": "公司名称",
+        "signerName": "签字人姓名",
+        "signerTitle": "签字人职务",
+        "noticeAddress": "通知地址",
+    }
+    for party_key, party_label in party_map.items():
+        party = value.get(party_key)
+        if not isinstance(party, dict):
+            continue
+        for field_key, field_label in field_map.items():
+            _put_string(mapped, f"{party_label}{field_label}", party.get(field_key))
+
+    return mapped
+
+
+def _legacy_manifest_values(
+    *,
+    doc_id: str,
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+) -> dict[str, str]:
+    managed_keys = set(manifest_field_keys(manifest))
+    values: dict[str, str] = {}
+    legacy_fields = state.get("fields")
+    if isinstance(legacy_fields, dict):
+        for key in managed_keys:
+            value = legacy_fields.get(key)
+            if isinstance(value, str) and value.strip():
+                values[key] = value.strip()
+    if doc_id == "mutual-nda":
+        for key, value in legacy_mnda_to_manifest_fields(state.get("mnda")).items():
+            if key in managed_keys and key not in values:
+                values[key] = value
+    return values
+
+
+def _put_string(target: dict[str, str], key: str, value: Any) -> None:
+    if isinstance(value, str) and value.strip():
+        target[key] = value.strip()
+
+
+def _legacy_mnda_term(value: dict[str, Any]) -> str:
+    mode = value.get("mndaTermMode")
+    if mode == "continues":
+        return "持续有效，直至依约终止"
+    if mode == "expires":
+        years = _legacy_non_negative_int(value.get("mndaTermYears"))
+        if years is not None:
+            return f"自生效日期起 {years} 年"
+    return ""
+
+
+def _legacy_confidentiality_term(value: dict[str, Any]) -> str:
+    mode = value.get("confidentialityMode")
+    if mode == "perpetual":
+        return "永久"
+    if mode == "years":
+        years = _legacy_non_negative_int(value.get("confidentialityYears"))
+        if years is not None:
+            return f"自生效日期起 {years} 年"
+    return ""
+
+
+def _legacy_non_negative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
 
 
 def apply_field_patch(
@@ -930,7 +1031,7 @@ def _single_condition_matches(
 
 def _confirmed_value(snapshot: DraftStateSnapshot, key: str) -> str | None:
     field = snapshot.fields.get(key)
-    if field is None or not field.value:
+    if field is None or field.value is None:
         return None
     if field.status == "confirmed":
         return field.value

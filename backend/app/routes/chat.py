@@ -1,11 +1,12 @@
-"""POST /api/chat — one turn of the MNDA drafting conversation.
+"""POST /api/chat — one turn of the document drafting conversation.
 
-The frontend keeps the full chat history and the current MNDA state in
+The frontend keeps the full chat history and the current draft context in
 memory and POSTs both each turn. The backend just does:
 
     history + current_state -> LLM (structured) -> assistant reply + updates
 
-so it stays stateless. There is no DB write here.
+so the chat route stays stateless. Persisted field writes happen through the
+document-state kernel's field-patch API, not here.
 
 Requires a bearer token: every turn costs real money on OpenRouter, so
 anonymous callers can't run up the bill. Rate-limited per user on top.
@@ -41,7 +42,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     mnda_state: dict[str, Any] = Field(default_factory=dict)
     # Unified drafting state for manifest-driven docs. `mnda_state` stays
-    # as a compatibility field while MNDA is still on its bespoke slice.
+    # as a compatibility field for older callers and legacy MNDA context.
     document_state: dict[str, Any] | None = None
     # The doc the frontend currently has open. Lets the LLM layer inject
     # that document's cover-page field checklist (see app/manifests.py).
@@ -67,6 +68,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     assistant_message: str
     selected_doc_id: str = ""
+    # Compatibility field for pre-PL-17 clients. The typed MNDA channel is
+    # retired; manifest documents use field_updates + field-patches.
     mnda_updates: dict[str, Any]
     field_updates: dict[str, str]
     done: bool
@@ -107,7 +110,7 @@ def chat(
     return ChatResponse(
         assistant_message=result["assistant_message"],
         selected_doc_id=result.get("selected_doc_id") or "",
-        mnda_updates=result.get("mnda_updates") or {},
+        mnda_updates={},
         field_updates=result.get("field_updates") or {},
         done=bool(result.get("done", False)),
     )

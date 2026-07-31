@@ -78,12 +78,11 @@ export function extraFields(
   );
 }
 
-// Term-reference spans in Common Paper standard terms:
+// Term-reference spans in Prelegal standard terms:
 //   <span class="coverpage_link">Customer</span>
 //   <span class="orderform_link">Subscription Period</span>
 //   <span class="keyterms_link">Governing Law</span>
-// The body references cover-page terms BY NAME (they are links to the
-// cover page in Common Paper's own product) — we must not substitute
+// The body references cover-page terms BY NAME — we must not substitute
 // values inline, only mark each reference as defined or still missing.
 const TERM_REF_RE =
   /<span\b(?=[^>]*\bclass="[^"]*\b(?:coverpage_link|orderform_link|keyterms_link)\b[^"]*")([^>]*)>([^<]+)<\/span>/g;

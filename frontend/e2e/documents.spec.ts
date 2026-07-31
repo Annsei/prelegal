@@ -1,6 +1,28 @@
 import { expect, test } from "@playwright/test";
 
 const SESSION_KEY = "prelegal:session";
+const MNDA_TEMPLATE = {
+  doc_id: "mutual-nda",
+  title: "双方保密协议",
+  cover_page:
+    '# 双方保密协议 · 封面页\n\n<span class="coverpage_link">保密用途</span>',
+  standard_terms:
+    '# 双方保密协议 · 标准条款\n\n<span class="coverpage_link">保密用途</span>',
+  manifest: {
+    doc_id: "mutual-nda",
+    version: 1,
+    sections: [{ key: "keyterms", label: { zh: "关键条款", en: "Key Terms" } }],
+    fields: [
+      {
+        key: "保密用途",
+        section: "keyterms",
+        type: "text",
+        required: true,
+        label: { zh: "保密用途", en: "Confidential Purpose" },
+      },
+    ],
+  },
+};
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((key) => {
@@ -17,6 +39,13 @@ test.beforeEach(async ({ page }) => {
       }),
     );
   }, SESSION_KEY);
+  await page.route("**/api/templates/mutual-nda", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MNDA_TEMPLATE),
+    }),
+  );
 });
 
 test.describe("Documents — sidebar and auto-save", () => {
@@ -125,9 +154,7 @@ test.describe("Documents — sidebar and auto-save", () => {
         body: JSON.stringify({
           assistant_message: "Got it. Anything else?",
           selected_doc_id: "mutual-nda",
-          mnda_updates: {
-            party1: { company: "Acme", signerName: "", signerTitle: "", noticeAddress: "" },
-          },
+          mnda_updates: {},
           field_updates: {},
           done: false,
         }),
@@ -151,8 +178,8 @@ test.describe("Documents — sidebar and auto-save", () => {
   });
 
   test("chat history is restored after a page refresh", async ({ page }) => {
-    // Saved draft already contains a back-and-forth — `state` carries
-    // both `chat` (the conversation) and `mnda` (typed fields).
+    // Saved draft already contains a back-and-forth plus legacy typed MNDA
+    // fields; PL-17 keeps that shape only for compatibility/migration.
     const docId = 42;
     const savedDoc = {
       id: docId,

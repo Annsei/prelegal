@@ -19,8 +19,8 @@ Current document baselines:
 
 | Document | Product status | Governing law | Language | Template source and version | Manifest / implementation version | Legal review status | Legal review responsibility |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| MNDA (`mutual-nda`) | Prototype and regression sample. It is catalogued as available and has the complete bespoke vertical slice, but it is not a lawyer-reviewed paid product. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | No manifest yet. Bespoke MNDA form/preview/PDF implementation remains the current regression path until a later manifest migration. | Not lawyer-reviewed in this repo. | unassigned |
-| CSA (`cloud-service-agreement`) | Manifest pipeline pilot. It is catalogued as available, but PL-14 only establishes the server document-state kernel; authoritative CSA adoption of that kernel is still pending. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | Manifest version 2 (`templates/manifests/cloud-service-agreement.json`). Server kernel schema `draft-state.v1` is introduced by PL-14 but is not yet the authoritative CSA frontend/chat/save path. | Not lawyer-reviewed in this repo. | unassigned |
+| MNDA (`mutual-nda`) | Prototype and regression sample. It is catalogued as available and is now served by the manifest-driven document-state kernel, but it is not a lawyer-reviewed paid product. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | Manifest version 1 (`templates/manifests/mutual-nda.json`). Server kernel schema `draft-state.v1`; PL-17 retires the bespoke MNDA form/preview/template path and migrates legacy typed `state.mnda` values to pending `legacy_unverified` field states. | Not lawyer-reviewed in this repo. | unassigned |
+| CSA (`cloud-service-agreement`) | Manifest pipeline pilot and regression sample. It is catalogued as available and its chat, form, preview, download gate, and auto-save path are authoritative kernel adopters. | PRC law | Simplified Chinese | Prelegal first-party, AI-assisted template v1.0 (`templates/templates.json`, `source.origin=prelegal`, `source.version=1.0`) | Manifest version 2 (`templates/manifests/cloud-service-agreement.json`). Server kernel schema `draft-state.v1`; authoritative CSA adoption landed in PL-15 with PL-16 polish. | Not lawyer-reviewed in this repo. | unassigned |
 
 Because legal review responsibility is unassigned for both documents, formal
 paid legal-document claims and any "lawyer review" product wording remain
@@ -48,9 +48,9 @@ Every template that moves toward production support must identify:
 
 ## Consequences
 
-PL-14 and later pipeline work may use PSA to reason about extensibility, but PSA
-productization and pricing remain blocked until the law, language, source, and
-legal review baseline is explicit.
+Pipeline work may use PSA to reason about extensibility, but PSA productization
+and pricing remain blocked until the law, language, source, and legal review
+baseline is explicit.
 
 The core pipeline should preserve template metadata and review status so that
 future paid experiences do not present planned or unreviewed documents as

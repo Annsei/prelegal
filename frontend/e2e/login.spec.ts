@@ -1,6 +1,28 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const SESSION_KEY = "prelegal:session";
+const MNDA_TEMPLATE = {
+  doc_id: "mutual-nda",
+  title: "双方保密协议",
+  cover_page:
+    '# 双方保密协议 · 封面页\n\n<span class="coverpage_link">保密用途</span>',
+  standard_terms:
+    '# 双方保密协议 · 标准条款\n\n<span class="coverpage_link">保密用途</span>',
+  manifest: {
+    doc_id: "mutual-nda",
+    version: 1,
+    sections: [{ key: "keyterms", label: { zh: "关键条款", en: "Key Terms" } }],
+    fields: [
+      {
+        key: "保密用途",
+        section: "keyterms",
+        type: "text",
+        required: true,
+        label: { zh: "保密用途", en: "Confidential Purpose" },
+      },
+    ],
+  },
+};
 
 async function seedSession(page: Page, email = "byebye@example.com"): Promise<void> {
   await page.evaluate(
@@ -38,6 +60,13 @@ async function stubEmptyDocumentsList(page: Page): Promise<void> {
       route.continue();
     }
   });
+  await page.route("**/api/templates/mutual-nda", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MNDA_TEMPLATE),
+    }),
+  );
 }
 
 test.describe("Login flow", () => {

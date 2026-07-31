@@ -25,16 +25,15 @@ type Props = {
 };
 
 /**
- * Preview pane for any catalog document other than MNDA. The template
- * (and its manifest) is fetched by the page via useDocTemplate — this
- * component only renders.
+ * Preview pane for any catalog document. The template (and its manifest) is
+ * fetched by the page via useDocTemplate — this component only renders.
  *
  * Documents WITH a cover-page manifest get the real treatment: a
  * structured Cover Page whose values come from the chat/form, plus the
  * standard terms with every cover-page term reference highlighted as
  * defined (tooltip shows the value) or still missing. The body text is
- * NOT substituted inline — in Common Paper agreements the body refers to
- * cover-page terms by name, and the cover page is where values live.
+ * NOT substituted inline: the legal text references cover-page terms by
+ * name, and the cover page is where values live.
  *
  * Documents WITHOUT a manifest fall back to the flat key/value summary
  * card over the raw template.
@@ -79,9 +78,15 @@ export function GenericDocPreview({
     manifest,
     stableFields,
   );
+  const annotatedCoverPage = template.cover_page
+    ? annotateTermRefs(template.cover_page, manifest, stableFields)
+    : "";
   // marked is sync when called without async-only extensions; the result is
   // typed as `string | Promise<string>` so we narrow.
   const standardTermsHtml = marked.parse(annotated, { async: false }) as string;
+  const coverPageHtml = annotatedCoverPage
+    ? (marked.parse(annotatedCoverPage, { async: false }) as string)
+    : "";
 
   return (
     <article
@@ -108,6 +113,14 @@ export function GenericDocPreview({
         />
       ) : (
         <SummaryCard fields={fields} />
+      )}
+
+      {coverPageHtml && (
+        <div
+          className="prose prose-sm mb-8 max-w-none border-b pb-6"
+          style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
+          dangerouslySetInnerHTML={{ __html: coverPageHtml }}
+        />
       )}
 
       <div

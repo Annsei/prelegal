@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MNDAChat } from "./MNDAChat";
 import type { ChatTurn } from "@/lib/api";
-import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
+import { INITIAL_STATE } from "@/lib/mndaState";
 
 function Harness({
   locale = "en" as "en" | "zh",
@@ -30,29 +30,20 @@ function Harness({
   initialHistory?: ChatTurn[];
   getDraftEpoch?: () => number;
 }) {
-  const [state, setState] = useState<MndaState>(INITIAL_STATE);
   const [history, setHistory] = useState<ChatTurn[]>(initialHistory);
   return (
-    <>
-      <div data-testid="state-json">{JSON.stringify(state)}</div>
-      <MNDAChat
-        locale={locale}
-        state={state}
-        fields={fields}
-        docId={docId}
-        getDraftEpoch={getDraftEpoch}
-        onStateChange={setState}
-        onDocChange={onDocChange}
-        onFieldUpdates={onFieldUpdates}
-        history={history}
-        onHistoryChange={setHistory}
-      />
-    </>
+    <MNDAChat
+      locale={locale}
+      state={INITIAL_STATE}
+      fields={fields}
+      docId={docId}
+      getDraftEpoch={getDraftEpoch}
+      onDocChange={onDocChange}
+      onFieldUpdates={onFieldUpdates}
+      history={history}
+      onHistoryChange={setHistory}
+    />
   );
-}
-
-function currentState(): MndaState {
-  return JSON.parse(screen.getByTestId("state-json").textContent ?? "{}");
 }
 
 beforeEach(() => {
@@ -82,12 +73,13 @@ describe("MNDAChat", () => {
     expect(screen.queryByText(/draft a legal agreement/i)).toBeNull();
   });
 
-  it("sends a turn, appends the assistant reply, and merges field updates", async () => {
+  it("sends a turn, appends the assistant reply, and forwards MNDA field updates", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           assistant_message: "Got it. What's the effective date?",
-          mnda_updates: { purpose: "Evaluating a partnership" },
+          mnda_updates: { purpose: "must be ignored" },
+          field_updates: { "保密用途": "Evaluating a partnership" },
           done: false,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -95,7 +87,8 @@ describe("MNDAChat", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<Harness locale="en" />);
+    const onFieldUpdates = vi.fn();
+    render(<Harness locale="en" onFieldUpdates={onFieldUpdates} />);
     await userEvent.type(
       screen.getByLabelText(/type a message/i),
       "We're evaluating a partnership.",
@@ -108,8 +101,13 @@ describe("MNDAChat", () => {
         screen.getByText(/What's the effective date/i),
       ).toBeInTheDocument(),
     );
-    // Field merged into shared state.
-    expect(currentState().purpose).toBe("Evaluating a partnership");
+    expect(onFieldUpdates).toHaveBeenCalledWith(
+      { "保密用途": "Evaluating a partnership" },
+      expect.objectContaining({
+        docId: "mutual-nda",
+        messageIndex: 0,
+      }),
+    );
     // The user's message is preserved in the chat regardless.
     expect(
       screen.getByText("We're evaluating a partnership."),
@@ -347,7 +345,6 @@ describe("MNDAChat", () => {
     expect(
       screen.queryByText(/Stale reply that must not render/),
     ).toBeNull();
-    expect(currentState().purpose).toBe(INITIAL_STATE.purpose);
     expect(onDocChange).not.toHaveBeenCalled();
     expect(onFieldUpdates).not.toHaveBeenCalled();
   });

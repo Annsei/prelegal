@@ -1,5 +1,28 @@
 import { expect, test } from "@playwright/test";
 
+const MNDA_TEMPLATE = {
+  doc_id: "mutual-nda",
+  title: "双方保密协议",
+  cover_page:
+    '# 双方保密协议 · 封面页\n\n<span class="coverpage_link">保密用途</span>',
+  standard_terms:
+    '# 双方保密协议 · 标准条款\n\n<span class="coverpage_link">保密用途</span>',
+  manifest: {
+    doc_id: "mutual-nda",
+    version: 1,
+    sections: [{ key: "keyterms", label: { zh: "关键条款", en: "Key Terms" } }],
+    fields: [
+      {
+        key: "保密用途",
+        section: "keyterms",
+        type: "text",
+        required: true,
+        label: { zh: "保密用途", en: "Confidential Purpose" },
+      },
+    ],
+  },
+};
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
@@ -50,9 +73,58 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify(stubDoc),
     }),
   );
+  await page.route(/\/api\/documents\/\d+\/field-patches$/, async (route) => {
+    const body = (await route.request().postDataJSON()) as {
+      operations: Array<{ key: string; value?: string }>;
+    };
+    const fields = Object.fromEntries(
+      MNDA_TEMPLATE.manifest.fields.map((field) => [
+        field.key,
+        {
+          key: field.key,
+          status: "missing",
+          value: null,
+          revision: 0,
+          provenance: [],
+        },
+      ]),
+    );
+    for (const operation of body.operations) {
+      fields[operation.key] = {
+        key: operation.key,
+        status: "pending_confirmation",
+        value: operation.value ?? "",
+        revision: 1,
+        provenance: [],
+      };
+    }
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        snapshot: {
+          schema_version: "draft-state.v1",
+          manifest_version: 1,
+          doc_id: "mutual-nda",
+          revision: 1,
+          fields,
+          validation_errors: [],
+          applied_patches: {},
+        },
+        duplicate: false,
+      }),
+    });
+  });
+  await page.route("**/api/templates/mutual-nda", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MNDA_TEMPLATE),
+    }),
+  );
 });
 
-test.describe("MNDA chat", () => {
+test.describe("Document chat", () => {
   test("chat tab is the default editor and shows the welcome message", async ({
     page,
   }) => {
@@ -65,7 +137,7 @@ test.describe("MNDA chat", () => {
     await expect(page.getByText(/draft a legal agreement/i)).toBeVisible();
   });
 
-  test("sending a chat turn updates the preview through the merged state", async ({
+  test("sending a chat turn updates the preview through kernel pending state", async ({
     page,
   }) => {
     // Stub /api/chat — the dev server doesn't run the backend.
@@ -75,7 +147,9 @@ test.describe("MNDA chat", () => {
         contentType: "application/json",
         body: JSON.stringify({
           assistant_message: "Got it. Anything else to tweak?",
-          mnda_updates: { governingLaw: "California" },
+          selected_doc_id: "mutual-nda",
+          mnda_updates: {},
+          field_updates: { 保密用途: "评估加州合作" },
           done: false,
         }),
       }),
@@ -86,14 +160,14 @@ test.describe("MNDA chat", () => {
 
     await page
       .getByLabel(/Type a message/i)
-      .fill("Use California governing law.");
+      .fill("Use this NDA to evaluate a California partnership.");
     await page.getByRole("button", { name: /^Send$/ }).click();
 
     await expect(
       page.getByText(/Got it. Anything else to tweak/),
     ).toBeVisible();
-    // Preview reflects the merged state.
-    await expect(page.locator("[data-print-root]")).toContainText("California");
+    // Preview reflects the kernel field update as pending state.
+    await expect(page.locator("[data-print-root]")).toContainText("评估加州合作");
   });
 
   test("focuses the input on load and returns focus after a turn", async ({
@@ -181,7 +255,7 @@ test.describe("MNDA chat", () => {
     ).toBeVisible();
     await expect(page.getByText("Cover Page Summary")).toBeVisible();
     await expect(page.getByText("Acme")).toBeVisible();
-    // The manual-edit form tab is hidden for non-MNDA docs.
+    // Fallback docs without manifests do not expose the manual-edit form tab.
     await expect(
       page.getByRole("tab", { name: /Edit fields/ }),
     ).toHaveCount(0);
