@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GenericDocPreview } from "./GenericDocPreview";
 import type { TemplateResponse } from "@/lib/api";
 import type { DocManifest } from "@/lib/docManifest";
+import type { DraftStateSnapshot } from "@/lib/draftState";
 import type { TemplateLoad } from "@/lib/useDocTemplate";
 
 const MANIFEST: DocManifest = {
@@ -84,6 +85,60 @@ describe("GenericDocPreview with a manifest", () => {
     expect(defined?.getAttribute("title")).toBe("Customer: Acme, Inc.");
     const missing = container.querySelector(".term-missing");
     expect(missing?.textContent).toBe("Governing Law");
+  });
+
+  it("renders pending and conflict field state from draft_state", () => {
+    const snapshot: DraftStateSnapshot = {
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: "cloud-service-agreement",
+      revision: 3,
+      applied_patches: {},
+      fields: {
+        Customer: {
+          key: "Customer",
+          status: "conflict",
+          value: "Acme, Inc.",
+          revision: 3,
+          confirmed_at: "2026-07-31T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+          provenance: [],
+          conflict: {
+            base_value: "Acme, Inc.",
+            proposed_value: "Beta LLC",
+            provenance: {
+              patch_id: "llm-2",
+              source: "llm",
+              operation: "propose",
+              value: "Beta LLC",
+            },
+          },
+        },
+        "Governing Law": {
+          key: "Governing Law",
+          status: "pending_confirmation",
+          value: "PRC law",
+          revision: 2,
+          provenance: [],
+        },
+      },
+    };
+    const { container } = render(
+      <GenericDocPreview
+        load={readyLoad()}
+        fields={{}}
+        draftState={snapshot}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByText("Conflict")).toBeInTheDocument();
+    expect(screen.getByText("Current: Acme, Inc.")).toBeInTheDocument();
+    expect(screen.getByText("Candidate: Beta LLC")).toBeInTheDocument();
+    expect(screen.getByText("Pending confirmation")).toBeInTheDocument();
+    expect(container.querySelector(".term-defined")?.textContent).toBe(
+      "Customer",
+    );
   });
 
   it("lists chat-collected terms the manifest doesn't declare", () => {

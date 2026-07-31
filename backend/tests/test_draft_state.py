@@ -508,6 +508,119 @@ def test_revision_conflicts_and_duplicate_patches_are_explicit():
     assert info.value.errors[0].kind == "revision_conflict"
 
 
+def test_repeated_pending_proposal_is_noop_without_revision_or_provenance():
+    snapshot = snapshot_from_document_state(
+        doc_id="example-doc",
+        state={},
+        manifest=MANIFEST,
+    )
+    first = apply_field_patch(
+        snapshot=snapshot,
+        patch=_patch(
+            "llm-1",
+            0,
+            "llm",
+            [{"op": "propose", "key": "客户", "value": "示例科技"}],
+        ),
+        manifest=MANIFEST,
+        actor_user_id=7,
+    ).snapshot
+
+    repeated = apply_field_patch(
+        snapshot=first,
+        patch=_patch(
+            "llm-repeat",
+            1,
+            "llm",
+            [{"op": "propose", "key": "客户", "value": "示例科技"}],
+        ),
+        manifest=MANIFEST,
+        actor_user_id=7,
+    ).snapshot
+
+    assert repeated.revision == 1
+    assert repeated.applied_patches.keys() == first.applied_patches.keys()
+    assert len(repeated.fields["客户"].provenance) == 1
+
+
+def test_repeated_conflict_candidate_is_noop_without_rejecting_batch():
+    snapshot = _confirmed_snapshot("原客户")
+    conflict = apply_field_patch(
+        snapshot=snapshot,
+        patch=_patch(
+            "llm-conflict",
+            2,
+            "llm",
+            [{"op": "propose", "key": "客户", "value": "候选客户"}],
+        ),
+        manifest=MANIFEST,
+        actor_user_id=7,
+    ).snapshot
+
+    repeated = apply_field_patch(
+        snapshot=conflict,
+        patch=_patch(
+            "llm-repeat-conflict",
+            3,
+            "llm",
+            [{"op": "propose", "key": "客户", "value": "候选客户"}],
+        ),
+        manifest=MANIFEST,
+        actor_user_id=7,
+    ).snapshot
+
+    assert repeated.revision == 3
+    assert repeated.fields["客户"].conflict is not None
+    assert repeated.fields["客户"].conflict.proposed_value == "候选客户"
+    assert len(repeated.fields["客户"].provenance) == len(
+        conflict.fields["客户"].provenance,
+    )
+
+
+def test_noop_proposal_does_not_reject_batch_with_real_change():
+    snapshot = snapshot_from_document_state(
+        doc_id="example-doc",
+        state={},
+        manifest=MANIFEST,
+    )
+    pending = apply_field_patch(
+        snapshot=snapshot,
+        patch=_patch(
+            "llm-1",
+            0,
+            "llm",
+            [{"op": "propose", "key": "客户", "value": "示例科技"}],
+        ),
+        manifest=MANIFEST,
+        actor_user_id=7,
+    ).snapshot
+
+    result = apply_field_patch(
+        snapshot=pending,
+        patch=_patch(
+            "llm-2",
+            1,
+            "llm",
+            [
+                {"op": "propose", "key": "客户", "value": "示例科技"},
+                {"op": "propose", "key": "服务方", "value": "云服务商"},
+            ],
+        ),
+        manifest={
+            **MANIFEST,
+            "fields": [
+                *MANIFEST["fields"],
+                {"key": "服务方", "type": "string", "required": True},
+            ],
+        },
+        actor_user_id=7,
+    ).snapshot
+
+    assert result.revision == 2
+    assert len(result.fields["客户"].provenance) == 1
+    assert result.fields["服务方"].status == "pending_confirmation"
+
+
 def test_reusing_patch_id_with_different_operations_is_rejected():
     snapshot = snapshot_from_document_state(
         doc_id="example-doc",

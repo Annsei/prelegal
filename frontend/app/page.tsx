@@ -10,7 +10,13 @@ import { MNDAChat } from "@/components/MNDAChat";
 import { MNDAForm } from "@/components/MNDAForm";
 import { MNDAPreview } from "@/components/MNDAPreview";
 import { SaveStatus, type SaveState } from "@/components/SaveStatus";
-import { allRequiredFilled } from "@/lib/docManifest";
+import {
+  displayFieldValues,
+  isCompleteForDownload,
+  readDraftStateSnapshot,
+  stableFieldValues,
+  type DraftStateSnapshot,
+} from "@/lib/draftState";
 import { useDocTemplate } from "@/lib/useDocTemplate";
 import {
   ApiError,
@@ -18,6 +24,7 @@ import {
   documentsApi,
   type DocumentRecord,
   type DocumentSummary,
+  type FieldPatchOperation,
   type User,
 } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
@@ -28,6 +35,7 @@ import { clearSession, readSession, readToken } from "@/lib/session";
 type EditMode = "chat" | "form";
 
 const MNDA_DOC_ID = "mutual-nda";
+const KERNEL_MANAGED_DOC_IDS = new Set(["cloud-service-agreement"]);
 const AUTOSAVE_DEBOUNCE_MS = 800;
 // Remembers which draft the user was last editing so a page refresh
 // (within the same server lifetime) drops them back where they were.
@@ -44,7 +52,15 @@ type SavedDocState = {
   chat?: ChatTurn[];
   mnda?: Partial<MndaState>;
   fields?: Record<string, string>;
+  draft_state?: unknown;
 };
+
+function newPatchId(prefix: string): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 function isChatTurnArray(value: unknown): value is ChatTurn[] {
   return (
@@ -136,6 +152,7 @@ export default function Home() {
   const [genericFields, setGenericFields] = useState<Record<string, string>>(
     {},
   );
+  const [draftState, setDraftState] = useState<DraftStateSnapshot | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
@@ -172,6 +189,22 @@ export default function Home() {
     (id: string) => t.catalogTitles[id] ?? id,
     [t],
   );
+  const isMnda = docId === MNDA_DOC_ID;
+  const docTitle = useMemo(
+    () => lookupDocTitle(docId),
+    [docId, lookupDocTitle],
+  );
+  const templateLoad = useDocTemplate(docId, !isMnda, t.templateUnavailable);
+  const manifest =
+    templateLoad.kind === "ready" ? (templateLoad.template.manifest ?? null) : null;
+  const stableGenericFields = manifest
+    ? stableFieldValues(manifest, draftState, genericFields)
+    : genericFields;
+  const displayGenericFields = manifest
+    ? displayFieldValues(manifest, draftState, genericFields)
+    : genericFields;
+  const kernelManaged =
+    !isMnda && manifest !== null && KERNEL_MANAGED_DOC_IDS.has(docId);
 
   useEffect(() => {
     const session = readSession();
@@ -227,13 +260,15 @@ export default function Home() {
       // PUT branch will pick it up.
       if (activeDocId == null && creating.current) return;
 
-      const title = deriveTitle(docId, lookupDocTitle, state, genericFields);
+      const title = deriveTitle(docId, lookupDocTitle, state, displayGenericFields);
       // Wrap chat history alongside the document data so refresh and
       // re-login can restore the conversation, not just the form fields.
       const wrappedState: SavedDocState =
         docId === MNDA_DOC_ID
           ? { chat: chatHistory, mnda: state }
-          : { chat: chatHistory, fields: genericFields };
+          : kernelManaged
+            ? { chat: chatHistory }
+            : { chat: chatHistory, fields: genericFields };
       const body = {
         title,
         state: wrappedState as unknown as Record<string, unknown>,
@@ -274,7 +309,10 @@ export default function Home() {
     docId,
     state,
     genericFields,
+    displayGenericFields,
+    kernelManaged,
     chatHistory,
+    draftState,
     activeDocId,
     refreshList,
     lookupDocTitle,
@@ -290,6 +328,8 @@ export default function Home() {
         setActiveDocId(null);
         writeActiveDocId(null);
         setSaveState("idle");
+        setGenericFields({});
+        setDraftState(null);
         lastLoadedKey.current = `${newDocId}|new`;
       }
       setDocId(newDocId);
@@ -305,6 +345,7 @@ export default function Home() {
     setDocId(MNDA_DOC_ID);
     setState(INITIAL_STATE);
     setGenericFields({});
+    setDraftState(null);
     setChatHistory([]);
     setActiveDocId(null);
     writeActiveDocId(null);
@@ -323,11 +364,13 @@ export default function Home() {
     if (rec.doc_id === MNDA_DOC_ID) {
       setState({ ...INITIAL_STATE, ...(saved.mnda ?? {}) });
       setGenericFields({});
+      setDraftState(null);
     } else {
       setState(INITIAL_STATE);
       setGenericFields(
         saved.fields && typeof saved.fields === "object" ? saved.fields : {},
       );
+      setDraftState(readDraftStateSnapshot(saved.draft_state));
     }
     setChatHistory(isChatTurnArray(saved.chat) ? saved.chat : []);
     setActiveDocId(rec.id);
@@ -397,20 +440,176 @@ export default function Home() {
     window.location.assign("/login");
   }, []);
 
-  const isMnda = docId === MNDA_DOC_ID;
-  const docTitle = useMemo(
-    () => lookupDocTitle(docId),
-    [docId, lookupDocTitle],
+  const handleAuthError = useCallback((err: unknown) => {
+    if (err instanceof ApiError && err.status === 401) {
+      clearSession();
+      window.location.replace("/login");
+      return true;
+    }
+    return false;
+  }, []);
+
+  const ensureDocumentForPatch = useCallback(
+    async (
+      targetDocId: string,
+      historyForState: ChatTurn[],
+    ): Promise<{ id: number; revision: number }> => {
+      const tk = readToken();
+      if (!tk) throw new Error("Missing session token.");
+      if (activeDocId != null && targetDocId === docId) {
+        return { id: activeDocId, revision: draftState?.revision ?? 0 };
+      }
+
+      creating.current = true;
+      try {
+        const created = await documentsApi.create(tk, {
+          doc_id: targetDocId,
+          title: deriveTitle(
+            targetDocId,
+            lookupDocTitle,
+            state,
+            displayGenericFields,
+          ),
+          state: { chat: historyForState },
+        });
+        const saved = (created.state ?? {}) as SavedDocState;
+        const createdSnapshot = readDraftStateSnapshot(saved.draft_state);
+        if (targetDocId !== docId) {
+          setDocId(targetDocId);
+          setState(INITIAL_STATE);
+          setGenericFields({});
+        }
+        setDraftState(createdSnapshot);
+        setActiveDocId(created.id);
+        writeActiveDocId(created.id);
+        lastLoadedKey.current = `${targetDocId}|${created.id}`;
+        setSaveState("saved");
+        await refreshList();
+        return { id: created.id, revision: createdSnapshot?.revision ?? 0 };
+      } finally {
+        creating.current = false;
+      }
+    },
+    [
+      activeDocId,
+      displayGenericFields,
+      docId,
+      draftState,
+      lookupDocTitle,
+      refreshList,
+      state,
+    ],
   );
 
-  // Template + cover-page manifest for the open non-MNDA doc. Owned here
-  // (not in the preview) because the manifest also drives the manual-edit
-  // tab and the download gating in the header.
-  const templateLoad = useDocTemplate(docId, !isMnda, t.templateUnavailable);
-  const manifest =
-    templateLoad.kind === "ready" ? (templateLoad.template.manifest ?? null) : null;
+  const applyChatFieldUpdates = useCallback(
+    async (
+      updates: Record<string, string>,
+      context: {
+        docId: string;
+        history: ChatTurn[];
+        messageIndex: number;
+      },
+    ) => {
+      if (context.docId === MNDA_DOC_ID) return;
+      if (!KERNEL_MANAGED_DOC_IDS.has(context.docId)) {
+        setGenericFields((prev) => ({ ...prev, ...updates }));
+        return;
+      }
+      const operations: FieldPatchOperation[] = Object.entries(updates)
+        .filter(([, value]) => typeof value === "string" && value.trim() !== "")
+        .map(([key, value]) => ({ op: "propose", key, value }));
+      if (operations.length === 0) return;
+      const tk = readToken();
+      if (!tk) throw new Error("Missing session token.");
+      setSaveState("saving");
+      try {
+        const { id, revision } = await ensureDocumentForPatch(
+          context.docId,
+          context.history,
+        );
+        const result = await documentsApi.fieldPatch(tk, id, {
+          patch_id: newPatchId("llm"),
+          base_revision: revision,
+          source: "llm",
+          message_index: context.messageIndex,
+          operations,
+        });
+        setDraftState(result.snapshot);
+        setSaveState("saved");
+        await refreshList();
+      } catch (err) {
+        setSaveState("failed");
+        handleAuthError(err);
+        throw err;
+      }
+    },
+    [ensureDocumentForPatch, handleAuthError, refreshList],
+  );
+
+  const confirmField = useCallback(
+    async (key: string, value: string) => {
+      if (isMnda) return;
+      const tk = readToken();
+      if (!tk) return;
+      setSaveState("saving");
+      try {
+        const { id, revision } = await ensureDocumentForPatch(docId, chatHistory);
+        const result = await documentsApi.fieldPatch(tk, id, {
+          patch_id: newPatchId("form-confirm"),
+          base_revision: revision,
+          source: "form",
+          operations: [{ op: "confirm", key, value }],
+        });
+        setDraftState(result.snapshot);
+        setSaveState("saved");
+        await refreshList();
+      } catch (err) {
+        setSaveState("failed");
+        handleAuthError(err);
+      }
+    },
+    [
+      chatHistory,
+      docId,
+      ensureDocumentForPatch,
+      handleAuthError,
+      isMnda,
+      refreshList,
+    ],
+  );
+
+  const rejectField = useCallback(
+    async (key: string) => {
+      if (isMnda || activeDocId == null) return;
+      const tk = readToken();
+      if (!tk) return;
+      setSaveState("saving");
+      try {
+        const result = await documentsApi.fieldPatch(tk, activeDocId, {
+          patch_id: newPatchId("form-reject"),
+          base_revision: draftState?.revision ?? 0,
+          source: "form",
+          operations: [{ op: "reject", key }],
+        });
+        setDraftState(result.snapshot);
+        setSaveState("saved");
+        await refreshList();
+      } catch (err) {
+        setSaveState("failed");
+        handleAuthError(err);
+      }
+    },
+    [
+      activeDocId,
+      draftState,
+      handleAuthError,
+      isMnda,
+      refreshList,
+    ],
+  );
+
   const manifestComplete =
-    manifest !== null && allRequiredFilled(manifest, genericFields);
+    manifest !== null && isCompleteForDownload(manifest, draftState);
   // MNDA keeps its historical behavior (download always available; the
   // preview renders explicit [missing] placeholders). Manifest docs unlock
   // download once every required cover-page field has a value; docs
@@ -422,6 +621,23 @@ export default function Home() {
     : manifest
       ? t.downloadIncomplete
       : t.downloadUnavailable;
+
+  const handleDownload = useCallback(async () => {
+    if (isMnda) {
+      window.print();
+      return;
+    }
+    if (!manifest || activeDocId == null) return;
+    const tk = readToken();
+    if (!tk) return;
+    try {
+      await documentsApi.downloadReadiness(tk, activeDocId);
+      window.print();
+    } catch (err) {
+      setSaveState("failed");
+      handleAuthError(err);
+    }
+  }, [activeDocId, handleAuthError, isMnda, manifest]);
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
@@ -485,7 +701,7 @@ export default function Home() {
             />
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => void handleDownload()}
               disabled={!canDownload}
               className="btn btn-ink"
               title={downloadTitle}
@@ -529,14 +745,12 @@ export default function Home() {
               key={activeDocId ?? "new"}
               locale={locale}
               state={state}
-              fields={genericFields}
+              fields={stableGenericFields}
               docId={docId}
               getDraftEpoch={getDraftEpoch}
               onStateChange={setState}
               onDocChange={onChatDocChange}
-              onFieldUpdates={(updates) =>
-                setGenericFields((prev) => ({ ...prev, ...updates }))
-              }
+              onFieldUpdates={applyChatFieldUpdates}
               history={chatHistory}
               onHistoryChange={setChatHistory}
             />
@@ -548,10 +762,10 @@ export default function Home() {
                 <DocForm
                   locale={locale}
                   manifest={manifest}
-                  values={genericFields}
-                  onChange={(key, value) =>
-                    setGenericFields((prev) => ({ ...prev, [key]: value }))
-                  }
+                  values={displayGenericFields}
+                  fieldStates={draftState?.fields}
+                  onConfirm={confirmField}
+                  onReject={rejectField}
                 />
               ) : null}
             </div>
@@ -569,6 +783,7 @@ export default function Home() {
             <GenericDocPreview
               load={templateLoad}
               fields={genericFields}
+              draftState={draftState}
               locale={locale}
             />
           )}

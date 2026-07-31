@@ -23,7 +23,9 @@ from app.draft_state import (
     ValidationErrorItem,
     apply_field_patch,
     embed_snapshot_in_state,
+    migrate_document_state_if_needed,
     snapshot_from_document_state,
+    unresolved_required_field_keys,
 )
 from app.manifests import load_manifest, manifest_field_keys
 from app.models import (
@@ -108,6 +110,21 @@ def _state_json_or_reject(state: dict[str, Any]) -> str:
             ],
         )
     return state_json
+
+
+def _persist_state(
+    conn: sqlite3.Connection,
+    *,
+    doc_pk: int,
+    user_id: int,
+    state: dict[str, Any],
+) -> None:
+    conn.execute(
+        "UPDATE documents "
+        "   SET state_json = ?, updated_at = datetime('now') "
+        " WHERE id = ? AND user_id = ?",
+        (_state_json_or_reject(state), doc_pk, user_id),
+    )
 
 
 def _public_patch_source_errors(
@@ -245,7 +262,27 @@ def get_document(
     user: sqlite3.Row = Depends(current_user),
 ) -> DocumentOut:
     with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = _fetch_owned_in(conn, doc_pk, user["id"])
+        if row is not None:
+            manifest = load_manifest(row["doc_id"])
+            if manifest is not None:
+                try:
+                    state, _snapshot, changed = migrate_document_state_if_needed(
+                        doc_id=row["doc_id"],
+                        state=_safe_load_state(row["state_json"]),
+                        manifest=manifest,
+                    )
+                except DraftPatchRejected:
+                    changed = False
+                if changed:
+                    _persist_state(
+                        conn,
+                        doc_pk=doc_pk,
+                        user_id=int(user["id"]),
+                        state=state,
+                    )
+                    row = _fetch_owned_in(conn, doc_pk, user["id"])
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return _row_to_full(row)
@@ -294,6 +331,67 @@ def update_document(
     return _row_to_full(updated)
 
 
+@router.get("/{doc_pk}/download-readiness")
+def get_download_readiness(
+    doc_pk: int,
+    user: sqlite3.Row = Depends(current_user),
+) -> dict[str, Any]:
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = _fetch_owned_in(conn, doc_pk, user["id"])
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        manifest = load_manifest(row["doc_id"])
+        if manifest is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_validation_error_detail(
+                    [
+                        ValidationErrorItem(
+                            kind="unsupported_document_schema",
+                            message=(
+                                "Download readiness is only available for "
+                                "manifest-backed documents."
+                            ),
+                        ),
+                    ],
+                ),
+            )
+
+        try:
+            state_blob, snapshot, changed = migrate_document_state_if_needed(
+                doc_id=row["doc_id"],
+                state=_safe_load_state(row["state_json"]),
+                manifest=manifest,
+            )
+        except DraftPatchRejected as exc:
+            _raise_validation_errors(exc.status_code, exc.errors)
+        if changed:
+            _persist_state(
+                conn,
+                doc_pk=doc_pk,
+                user_id=int(user["id"]),
+                state=state_blob,
+            )
+
+    unresolved = unresolved_required_field_keys(manifest, snapshot)
+    if unresolved:
+        detail = _validation_error_detail(
+            [
+                ValidationErrorItem(
+                    kind="download_blocked",
+                    message=(
+                        "Required fields must be confirmed before download."
+                    ),
+                ),
+            ],
+        )
+        detail["unresolved_required_fields"] = unresolved
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    return {"can_download": True, "unresolved_required_fields": []}
+
+
 @router.post("/{doc_pk}/field-patches", response_model=FieldPatchResponse)
 def apply_document_field_patch(
     doc_pk: int,
@@ -337,7 +435,7 @@ def apply_document_field_patch(
                 source_errors,
             )
         try:
-            snapshot = snapshot_from_document_state(
+            state_blob, snapshot, migrated = migrate_document_state_if_needed(
                 doc_id=row["doc_id"],
                 state=state_blob,
                 manifest=manifest,
@@ -357,15 +455,35 @@ def apply_document_field_patch(
             _raise_validation_errors(exc.status_code, exc.errors)
 
         if result.duplicate:
+            if migrated:
+                _persist_state(
+                    conn,
+                    doc_pk=doc_pk,
+                    user_id=int(user["id"]),
+                    state=state_blob,
+                )
+            return result
+
+        snapshot_changed = (
+            result.snapshot.model_dump(mode="json")
+            != snapshot.model_dump(mode="json")
+        )
+        if not snapshot_changed:
+            if migrated:
+                _persist_state(
+                    conn,
+                    doc_pk=doc_pk,
+                    user_id=int(user["id"]),
+                    state=state_blob,
+                )
             return result
 
         next_state = embed_snapshot_in_state(state_blob, result.snapshot, manifest)
-        next_state_json = _state_json_or_reject(next_state)
-        conn.execute(
-            "UPDATE documents "
-            "   SET state_json = ?, updated_at = datetime('now') "
-            " WHERE id = ? AND user_id = ?",
-            (next_state_json, doc_pk, user["id"]),
+        _persist_state(
+            conn,
+            doc_pk=doc_pk,
+            user_id=int(user["id"]),
+            state=next_state,
         )
         return result
 

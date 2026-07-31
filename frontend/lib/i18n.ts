@@ -20,6 +20,13 @@ type Dictionary = {
   };
   docForm: {
     required: string;
+    confirm: string;
+    reject: string;
+    pending: string;
+    confirmed: string;
+    conflict: string;
+    current: string;
+    candidate: string;
   };
   templateUnavailable: string;
   pickDocPrompt: string;
@@ -134,6 +141,13 @@ const zh: Dictionary = {
   },
   docForm: {
     required: "*必填",
+    confirm: "确认",
+    reject: "拒绝",
+    pending: "待确认",
+    confirmed: "已确认",
+    conflict: "冲突",
+    current: "当前",
+    candidate: "候选",
   },
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
@@ -260,6 +274,13 @@ const en: Dictionary = {
   },
   docForm: {
     required: "*required",
+    confirm: "Confirm",
+    reject: "Reject",
+    pending: "Pending confirmation",
+    confirmed: "Confirmed",
+    conflict: "Conflict",
+    current: "Current",
+    candidate: "Candidate",
   },
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",

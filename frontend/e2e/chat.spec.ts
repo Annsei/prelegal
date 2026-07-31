@@ -139,7 +139,7 @@ test.describe("MNDA chat", () => {
         contentType: "application/json",
         body: JSON.stringify({
           assistant_message: "Got it — drafting a CSA. Who's the customer?",
-          selected_doc_id: "cloud-service-agreement",
+          selected_doc_id: "pilot-agreement",
           mnda_updates: {},
           field_updates: { Customer: "Acme" },
           done: false,
@@ -147,14 +147,14 @@ test.describe("MNDA chat", () => {
       }),
     );
     // Mock the template endpoint too — the dev server doesn't run the backend.
-    await page.route("**/api/templates/cloud-service-agreement", (route) =>
+    await page.route("**/api/templates/pilot-agreement", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          doc_id: "cloud-service-agreement",
-          title: "Cloud Service Agreement (CSA)",
-          standard_terms: "# Cloud Service Agreement\n\nThis is a stub.",
+          doc_id: "pilot-agreement",
+          title: "Pilot Agreement",
+          standard_terms: "# Pilot Agreement\n\nThis is a stub.",
           cover_page: null,
         }),
       }),
@@ -168,16 +168,16 @@ test.describe("MNDA chat", () => {
 
     // Header now reflects the new doc.
     await expect(page.getByText(/Drafting:/)).toContainText(
-      "SaaS Service Agreement",
+      "Pilot Agreement",
     );
     // The generic preview rendered the fetched template title (with the
     // catalog title format including the abbreviation in parentheses) and
     // the AI-collected Cover Page Summary.
     await expect(
       page.getByRole("heading", {
-        name: "Cloud Service Agreement (CSA)",
+        name: "Pilot Agreement",
         level: 1,
-      }),
+      }).first(),
     ).toBeVisible();
     await expect(page.getByText("Cover Page Summary")).toBeVisible();
     await expect(page.getByText("Acme")).toBeVisible();
