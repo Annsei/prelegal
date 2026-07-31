@@ -121,13 +121,17 @@ function Field({
     conflict: string;
     current: string;
     candidate: string;
+    emptyMissingConfirmDisabled: string;
   };
   onChange: (value: string) => void;
   onConfirm: () => void | Promise<void>;
   onReject?: () => void | Promise<void>;
 }) {
   const inputId = `docform-${field.key.replaceAll(" ", "-").toLowerCase()}`;
+  const confirmHelpId = `${inputId}-confirm-help`;
   const hint = localized(field.hint, locale);
+  const confirmDisabled =
+    (!fieldState || fieldState.status === "missing") && value.trim() === "";
   const statusLabel =
     fieldState?.status === "pending_confirmation"
       ? labels.pending
@@ -195,9 +199,17 @@ function Field({
         </p>
       )}
       <div className="mt-2 flex gap-2">
+        {confirmDisabled && (
+          <span id={confirmHelpId} className="sr-only">
+            {labels.emptyMissingConfirmDisabled}
+          </span>
+        )}
         <button
           type="button"
           className="btn btn-primary px-3 py-1 text-xs"
+          disabled={confirmDisabled}
+          title={confirmDisabled ? labels.emptyMissingConfirmDisabled : undefined}
+          aria-describedby={confirmDisabled ? confirmHelpId : undefined}
           onClick={() => void onConfirm()}
         >
           {labels.confirm}

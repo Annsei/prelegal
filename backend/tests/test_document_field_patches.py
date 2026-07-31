@@ -854,6 +854,101 @@ def test_get_migrates_legacy_fields_to_pending_without_forged_confirmation(clien
     assert second.json()["state"]["draft_state"] == snapshot
 
 
+def test_legacy_unverified_flat_field_survives_non_field_put(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(
+        client,
+        headers,
+        {"fields": {"客户": "旧客户", "Side Letter": "保留"}},
+    )
+
+    migrated = client.get(f"/api/documents/{doc['id']}", headers=headers)
+    assert migrated.status_code == 200
+    assert migrated.json()["state"]["fields"]["客户"] == "旧客户"
+
+    autosave = client.put(
+        f"/api/documents/{doc['id']}",
+        headers=headers,
+        json={
+            "state": {
+                "chat": [{"role": "user", "content": "继续收集信息"}],
+                "fields": {"Side Letter": "更新"},
+            },
+        },
+    )
+
+    assert autosave.status_code == 200
+    state = autosave.json()["state"]
+    assert state["chat"] == [{"role": "user", "content": "继续收集信息"}]
+    assert state["fields"]["客户"] == "旧客户"
+    assert state["fields"]["Side Letter"] == "更新"
+    assert state["draft_state"]["revision"] == 0
+    assert state["draft_state"]["fields"]["客户"]["status"] == (
+        "pending_confirmation"
+    )
+
+
+def test_confirm_replaces_legacy_unverified_flat_field_with_stable_value(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers, {"fields": {"客户": "旧客户"}})
+
+    assert client.get(f"/api/documents/{doc['id']}", headers=headers).status_code == 200
+
+    confirmed = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "confirm-legacy",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [
+                {"op": "confirm", "key": "客户", "value": "确认客户"},
+            ],
+        },
+    )
+
+    assert confirmed.status_code == 200
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert fetched["state"]["fields"]["客户"] == "确认客户"
+    assert fetched["state"]["draft_state"]["fields"]["客户"]["status"] == (
+        "confirmed"
+    )
+
+
+def test_reject_removes_legacy_unverified_flat_field_and_preserves_extras(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(
+        client,
+        headers,
+        {"fields": {"客户": "旧客户", "Side Letter": "保留"}},
+    )
+
+    assert client.get(f"/api/documents/{doc['id']}", headers=headers).status_code == 200
+    rejected = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "reject-legacy",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [{"op": "reject", "key": "客户"}],
+        },
+    )
+
+    assert rejected.status_code == 200
+    fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
+    assert "客户" not in fetched["state"]["fields"]
+    assert fetched["state"]["fields"]["Side Letter"] == "保留"
+    assert fetched["state"]["draft_state"]["fields"]["客户"]["status"] == (
+        "missing"
+    )
+
+
 def test_patch_auto_migrates_legacy_fields_before_applying_operations(client):
     token = _register(client, "alice@example.com")
     headers = _bearer(token)

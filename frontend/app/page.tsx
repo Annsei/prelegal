@@ -17,6 +17,7 @@ import {
   stableFieldValues,
   type DraftStateSnapshot,
 } from "@/lib/draftState";
+import { localized } from "@/lib/docManifest";
 import { useDocTemplate } from "@/lib/useDocTemplate";
 import {
   ApiError,
@@ -54,6 +55,21 @@ type SavedDocState = {
   fields?: Record<string, string>;
   draft_state?: unknown;
 };
+
+function unresolvedRequiredFieldsFromError(err: unknown): string[] {
+  if (!(err instanceof ApiError) || err.status !== 409) return [];
+  const detail = err.detail;
+  if (!detail || typeof detail !== "object") return [];
+  const outer = detail as { detail?: unknown; unresolved_required_fields?: unknown };
+  const nested =
+    outer.detail && typeof outer.detail === "object"
+      ? (outer.detail as { unresolved_required_fields?: unknown })
+      : null;
+  const raw =
+    nested?.unresolved_required_fields ?? outer.unresolved_required_fields;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((key): key is string => typeof key === "string");
+}
 
 function newPatchId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -154,6 +170,7 @@ export default function Home() {
   );
   const [draftState, setDraftState] = useState<DraftStateSnapshot | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
+  const [downloadBlockedKeys, setDownloadBlockedKeys] = useState<string[]>([]);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -203,6 +220,12 @@ export default function Home() {
   const displayGenericFields = manifest
     ? displayFieldValues(manifest, draftState, genericFields)
     : genericFields;
+  const downloadBlockedLabels = manifest
+    ? downloadBlockedKeys.map((key) => {
+        const field = manifest.fields.find((item) => item.key === key);
+        return field ? localized(field.label, locale) : key;
+      })
+    : downloadBlockedKeys;
   const kernelManaged =
     !isMnda && manifest !== null && KERNEL_MANAGED_DOC_IDS.has(docId);
 
@@ -330,6 +353,7 @@ export default function Home() {
         setSaveState("idle");
         setGenericFields({});
         setDraftState(null);
+        setDownloadBlockedKeys([]);
         lastLoadedKey.current = `${newDocId}|new`;
       }
       setDocId(newDocId);
@@ -346,6 +370,7 @@ export default function Home() {
     setState(INITIAL_STATE);
     setGenericFields({});
     setDraftState(null);
+    setDownloadBlockedKeys([]);
     setChatHistory([]);
     setActiveDocId(null);
     writeActiveDocId(null);
@@ -372,6 +397,7 @@ export default function Home() {
       );
       setDraftState(readDraftStateSnapshot(saved.draft_state));
     }
+    setDownloadBlockedKeys([]);
     setChatHistory(isChatTurnArray(saved.chat) ? saved.chat : []);
     setActiveDocId(rec.id);
     writeActiveDocId(rec.id);
@@ -480,6 +506,7 @@ export default function Home() {
           setGenericFields({});
         }
         setDraftState(createdSnapshot);
+        setDownloadBlockedKeys([]);
         setActiveDocId(created.id);
         writeActiveDocId(created.id);
         lastLoadedKey.current = `${targetDocId}|${created.id}`;
@@ -535,6 +562,7 @@ export default function Home() {
           operations,
         });
         setDraftState(result.snapshot);
+        setDownloadBlockedKeys([]);
         setSaveState("saved");
         await refreshList();
       } catch (err) {
@@ -561,6 +589,7 @@ export default function Home() {
           operations: [{ op: "confirm", key, value }],
         });
         setDraftState(result.snapshot);
+        setDownloadBlockedKeys([]);
         setSaveState("saved");
         await refreshList();
       } catch (err) {
@@ -592,6 +621,7 @@ export default function Home() {
           operations: [{ op: "reject", key }],
         });
         setDraftState(result.snapshot);
+        setDownloadBlockedKeys([]);
         setSaveState("saved");
         await refreshList();
       } catch (err) {
@@ -632,8 +662,14 @@ export default function Home() {
     if (!tk) return;
     try {
       await documentsApi.downloadReadiness(tk, activeDocId);
+      setDownloadBlockedKeys([]);
       window.print();
     } catch (err) {
+      const blockedKeys = unresolvedRequiredFieldsFromError(err);
+      if (blockedKeys.length > 0) {
+        setDownloadBlockedKeys(blockedKeys);
+        return;
+      }
       setSaveState("failed");
       handleAuthError(err);
     }
@@ -773,6 +809,24 @@ export default function Home() {
           <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
             {t.printHint}
           </p>
+          {downloadBlockedLabels.length > 0 && (
+            <div
+              role="alert"
+              className="mt-3 rounded border px-3 py-2 text-sm"
+              style={{
+                borderColor: "#b85c00",
+                background: "#fff7ed",
+                color: "#7a3400",
+              }}
+            >
+              <p className="font-medium">{t.downloadBlockedFields}</p>
+              <ul className="mt-1 list-disc pl-5">
+                {downloadBlockedLabels.map((label) => (
+                  <li key={label}>{label}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div>

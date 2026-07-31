@@ -33,6 +33,25 @@ const CSA_MANIFEST = {
       required: true,
       label: { zh: "适用法律", en: "Governing Law" },
     },
+    {
+      key: "Auto Renew",
+      section: "keyterms",
+      type: "string",
+      required: false,
+      label: { zh: "自动续期", en: "Auto-renewal" },
+    },
+    {
+      key: "Non-Renewal Notice Period",
+      section: "keyterms",
+      type: "string",
+      required: false,
+      required_when: {
+        field: "Auto Renew",
+        op: "equals",
+        value: "Yes",
+      },
+      label: { zh: "不续约通知期", en: "Non-renewal Notice Period" },
+    },
   ],
 };
 
@@ -159,6 +178,39 @@ function confirmedValues(snapshot: MockSnapshot): Record<string, string> {
   return values;
 }
 
+function stableValues(snapshot: MockSnapshot | null): Record<string, string> {
+  const values: Record<string, string> = {};
+  if (!snapshot) return values;
+  for (const [key, field] of Object.entries(snapshot.fields)) {
+    if (field.status === "confirmed" && field.value) values[key] = field.value;
+    if (field.status === "conflict" && field.confirmed_at && field.value) {
+      values[key] = field.value;
+    }
+  }
+  return values;
+}
+
+function requiredWhenMatches(
+  condition: unknown,
+  values: Record<string, string>,
+): boolean {
+  if (!condition || typeof condition !== "object") return false;
+  const raw = condition as {
+    field?: unknown;
+    op?: unknown;
+    value?: unknown;
+    values?: unknown;
+  };
+  if (typeof raw.field !== "string") return false;
+  const value = values[raw.field];
+  const op = typeof raw.op === "string" ? raw.op : "equals";
+  if (op === "equals") return value === raw.value;
+  if (op === "not_equals") return Boolean(value) && value !== raw.value;
+  if (op === "in") return Array.isArray(raw.values) && raw.values.includes(value);
+  if (op === "exists") return Boolean(value);
+  return false;
+}
+
 function applyMockPatch(snapshot: MockSnapshot, body: MockPatchBody): MockSnapshot {
   const next = structuredClone(snapshot) as MockSnapshot;
   const activeOps = body.operations.filter((op) => {
@@ -209,11 +261,17 @@ function applyMockPatch(snapshot: MockSnapshot, body: MockPatchBody): MockSnapsh
   return next;
 }
 
-async function installMockBackend(page: Page, options: { legacy?: boolean } = {}) {
+async function installMockBackend(
+  page: Page,
+  options: { legacy?: boolean; downloadBlockOnce?: string[] } = {},
+) {
   const events: { patches: MockPatchBody[]; puts: MockPutBody[] } = {
     patches: [],
     puts: [],
   };
+  let downloadBlockOnce = options.downloadBlockOnce
+    ? [...options.downloadBlockOnce]
+    : null;
   let snapshot: MockSnapshot | null = options.legacy ? legacySnapshot() : null;
   let doc = {
     id: 1,
@@ -300,8 +358,27 @@ async function installMockBackend(page: Page, options: { legacy?: boolean } = {}
   });
 
   await page.route(/\/api\/documents\/1\/download-readiness$/, async (route) => {
+    if (downloadBlockOnce) {
+      const unresolved = downloadBlockOnce;
+      downloadBlockOnce = null;
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            validation_errors: [{ kind: "download_blocked" }],
+            unresolved_required_fields: unresolved,
+          },
+        }),
+      });
+      return;
+    }
+    const stable = stableValues(snapshot);
     const unresolved = CSA_MANIFEST.fields
-      .filter((field) => field.required)
+      .filter(
+        (field) =>
+          field.required || requiredWhenMatches(field.required_when, stable),
+      )
       .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
       .map((field) => field.key);
     if (unresolved.length > 0) {
@@ -511,6 +588,47 @@ test.describe("CSA document-state kernel adoption", () => {
     await page.getByRole("button", { name: "Confirm" }).nth(2).click();
 
     await expect(download).toBeEnabled();
+  });
+
+  test("download 409 lists unresolved fields by manifest label", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.print = () => {
+        window.dispatchEvent(new Event("prelegal-print"));
+      };
+    });
+    await installMockBackend(page, {
+      downloadBlockOnce: ["Non-Renewal Notice Period"],
+    });
+    await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
+
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByLabel(/Provider \(company\)/).fill("Globex Cloud, Inc.");
+    await page.getByRole("button", { name: "Confirm" }).nth(0).click();
+    await page.getByLabel(/Customer \(company\)/).fill("Acme, Inc.");
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+    await page.getByLabel(/Governing Law/).fill("PRC law");
+    await page.getByRole("button", { name: "Confirm" }).nth(2).click();
+
+    const download = page.getByRole("button", { name: /download pdf/i });
+    await expect(download).toBeEnabled();
+    await download.click();
+
+    const alert = page
+      .locator('[role="alert"]')
+      .filter({
+        hasText: "Confirm these required fields before downloading:",
+      });
+    await expect(alert).toContainText(
+      "Confirm these required fields before downloading:",
+    );
+    await expect(alert).toContainText("Non-renewal Notice Period");
+
+    await page.getByLabel(/Non-renewal Notice Period/).fill("30 days");
+    await page.getByRole("button", { name: "Confirm" }).nth(4).click();
+    await download.click();
+    await expect(alert).toHaveCount(0);
   });
 
   test("legacy CSA drafts restored from GET render as pending until confirmed", async ({

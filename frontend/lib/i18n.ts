@@ -9,6 +9,7 @@ type Dictionary = {
   download: string;
   downloadUnavailable: string;
   downloadIncomplete: string;
+  downloadBlockedFields: string;
   printHint: string;
   drafting: string;
   comingSoon: string;
@@ -27,6 +28,7 @@ type Dictionary = {
     conflict: string;
     current: string;
     candidate: string;
+    emptyMissingConfirmDisabled: string;
   };
   templateUnavailable: string;
   pickDocPrompt: string;
@@ -129,6 +131,7 @@ const zh: Dictionary = {
     "该文档尚无封面页字段清单，暂不支持下载，以免输出未填充的误导性文件。",
   downloadIncomplete:
     "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
+  downloadBlockedFields: "请先确认这些必填字段：",
   printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
   drafting: "正在起草",
   comingSoon: "该文档的完整生成与 PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
@@ -148,6 +151,7 @@ const zh: Dictionary = {
     conflict: "冲突",
     current: "当前",
     candidate: "候选",
+    emptyMissingConfirmDisabled: "请先输入内容，再确认一个缺失字段。",
   },
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
@@ -262,6 +266,7 @@ const en: Dictionary = {
     "Download is disabled for this document — it has no cover-page field manifest yet, so the output would be an unpopulated template.",
   downloadIncomplete:
     "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
+  downloadBlockedFields: "Confirm these required fields before downloading:",
   printHint: "In the print dialog, choose “Save as PDF” as the destination.",
   drafting: "Drafting",
   comingSoon: "Full generation and PDF download for this document are coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
@@ -281,6 +286,7 @@ const en: Dictionary = {
     conflict: "Conflict",
     current: "Current",
     candidate: "Candidate",
+    emptyMissingConfirmDisabled: "Enter a value before confirming a missing field.",
   },
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
