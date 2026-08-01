@@ -3,7 +3,7 @@
   "source": {
     "publisher": "Prelegal",
     "law": "PRC",
-    "note": "中国法中文范本，由 AI 辅助起草（v1.0），未经执业律师审定；仅供参考，不构成法律意见，签署前请由执业律师审核。"
+    "note": "中国法中文范本。各文档的底本来源和版本以条目 source 元数据及 templates/sources/ 存档为准；未经执业律师审定，仅供参考，不构成法律意见，签署前请由执业律师审核。"
   },
   "templates": [
     {
@@ -81,35 +81,55 @@
     {
       "id": "professional-services-agreement",
       "title": "专业服务协议",
-      "description": "中国法下的专业服务协议范本：SOW 机制、交付验收、增值税发票、知识产权归属。",
+      "description": "基于国家市场监督管理总局《委托合同（示范文本）》GF-2025-1001 的中国法专业服务协议，覆盖委托事务、费用、验收和知识产权归属。",
       "category": "commercial",
       "path": "professional-services-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "professional-services-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "professional-services-agreement/psa.md"
+          "path": "professional-services-agreement/standard_terms.md"
         }
       ],
       "source": {
-        "origin": "prelegal",
-        "version": "1.0"
+        "origin": "official-contract-model",
+        "issuer": "国家市场监督管理总局",
+        "document": "委托合同（示范文本）",
+        "code": "GF-2025-1001",
+        "published": "2025-07",
+        "source_url": "https://htsfwb.samr.gov.cn/View?id=50b57729-0fca-45d2-92c3-fe7e6a989815",
+        "acquired": "2026-08-01",
+        "product_adaptation_version": "1.0"
       }
     },
     {
       "id": "data-processing-agreement",
-      "title": "个人信息委托处理协议",
-      "description": "依据《中华人民共和国个人信息保护法》第 21 条起草的委托处理协议范本。",
+      "title": "数据/个人信息委托处理协议",
+      "description": "基于国家数据局、国家市场监督管理总局《数据委托处理服务合同（示范文本）》GF-2025-2616 的境内数据及个人信息委托处理协议。",
       "category": "privacy-addendum",
       "path": "data-processing-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "data-processing-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "data-processing-agreement/DPA.md"
+          "path": "data-processing-agreement/standard_terms.md"
         }
       ],
       "source": {
-        "origin": "prelegal",
-        "version": "1.0"
+        "origin": "official-contract-model",
+        "issuer": "国家数据局、国家市场监督管理总局",
+        "document": "数据委托处理服务合同（示范文本）",
+        "code": "GF-2025-2616",
+        "published": "2025-07",
+        "source_url": "https://htsfwb.samr.gov.cn/View?id=6cdbe704-5a82-4dfe-822f-8cbb60528321",
+        "acquired": "2026-08-01",
+        "product_adaptation_version": "1.0"
       }
     },
     {

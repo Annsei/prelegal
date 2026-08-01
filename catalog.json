@@ -35,14 +35,14 @@
       "title": "专业服务协议",
       "category": "commercial",
       "use_when": "服务方按工作说明书（SOW）交付咨询、实施等专业服务。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "data-processing-agreement",
-      "title": "个人信息委托处理协议",
+      "title": "数据/个人信息委托处理协议",
       "category": "privacy-addendum",
       "use_when": "受托处理个人信息的场景——对应《个人信息保护法》第 21 条委托处理，覆盖安全措施、转委托与出境限制。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "software-license-agreement",
