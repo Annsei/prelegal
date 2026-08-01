@@ -108,9 +108,6 @@ frontend/        Next.js 15 (static export, output: "export")
                    (manifest drives form tab + download gating, so the page
                    owns the fetch, not the preview)
   lib/i18n.ts      zh/en dictionaries (default zh)
-  lib/mndaState.ts Legacy MndaState compatibility type/defaults used for old
-                   draft migration and chat request context; new MNDA writes
-                   use manifest field patches
   lib/session.ts   localStorage-backed session ({user, token}) under key
                    "prelegal:session". Companion key "prelegal:activeDocId"
                    (written by app/page.tsx) remembers which draft to

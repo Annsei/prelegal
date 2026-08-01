@@ -145,6 +145,24 @@ def test_normalize_result_converts_literal_newlines_in_assistant_message():
     assert result["field_updates"] == {"保密用途": "包含字面 \\n 的字段值不应变"}
 
 
+def test_normalize_result_converts_literal_newlines_after_fullwidth_colon():
+    result = llm._normalize_result(
+        {
+            "assistant_message": (
+                "已记录以下信息：\\n- 甲方公司名称：甲方科技有限公司"
+                "\\n- 乙方公司名称：乙方科技有限公司"
+            ),
+            "field_updates": {},
+            "done": False,
+        },
+    )
+
+    assert result["assistant_message"] == (
+        "已记录以下信息：\n- 甲方公司名称：甲方科技有限公司"
+        "\n- 乙方公司名称：乙方科技有限公司"
+    )
+
+
 def test_normalize_result_leaves_plain_assistant_message_unchanged():
     result = llm._normalize_result(
         {

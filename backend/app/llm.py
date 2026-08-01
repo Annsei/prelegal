@@ -224,7 +224,7 @@ _PATHISH_PRECEDING_CHARS = frozenset(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:/\\.-",
 )
 _FORMAT_NEWLINE_PRECEDING_CHARS = frozenset(
-    " \t([{<\"'“‘《（【「『。！？!?；;，,、）)]】」』”’",
+    " \t([{<\"'“‘《（【「『。！？!?；;，,、：…—）)]】」』”’",
 )
 
 
