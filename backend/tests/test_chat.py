@@ -42,7 +42,7 @@ def chat_client(client, monkeypatch):
             "assistant_message": "Got it — what's the effective date?",
             "selected_doc_id": "mutual-nda",
             "mnda_updates": {"purpose": "Evaluating a partnership"},
-            "field_updates": {},
+            "field_updates": {"保密用途": "Evaluating a partnership"},
             "done": False,
         }
 
@@ -67,8 +67,8 @@ def test_chat_returns_assistant_message_and_updates(chat_client):
     body = res.json()
     assert body["assistant_message"].startswith("Got it")
     assert body["selected_doc_id"] == "mutual-nda"
-    assert body["mnda_updates"]["purpose"] == "Evaluating a partnership"
-    assert body["field_updates"] == {}
+    assert body["mnda_updates"] == {}
+    assert body["field_updates"] == {"保密用途": "Evaluating a partnership"}
     assert body["done"] is False
 
     # The route should have forwarded both history and state to the LLM layer.

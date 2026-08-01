@@ -404,16 +404,16 @@ def test_field_patch_requires_document_ownership(client):
     assert res.status_code == 404
 
 
-def test_field_patch_rejects_docs_without_manifest_but_mnda_crud_still_works(client):
+def test_field_patch_rejects_docs_without_manifest_but_crud_still_works(client):
     token = _register(client, "alice@example.com")
     headers = _bearer(token)
     created = client.post(
         "/api/documents",
         headers=headers,
         json={
-            "doc_id": "mutual-nda",
-            "title": "MNDA draft",
-            "state": {"mnda": {"purpose": "合作评估"}},
+            "doc_id": "pilot-agreement",
+            "title": "Pilot draft",
+            "state": {"fields": {"试点目的": "合作评估"}},
         },
     ).json()
 
@@ -438,10 +438,10 @@ def test_field_patch_rejects_docs_without_manifest_but_mnda_crud_still_works(cli
     update = client.put(
         f"/api/documents/{created['id']}",
         headers=headers,
-        json={"state": {"mnda": {"purpose": "更新后的用途"}}},
+        json={"state": {"fields": {"试点目的": "更新后的用途"}}},
     )
     assert update.status_code == 200
-    assert update.json()["state"]["mnda"]["purpose"] == "更新后的用途"
+    assert update.json()["state"]["fields"]["试点目的"] == "更新后的用途"
 
 
 def test_public_patch_rejects_system_and_user_source_spoofing(client):

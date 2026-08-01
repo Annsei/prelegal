@@ -104,7 +104,13 @@ def test_chat_complete_parses_structured_response(monkeypatch):
         mnda_state={"purpose": ""},
     )
     # Normalization fills in the optional keys the model omitted.
-    assert result == {**payload, "selected_doc_id": "", "field_updates": {}}
+    assert result == {
+        "assistant_message": payload["assistant_message"],
+        "selected_doc_id": "",
+        "mnda_updates": {},
+        "field_updates": {},
+        "done": False,
+    }
 
     # Sanity-check the routing constraints we actually care about.
     assert captured["model"] == "openrouter/openai/gpt-oss-120b"
@@ -192,7 +198,7 @@ def test_chat_complete_retries_when_followup_question_missing(monkeypatch):
     assert "did not end with a question" in retry_system
 
 
-def test_chat_complete_preserves_first_call_updates_across_retry(monkeypatch):
+def test_chat_complete_preserves_first_call_field_updates_across_retry(monkeypatch):
     """A retry triggered by a missing question must not drop fields the
     first call extracted."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
@@ -219,12 +225,9 @@ def test_chat_complete_preserves_first_call_updates_across_retry(monkeypatch):
         mnda_state={},
     )
 
-    # Both turns' extractions must survive — the retry only existed to fix
-    # phrasing, not to re-discover data.
-    assert result["mnda_updates"] == {
-        "purpose": "Evaluating a partnership",
-        "governingLaw": "Delaware",
-    }
+    # Both turns' field extractions must survive — the retry only existed
+    # to fix phrasing, not to re-discover data. Typed mnda_updates are retired.
+    assert result["mnda_updates"] == {}
     assert result["field_updates"] == {"Customer": "Acme", "Provider": "Globex"}
     assert result["selected_doc_id"] == "mutual-nda"
 
@@ -234,6 +237,7 @@ def test_chat_response_schema_has_multi_doc_fields():
     props = llm.CHAT_RESPONSE_SCHEMA["properties"]
     assert "selected_doc_id" in props
     assert "field_updates" in props
+    assert "mnda_updates" not in props
     assert props["field_updates"]["additionalProperties"] == {"type": "string"}
 
 
@@ -400,6 +404,49 @@ def test_chat_complete_injects_manifest_checklist_for_csa(monkeypatch):
     assert field_schema["additionalProperties"] is False
     assert "订阅期" in field_schema["properties"]
     assert "服务方赔偿范围" in field_schema["properties"]
+
+
+def test_chat_complete_injects_manifest_checklist_for_mnda(monkeypatch):
+    """MNDA now uses field_updates constrained by its manifest; typed
+    mnda_updates are ignored at the LLM boundary."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+
+    captured: dict = {}
+    payload = {
+        "assistant_message": "保密用途我记下了。生效日期是哪一天？",
+        "selected_doc_id": "mutual-nda",
+        "mnda_updates": {"purpose": "must be ignored"},
+        "field_updates": {
+            "保密用途": "评估融资合作",
+            "Unknown": "must be dropped",
+        },
+        "done": False,
+    }
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(payload)
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "这份 NDA 用于评估融资合作"}],
+        mnda_state={},
+        doc_id="mutual-nda",
+    )
+
+    system = captured["messages"][0]["content"]
+    assert "## Field checklist" in system
+    assert '"保密用途" (required)' in system
+    assert '"甲方签字人姓名" (optional)' in system
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["additionalProperties"] is False
+    assert "保密用途" in field_schema["properties"]
+    assert "甲方公司名称" in field_schema["properties"]
+    assert result["mnda_updates"] == {}
+    assert result["field_updates"] == {"保密用途": "评估融资合作"}
 
 
 def test_chat_complete_embeds_manifest_doc_fields_in_current_state(monkeypatch):

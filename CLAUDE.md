@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft **PRC-law (中国法) Chinese leg
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). Documents are being upgraded onto a **manifest-driven pipeline** (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields): **the CSA is the first fully-drafted doc on it**. The MNDA keeps its bespoke typed form/preview/PDF for now (migrating it onto the pipeline is a follow-up). The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log, show up in a left sidebar, and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). The **manifest-driven document-state kernel** is authoritative for CSA and MNDA (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → server-owned pending/confirmed/conflict/missing states → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields). The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON plus tests. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata; manifest-managed fields are written through field patches and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -83,22 +83,22 @@ backend/         FastAPI service (uv project)
 frontend/        Next.js 15 (static export, output: "export")
   app/page.tsx     Legal-agreement generator with sidebar / editor / preview
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
-                   state (chat log + typed fields) under the current bearer
-                   token; routes by currentDocId — MNDA → MNDAForm +
-                   MNDAPreview, others → GenericDocPreview. On mount,
-                   rehydrates the last-active draft pointer from
+                   state (chat log + non-field metadata) under the current
+                   bearer token; manifest fields are written through
+                   field-patches and rendered via DocForm + GenericDocPreview.
+                   On mount, rehydrates the last-active draft pointer from
                    localStorage so refresh / re-login lands the user back
                    in the same conversation. Redirects to /login if no
                    session.
   app/login/       Two-column login/register page (marketing left, form right).
                    Real password auth.
-  components/      MNDAChat (controlled history prop, textarea-focus restore,
-                   lazy welcome bubble, multi-doc callbacks, sends doc_id per
-                   turn), MNDAForm, MNDAPreview, GenericDocPreview (structured
-                   Cover Page + body term-ref highlighting for manifest docs;
-                   flat summary card otherwise), DocForm (manifest-driven
-                   manual-edit form), DocumentSidebar, SaveStatus, Disclaimer,
-                   LanguageToggle
+  components/      MNDAChat (legacy name; generic controlled chat panel with
+                   textarea-focus restore, lazy welcome bubble, multi-doc
+                   callbacks, sends doc_id per turn), GenericDocPreview
+                   (structured Cover Page + body term-ref highlighting for
+                   manifest docs; flat summary card otherwise), DocForm
+                   (manifest-driven manual-edit form), DocumentSidebar,
+                   SaveStatus, Disclaimer, LanguageToggle
   lib/api.ts       apiFetch (Bearer-token aware) + auth + chatApi
                    + templatesApi + documentsApi
   lib/docManifest.ts  manifest types + allRequiredFilled/extraFields +
@@ -108,9 +108,9 @@ frontend/        Next.js 15 (static export, output: "export")
                    (manifest drives form tab + download gating, so the page
                    owns the fetch, not the preview)
   lib/i18n.ts      zh/en dictionaries (default zh)
-  lib/mndaState.ts MndaState type + AI-update merge (drops unknown keys)
-  lib/mndaTemplate.ts PRC-law 双方保密协议 standard terms with placeholders
-                   (governingLaw = 适用法律, jurisdiction = 争议解决)
+  lib/mndaState.ts Legacy MndaState compatibility type/defaults used for old
+                   draft migration and chat request context; new MNDA writes
+                   use manifest field patches
   lib/session.ts   localStorage-backed session ({user, token}) under key
                    "prelegal:session". Companion key "prelegal:activeDocId"
                    (written by app/page.tsx) remembers which draft to
@@ -118,9 +118,10 @@ frontend/        Next.js 15 (static export, output: "export")
   e2e/             Playwright (login.spec, mnda.spec, chat.spec, documents.spec,
                    csa.spec — covers focus-return, non-MNDA doc switching,
                    sidebar + debounced auto-save with bearer token, chat
-                   history restoration after refresh, and the CSA manifest
-                   pipeline: cover page, term-ref highlighting, download
-                   gating)
+                   history restoration after refresh, and the CSA/MNDA
+                   manifest pipelines: cover page, term-ref highlighting,
+                   field-patch writes, conflict resolution, download gating,
+                   and legacy MNDA migration)
 templates/       11 PRC-law Chinese markdown packages (Prelegal 范本 v1.0,
                  AI-drafted; mutual-nda has cover_page + standard_terms,
                  others standard_terms only). Same span conventions as the
@@ -129,9 +130,9 @@ templates/       11 PRC-law Chinese markdown packages (Prelegal 范本 v1.0,
                  names). templates.json indexes them (origin: prelegal).
                  manifests/<doc_id>.json — cover-page field manifests (key,
                  type, required, zh/en labels, hint, example, alias span
-                 texts). CSA has one today; adding a doc to the full
-                 pipeline ≈ adding its manifest here (+ flipping its
-                 catalog.json status to "available").
+                 texts). CSA and MNDA have manifests today; adding a doc to
+                 the full pipeline ≈ adding its manifest here (+ flipping its
+                 catalog.json status to "available") plus tests.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
                  deps installed with `uv sync --frozen` from the committed
                  backend/uv.lock (reproducible builds); runs as non-root user
@@ -154,9 +155,9 @@ scripts/         start/stop per OS; start scripts forward .env into the
 - `POST /api/auth/login` → `{user, token}`; 401 for both unknown email and wrong password (don't leak which)
 - `POST /api/auth/logout` → 204; invalidates the bearer token used to make the call
 - `GET /api/auth/me` → `{id,email,name,created_at}`; used by the frontend to validate a stored token after a page reload
-- `POST /api/chat` → `{messages:[{role,content}], mnda_state, doc_id}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. **Requires `Authorization: Bearer <token>`** (each turn spends LLM credits) and is rate-limited 20/min per user (429 beyond). Stateless (frontend keeps history). `doc_id` is the doc the frontend has open — when it has a manifest, the LLM prompt gains that doc's field checklist and `field_updates` keys are schema-constrained to it; `done: true` becomes reachable once required fields are filled. `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a `{label: value}` map for non-MNDA docs (free-form when the doc has no manifest). `mnda_state` is capped at 64KB serialized (422 beyond). Returns 502 if `OPENROUTER_API_KEY` missing, the LLM call fails, or the LLM returns malformed structured output (all classified into one-line messages).
+- `POST /api/chat` → `{messages:[{role,content}], mnda_state, doc_id, document_state}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. **Requires `Authorization: Bearer <token>`** (each turn spends LLM credits) and is rate-limited 20/min per user (429 beyond). Stateless (frontend keeps history). `doc_id` is the doc the frontend has open — when it has a manifest, the LLM prompt gains that doc's field checklist and `field_updates` keys are schema-constrained to it; `done: true` becomes reachable once required fields are filled. `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a `{label: value}` map for manifest docs and a free-form fallback for docs without a manifest. `mnda_updates` is retained as an empty compatibility field; typed MNDA writes are retired. `mnda_state`/`document_state` are capped at 64KB serialized (422 beyond). Returns 502 if `OPENROUTER_API_KEY` missing, the LLM call fails, or the LLM returns malformed structured output (all classified into one-line messages).
 - `GET /api/templates/{doc_id}` → `{doc_id, title, standard_terms, cover_page?, manifest?}`. Reads from `templates/templates.json` and the markdown files alongside it; `manifest` is the cover-page field manifest from `templates/manifests/` (null for docs without one). 404 on unknown id.
-- `GET/POST/PUT/DELETE /api/documents[/{id}]` → per-user draft CRUD. **All require `Authorization: Bearer <token>`.** A user can only see and modify their own rows; cross-user access returns 404 to avoid leaking existence. The `state` field is a wrapped envelope: `{chat: ChatTurn[], mnda?: MndaState, fields?: Record<string,string>}` — `chat` is the conversation log; `mnda` is populated for `mutual-nda` only; `fields` carries cover-page-level key/value data for any other doc. Missing keys decode to fresh-draft defaults on the frontend.
+- `GET/POST/PUT/DELETE /api/documents[/{id}]` → per-user draft CRUD. **All require `Authorization: Bearer <token>`.** A user can only see and modify their own rows; cross-user access returns 404 to avoid leaking existence. The `state` field is a wrapped envelope: `{chat: ChatTurn[], mnda?: MndaState, fields?: Record<string,string>, draft_state?: DraftStateSnapshot}`. `chat` is the conversation log; `mnda` is legacy compatibility data for old MNDA drafts; `fields` carries legacy flat cover-page values; manifest-managed fields live in `draft_state` and are protected from public PUT replacement/rollback. Missing keys decode to fresh-draft defaults on the frontend.
 - `GET /` and unknown paths → SPA fallback to the Next.js static export (path-traversal refused, falls back to `index.html`)
 
 `users` schema: `id`, `email UNIQUE`, `name`, `password_hash` (bcrypt), `created_at`.

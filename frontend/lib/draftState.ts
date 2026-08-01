@@ -66,7 +66,7 @@ export function stableFieldValues(
   const values: Record<string, string> = {};
   for (const field of manifest.fields) {
     const state = snapshot.fields[field.key];
-    if (!state?.value) continue;
+    if (typeof state?.value !== "string") continue;
     if (state.status === "confirmed") {
       values[field.key] = state.value;
     } else if (state.status === "conflict" && state.confirmed_at) {
@@ -145,8 +145,8 @@ function singleConditionMatches(
   const value = stableValues[condition.field];
   const op = condition.op ?? "equals";
   if (op === "equals") return value === condition.value;
-  if (op === "not_equals") return Boolean(value) && value !== condition.value;
-  if (op === "in") return Boolean(value) && (condition.values ?? []).includes(value);
+  if (op === "not_equals") return value !== undefined && value !== condition.value;
+  if (op === "in") return value !== undefined && (condition.values ?? []).includes(value);
   if (op === "exists") return Boolean(value);
   return false;
 }

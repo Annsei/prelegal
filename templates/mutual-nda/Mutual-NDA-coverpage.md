@@ -12,17 +12,17 @@
 | 保密期限 | <span class="keyterms_link">保密期限</span>（商业秘密至其依法不再构成商业秘密时止） |
 | 适用法律 | <span class="keyterms_link">适用法律</span>（默认：中华人民共和国法律） |
 | 争议解决 | <span class="keyterms_link">争议解决</span> |
-| 对标准条款的修订 | 如无另行列明，视为无修订 |
+| 对标准条款的修订 | <span class="keyterms_link">对标准条款的修订</span>（如无另行列明，视为无修订） |
 
 ## 签署
 
 | | 甲方 | 乙方 |
 | --- | --- | --- |
-| 公司名称 | | |
+| 公司名称 | <span class="coverpage_link">甲方公司名称</span> | <span class="coverpage_link">乙方公司名称</span> |
 | 签字 | | |
-| 姓名 | | |
-| 职务 | | |
-| 通知地址 | | |
+| 姓名 | <span class="coverpage_link">甲方签字人姓名</span> | <span class="coverpage_link">乙方签字人姓名</span> |
+| 职务 | <span class="coverpage_link">甲方签字人职务</span> | <span class="coverpage_link">乙方签字人职务</span> |
+| 通知地址 | <span class="coverpage_link">甲方通知地址</span> | <span class="coverpage_link">乙方通知地址</span> |
 | 签署日期 | | |
 
 双方签署本封面页，即同意自生效日期起订立本协议。

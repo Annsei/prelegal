@@ -1,14 +1,14 @@
 """LLM client for the chat feature.
 
 Routes chat completions through LiteLLM → OpenRouter → Cerebras as required
-by CLAUDE.md. Structured Outputs are used to extract MNDA field values
-reliably; the LLM returns one JSON object containing both the natural-
-language reply and any new field values it learned this turn.
+by CLAUDE.md. Structured Outputs are used to extract document field proposals
+reliably; the LLM returns one JSON object containing both the natural-language
+reply and any new field values it learned this turn.
 
 The chat is multi-document aware (PL-6): it knows the catalog of supported
 documents and can recommend the closest match when a user asks for
 something we don't offer. It collects key terms for any catalog document;
-only the MNDA is fully generatable (typed fields + PDF) in the UI today.
+manifest-backed documents constrain those terms to their declared fields.
 """
 
 from __future__ import annotations
@@ -85,15 +85,11 @@ update `selected_doc_id` to the new id.
 
 ## Collecting field values
 
-There are two field channels in the response:
-
-- `mnda_updates`: typed MNDA-only fields. Use this **only** when \
-`selected_doc_id == "mutual-nda"`. Leave empty for any other doc.
-- `field_updates`: a flexible string→string map for any document, including \
-MNDA. Use it for any other doc to record cover-page-level data: party \
-names, dates, governing law, key commercial terms, etc. Choose human-\
-readable keys ("Customer", "Provider", "Subscription Period", "Effective \
-Date") matching the labels used in the underlying template.
+Use `field_updates` to record cover-page-level data: party names, dates, \
+governing law, key commercial terms, etc. For manifest-backed documents, \
+use the exact keys from the field checklist. For documents without a \
+manifest, choose concise human-readable keys matching the underlying \
+template labels.
 
 Only include keys the user has *just* told you about — never repeat values \
 already present in the current state. Always reply in the same language the \
@@ -102,27 +98,11 @@ keep field values in Simplified Chinese (company names as registered, \
 dates in ISO YYYY-MM-DD; amounts and periods written in Chinese, e.g. \
 "人民币 20,000 元/月", "12 个月").
 
-MNDA-specific typed fields (use `mnda_updates`):
-- purpose: 保密用途 — how the parties will use confidential information
-- effectiveDate: ISO date string (YYYY-MM-DD)
-- mndaTermMode: "expires" or "continues"
-- mndaTermYears: integer (only if mndaTermMode == "expires")
-- confidentialityMode: "years" or "perpetual"
-- confidentialityYears: integer (only if confidentialityMode == "years")
-- governingLaw: 适用法律 — default "中华人民共和国法律"
-- jurisdiction: 争议解决 — arbitration commission or competent court, \
-e.g. "上海仲裁委员会按其仲裁规则进行仲裁" or "甲方住所地有管辖权的人民法院"
-- modifications: free-text edits to the standard terms (or "" for none)
-- party1, party2: each has {{ company, signerName, signerTitle, noticeAddress }}
-
 ## Conversation rules
 
 - Whenever `done` is false, your `assistant_message` MUST end with a \
 question (terminated by "?" or "？"). The user should always see what to \
 answer next — never leave the conversation hanging on a statement.
-- For an MNDA, when the document looks complete enough to sign, set \
-`done: true` and tell the user they can review the preview and download \
-the PDF.
 - When a "Field checklist" section appears below, the selected document \
 supports full cover-page drafting: collect those fields and set \
 `done: true` once every required one has a value (from this conversation \
@@ -166,24 +146,8 @@ def _manifest_prompt_section(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _party_schema() -> dict[str, Any]:
-    return {
-        "type": "object",
-        "properties": {
-            "company": {"type": "string"},
-            "signerName": {"type": "string"},
-            "signerTitle": {"type": "string"},
-            "noticeAddress": {"type": "string"},
-        },
-        "additionalProperties": False,
-    }
-
-
-# The structured-output schema. `mnda_updates` is intentionally a *partial*
-# of the frontend MndaState — the LLM should only fill keys it actually
-# extracted this turn. Required fields are forced to be present in the
-# response itself (assistant_message, mnda_updates, done) but every leaf
-# inside mnda_updates is optional.
+# The structured-output schema. `field_updates` is intentionally partial:
+# the LLM should only fill keys it actually extracted this turn.
 CHAT_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -198,37 +162,23 @@ CHAT_RESPONSE_SCHEMA: dict[str, Any] = {
                 "string until intent is clear."
             ),
         },
-        "mnda_updates": {
-            "type": "object",
-            "properties": {
-                "purpose": {"type": "string"},
-                "effectiveDate": {"type": "string"},
-                "mndaTermMode": {"enum": ["expires", "continues"]},
-                "mndaTermYears": {"type": "integer", "minimum": 0},
-                "confidentialityMode": {"enum": ["years", "perpetual"]},
-                "confidentialityYears": {"type": "integer", "minimum": 0},
-                "governingLaw": {"type": "string"},
-                "jurisdiction": {"type": "string"},
-                "modifications": {"type": "string"},
-                "party1": _party_schema(),
-                "party2": _party_schema(),
-            },
-            "additionalProperties": False,
-        },
         "field_updates": {
             "type": "object",
             "description": (
-                "Free-form key/value updates for any document — used for "
-                "non-MNDA docs that don't yet have a typed schema."
+                "Key/value updates for the selected document. Manifest "
+                "documents constrain keys to the field checklist."
             ),
             "additionalProperties": {"type": "string"},
         },
         "done": {
             "type": "boolean",
-            "description": "True when the MNDA looks complete enough to sign.",
+            "description": (
+                "True when the selected manifest document has all required "
+                "field values."
+            ),
         },
     },
-    "required": ["assistant_message", "mnda_updates", "done"],
+    "required": ["assistant_message", "done"],
     "additionalProperties": False,
 }
 
@@ -344,12 +294,11 @@ def _call_llm(
             response_format={
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "mnda_chat_turn",
+                    "name": "document_chat_turn",
                     "schema": schema,
-                    # Don't request strict mode: OpenAI strict requires every
-                    # property to be listed in `required`, but `mnda_updates`
-                    # is intentionally a partial — only the keys the model
-                    # just learned should appear.
+                    # Don't request strict mode: field_updates is
+                    # intentionally partial — only the keys the model just
+                    # learned should appear.
                 },
             },
             extra_body={"provider": PROVIDER_ROUTING},
@@ -389,7 +338,6 @@ def _normalize_result(
             "AI service returned an incomplete reply. Please retry.",
         )
     doc_id = data.get("selected_doc_id")
-    mnda_updates = data.get("mnda_updates")
     raw_fields = data.get("field_updates")
     field_updates: dict[str, str] = {}
     allowed_fields = set(manifest_field_keys(manifest)) if manifest else None
@@ -407,7 +355,9 @@ def _normalize_result(
     return {
         "assistant_message": message,
         "selected_doc_id": doc_id if isinstance(doc_id, str) else "",
-        "mnda_updates": mnda_updates if isinstance(mnda_updates, dict) else {},
+        # Compatibility for the route/frontend response shape while the
+        # typed MNDA channel is retired.
+        "mnda_updates": {},
         "field_updates": field_updates,
         "done": bool(data.get("done", False)),
     }
@@ -466,7 +416,6 @@ def chat_complete(
         # retry is purely about phrasing the reply, not re-discovering data.
         # Without this merge, a user message like "Acme is party 1" would
         # populate party1 on the first call and lose it on the retry.
-        first_mnda = result.get("mnda_updates") or {}
         first_fields = result.get("field_updates") or {}
         first_doc_id = result.get("selected_doc_id") or ""
         retry_system = (
@@ -475,7 +424,6 @@ def chat_complete(
             "While `done` is false, `assistant_message` MUST end with a question."
         )
         result = _call_llm(messages, retry_system, api_key, schema, manifest)
-        result["mnda_updates"] = {**first_mnda, **(result.get("mnda_updates") or {})}
         result["field_updates"] = {
             **first_fields,
             **(result.get("field_updates") or {}),

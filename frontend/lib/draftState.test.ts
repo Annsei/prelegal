@@ -180,4 +180,73 @@ describe("draftState helpers", () => {
       "不续约通知期",
     ]);
   });
+
+  it("treats confirmed empty strings as present for not_equals and in conditions", () => {
+    const manifest: DocManifest = {
+      ...MANIFEST,
+      fields: [
+        ...MANIFEST.fields,
+        {
+          key: "空值控制字段",
+          section: "parties",
+          type: "string",
+          required: false,
+          label: { zh: "空值控制字段", en: "Blank Control" },
+        },
+        {
+          key: "非某值触发字段",
+          section: "parties",
+          type: "string",
+          required: false,
+          required_when: {
+            field: "空值控制字段",
+            op: "not_equals",
+            value: "不触发",
+          },
+          label: { zh: "非某值触发字段", en: "Not Equals Dependent" },
+        },
+        {
+          key: "枚举触发字段",
+          section: "parties",
+          type: "string",
+          required: false,
+          required_when: {
+            field: "空值控制字段",
+            op: "in",
+            values: ["", "触发"],
+          },
+          label: { zh: "枚举触发字段", en: "In Dependent" },
+        },
+      ],
+    };
+    const snapshot: DraftStateSnapshot = {
+      ...SNAPSHOT,
+      fields: {
+        ...SNAPSHOT.fields,
+        客户: {
+          ...SNAPSHOT.fields.客户,
+          status: "confirmed",
+          conflict: null,
+        },
+        服务方: {
+          ...SNAPSHOT.fields.服务方,
+          status: "confirmed",
+        },
+        空值控制字段: {
+          key: "空值控制字段",
+          status: "confirmed",
+          value: "",
+          revision: 4,
+          provenance: [],
+          confirmed_at: "2026-07-31T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+        },
+      },
+    };
+
+    expect(unresolvedRequiredKeys(manifest, snapshot)).toEqual([
+      "非某值触发字段",
+      "枚举触发字段",
+    ]);
+  });
 });

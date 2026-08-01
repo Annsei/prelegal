@@ -7,8 +7,6 @@ import { DocumentSidebar } from "@/components/DocumentSidebar";
 import { GenericDocPreview } from "@/components/GenericDocPreview";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { MNDAChat } from "@/components/MNDAChat";
-import { MNDAForm } from "@/components/MNDAForm";
-import { MNDAPreview } from "@/components/MNDAPreview";
 import { SaveStatus, type SaveState } from "@/components/SaveStatus";
 import {
   displayFieldValues,
@@ -36,7 +34,10 @@ import { clearSession, readSession, readToken } from "@/lib/session";
 type EditMode = "chat" | "form";
 
 const MNDA_DOC_ID = "mutual-nda";
-const KERNEL_MANAGED_DOC_IDS = new Set(["cloud-service-agreement"]);
+const KERNEL_MANAGED_DOC_IDS = new Set([
+  "cloud-service-agreement",
+  MNDA_DOC_ID,
+]);
 const AUTOSAVE_DEBOUNCE_MS = 800;
 // Remembers which draft the user was last editing so a page refresh
 // (within the same server lifetime) drops them back where they were.
@@ -114,9 +115,10 @@ function writeActiveDocId(id: number | null): void {
   }
 }
 
-// Cover-page-style party keys the LLM emits for non-MNDA docs (they match
-// the manifest field keys / template span names, which are Chinese in the
-// PRC template library). We match the title-derivation keys against these.
+// Cover-page-style party keys the LLM emits for manifest and fallback docs
+// (they match the manifest field keys / template span names, which are
+// Chinese in the PRC template library). We match title-derivation keys
+// against these.
 const ROLE_KEYS = [
   "客户",
   "服务方",
@@ -142,8 +144,8 @@ function deriveTitle(
   fields: Record<string, string>,
 ): string {
   if (docId === MNDA_DOC_ID) {
-    const a = state.party1.company.trim();
-    const b = state.party2.company.trim();
+    const a = (fields["甲方公司名称"] ?? state.party1.company).trim();
+    const b = (fields["乙方公司名称"] ?? state.party2.company).trim();
     if (a && b) return `${a} × ${b} 保密协议`;
     if (a || b) return `${a || b} 保密协议`;
     return "保密协议草稿";
@@ -206,12 +208,12 @@ export default function Home() {
     (id: string) => t.catalogTitles[id] ?? id,
     [t],
   );
-  const isMnda = docId === MNDA_DOC_ID;
+  const kernelManagedDoc = KERNEL_MANAGED_DOC_IDS.has(docId);
   const docTitle = useMemo(
     () => lookupDocTitle(docId),
     [docId, lookupDocTitle],
   );
-  const templateLoad = useDocTemplate(docId, !isMnda, t.templateUnavailable);
+  const templateLoad = useDocTemplate(docId, true, t.templateUnavailable);
   const manifest =
     templateLoad.kind === "ready" ? (templateLoad.template.manifest ?? null) : null;
   const stableGenericFields = manifest
@@ -226,8 +228,6 @@ export default function Home() {
         return field ? localized(field.label, locale) : key;
       })
     : downloadBlockedKeys;
-  const kernelManaged =
-    !isMnda && manifest !== null && KERNEL_MANAGED_DOC_IDS.has(docId);
 
   useEffect(() => {
     const session = readSession();
@@ -287,11 +287,11 @@ export default function Home() {
       // Wrap chat history alongside the document data so refresh and
       // re-login can restore the conversation, not just the form fields.
       const wrappedState: SavedDocState =
-        docId === MNDA_DOC_ID
-          ? { chat: chatHistory, mnda: state }
-          : kernelManaged
+        kernelManagedDoc
             ? { chat: chatHistory }
-            : { chat: chatHistory, fields: genericFields };
+            : docId === MNDA_DOC_ID
+              ? { chat: chatHistory, mnda: state }
+              : { chat: chatHistory, fields: genericFields };
       const body = {
         title,
         state: wrappedState as unknown as Record<string, unknown>,
@@ -333,7 +333,7 @@ export default function Home() {
     state,
     genericFields,
     displayGenericFields,
-    kernelManaged,
+    kernelManagedDoc,
     chatHistory,
     draftState,
     activeDocId,
@@ -351,6 +351,7 @@ export default function Home() {
         setActiveDocId(null);
         writeActiveDocId(null);
         setSaveState("idle");
+        setState(INITIAL_STATE);
         setGenericFields({});
         setDraftState(null);
         setDownloadBlockedKeys([]);
@@ -386,17 +387,15 @@ export default function Home() {
     // piece defensively — bad/missing data falls back to a fresh draft.
     const saved = (rec.state ?? {}) as SavedDocState;
     setDocId(rec.doc_id);
-    if (rec.doc_id === MNDA_DOC_ID) {
-      setState({ ...INITIAL_STATE, ...(saved.mnda ?? {}) });
-      setGenericFields({});
-      setDraftState(null);
-    } else {
-      setState(INITIAL_STATE);
-      setGenericFields(
-        saved.fields && typeof saved.fields === "object" ? saved.fields : {},
-      );
-      setDraftState(readDraftStateSnapshot(saved.draft_state));
-    }
+    setState(
+      rec.doc_id === MNDA_DOC_ID && saved.mnda
+        ? { ...INITIAL_STATE, ...saved.mnda }
+        : INITIAL_STATE,
+    );
+    setGenericFields(
+      saved.fields && typeof saved.fields === "object" ? saved.fields : {},
+    );
+    setDraftState(readDraftStateSnapshot(saved.draft_state));
     setDownloadBlockedKeys([]);
     setChatHistory(isChatTurnArray(saved.chat) ? saved.chat : []);
     setActiveDocId(rec.id);
@@ -537,7 +536,6 @@ export default function Home() {
         messageIndex: number;
       },
     ) => {
-      if (context.docId === MNDA_DOC_ID) return;
       if (!KERNEL_MANAGED_DOC_IDS.has(context.docId)) {
         setGenericFields((prev) => ({ ...prev, ...updates }));
         return;
@@ -576,7 +574,7 @@ export default function Home() {
 
   const confirmField = useCallback(
     async (key: string, value: string) => {
-      if (isMnda) return;
+      if (!kernelManagedDoc) return;
       const tk = readToken();
       if (!tk) return;
       setSaveState("saving");
@@ -602,14 +600,14 @@ export default function Home() {
       docId,
       ensureDocumentForPatch,
       handleAuthError,
-      isMnda,
+      kernelManagedDoc,
       refreshList,
     ],
   );
 
   const rejectField = useCallback(
     async (key: string) => {
-      if (isMnda || activeDocId == null) return;
+      if (!kernelManagedDoc || activeDocId == null) return;
       const tk = readToken();
       if (!tk) return;
       setSaveState("saving");
@@ -633,19 +631,17 @@ export default function Home() {
       activeDocId,
       draftState,
       handleAuthError,
-      isMnda,
+      kernelManagedDoc,
       refreshList,
     ],
   );
 
   const manifestComplete =
     manifest !== null && isCompleteForDownload(manifest, draftState);
-  // MNDA keeps its historical behavior (download always available; the
-  // preview renders explicit [missing] placeholders). Manifest docs unlock
-  // download once every required cover-page field has a value; docs
-  // without a manifest can't download at all — the output would be a raw
-  // unpopulated template.
-  const canDownload = isMnda || manifestComplete;
+  // Manifest docs unlock download once every required cover-page field has
+  // a confirmed value; docs without a manifest can't download at all — the
+  // output would be a raw unpopulated template.
+  const canDownload = manifestComplete;
   const downloadTitle = canDownload
     ? t.printHint
     : manifest
@@ -653,10 +649,6 @@ export default function Home() {
       : t.downloadUnavailable;
 
   const handleDownload = useCallback(async () => {
-    if (isMnda) {
-      window.print();
-      return;
-    }
     if (!manifest || activeDocId == null) return;
     const tk = readToken();
     if (!tk) return;
@@ -673,7 +665,7 @@ export default function Home() {
       setSaveState("failed");
       handleAuthError(err);
     }
-  }, [activeDocId, handleAuthError, isMnda, manifest]);
+  }, [activeDocId, handleAuthError, manifest]);
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
@@ -765,7 +757,7 @@ export default function Home() {
               onClick={() => setMode("chat")}
               label={t.chat.tab}
             />
-            {(isMnda || manifest !== null) && (
+            {manifest !== null && (
               <ModeTab
                 active={mode === "form"}
                 onClick={() => setMode("form")}
@@ -773,7 +765,7 @@ export default function Home() {
               />
             )}
           </div>
-          {mode === "chat" || (!isMnda && manifest === null) ? (
+          {mode === "chat" || manifest === null ? (
             <MNDAChat
               // Tear down + remount when the user switches drafts so any
               // ephemeral chat state (the "done" banner, in-flight errors)
@@ -784,7 +776,6 @@ export default function Home() {
               fields={stableGenericFields}
               docId={docId}
               getDraftEpoch={getDraftEpoch}
-              onStateChange={setState}
               onDocChange={onChatDocChange}
               onFieldUpdates={applyChatFieldUpdates}
               history={chatHistory}
@@ -792,9 +783,7 @@ export default function Home() {
             />
           ) : (
             <div className="card p-5">
-              {isMnda ? (
-                <MNDAForm locale={locale} value={state} onChange={setState} />
-              ) : manifest !== null ? (
+              {manifest !== null ? (
                 <DocForm
                   locale={locale}
                   manifest={manifest}
@@ -831,16 +820,12 @@ export default function Home() {
 
         <div>
           <Disclaimer locale={locale} variant="banner" />
-          {isMnda ? (
-            <MNDAPreview value={state} />
-          ) : (
-            <GenericDocPreview
-              load={templateLoad}
-              fields={genericFields}
-              draftState={draftState}
-              locale={locale}
-            />
-          )}
+          <GenericDocPreview
+            load={templateLoad}
+            fields={genericFields}
+            draftState={draftState}
+            locale={locale}
+          />
         </div>
       </main>
 

@@ -152,6 +152,26 @@ describe("GenericDocPreview with a manifest", () => {
     expect(screen.getByText("Other terms")).toBeInTheDocument();
     expect(screen.getByText("Attached as Exhibit A")).toBeInTheDocument();
   });
+
+  it("renders template cover_page markdown for manifest documents that have one", () => {
+    const { container } = render(
+      <GenericDocPreview
+        load={readyLoad({
+          cover_page:
+            "# Template Cover Page\n\n" +
+            '<span class="coverpage_link">Customer</span>',
+        })}
+        fields={{ Customer: "Acme, Inc." }}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByText("Template Cover Page")).toBeInTheDocument();
+    const coverPageTerms = Array.from(
+      container.querySelectorAll(".term-defined"),
+    ).map((node) => node.textContent);
+    expect(coverPageTerms).toContain("Customer");
+  });
 });
 
 describe("GenericDocPreview without a manifest", () => {

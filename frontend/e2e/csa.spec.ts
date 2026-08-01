@@ -67,6 +67,19 @@ const CSA_TEMPLATE = {
   manifest: CSA_MANIFEST,
 };
 
+const MNDA_TEMPLATE = {
+  doc_id: "mutual-nda",
+  title: "双方保密协议",
+  cover_page: "# 双方保密协议 · 封面页\n\n| 条款 | 约定内容 |\n| --- | --- |",
+  standard_terms: "# 双方保密协议 · 标准条款\n\n双方按封面页约定处理保密信息。",
+  manifest: {
+    doc_id: "mutual-nda",
+    version: 1,
+    sections: [],
+    fields: [],
+  },
+};
+
 type FieldStatus =
   | "confirmed"
   | "pending_confirmation"
@@ -437,6 +450,13 @@ async function installMockBackend(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(CSA_TEMPLATE),
+    }),
+  );
+  await page.route("**/api/templates/mutual-nda", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MNDA_TEMPLATE),
     }),
   );
 

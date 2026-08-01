@@ -52,9 +52,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
--- One row per saved draft. `state_json` carries either MndaState (for
--- mutual-nda) or a free-form Record<string,string> of cover-page-level
--- key terms (for any other catalog doc).
+-- One row per saved draft. `state_json` carries chat/title metadata plus
+-- legacy flat fields and, for manifest documents, an embedded
+-- DraftStateSnapshot owned by the document-state kernel.
 CREATE TABLE IF NOT EXISTS documents (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -1,0 +1,141 @@
+{
+  "doc_id": "mutual-nda",
+  "version": 1,
+  "description": "《双方保密协议》（中国法，Prelegal 范本 v1.0）封面页字段清单。字段键与正文 coverpage_link / keyterms_link span 中的变量名一致；旧版 typed MNDA 草稿迁移时会把 party 结构拍平为同一字段契约。",
+  "sections": [
+    { "key": "keyterms", "label": { "zh": "关键条款", "en": "Key Terms" } },
+    { "key": "parties", "label": { "zh": "签署方", "en": "Parties" } },
+    { "key": "changes", "label": { "zh": "标准条款修订", "en": "Standard-Term Changes" } }
+  ],
+  "fields": [
+    {
+      "key": "保密用途",
+      "section": "keyterms",
+      "type": "text",
+      "required": true,
+      "label": { "zh": "保密用途", "en": "Confidential Purpose" },
+      "hint": { "zh": "保密信息仅可用于的具体业务目的", "en": "The specific purpose for using confidential information" },
+      "example": "评估双方之间的业务合作机会"
+    },
+    {
+      "key": "生效日期",
+      "section": "keyterms",
+      "type": "date",
+      "required": true,
+      "label": { "zh": "生效日期", "en": "Effective Date" },
+      "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" },
+      "example": "2026-08-01"
+    },
+    {
+      "key": "协议期限",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "协议期限", "en": "MNDA Term" },
+      "hint": { "zh": "固定期限写作“自生效日期起 N 年”；持续有效写作“持续有效，直至依约终止”", "en": "Use either 'N years from the effective date' or 'continues until terminated'" },
+      "example": "自生效日期起 2 年"
+    },
+    {
+      "key": "保密期限",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "保密期限", "en": "Confidentiality Term" },
+      "hint": { "zh": "固定期限写作“自生效日期起 N 年”；永久保密写作“永久”", "en": "Use either 'N years from the effective date' or 'in perpetuity'" },
+      "example": "自生效日期起 5 年"
+    },
+    {
+      "key": "适用法律",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "适用法律", "en": "Governing Law" },
+      "hint": { "zh": "默认：中华人民共和国法律", "en": "Default: PRC law" },
+      "example": "中华人民共和国法律"
+    },
+    {
+      "key": "争议解决",
+      "section": "keyterms",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "争议解决", "en": "Dispute Resolution" },
+      "hint": { "zh": "仲裁机构或有管辖权的法院", "en": "Arbitration commission or competent court" },
+      "example": "上海仲裁委员会按其仲裁规则进行仲裁"
+    },
+    {
+      "key": "甲方公司名称",
+      "section": "parties",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "甲方公司名称", "en": "Party A Company" },
+      "hint": { "zh": "甲方的完整主体名称", "en": "Full legal name of Party A" },
+      "example": "甲方科技有限公司"
+    },
+    {
+      "key": "乙方公司名称",
+      "section": "parties",
+      "type": "string",
+      "required": true,
+      "label": { "zh": "乙方公司名称", "en": "Party B Company" },
+      "hint": { "zh": "乙方的完整主体名称", "en": "Full legal name of Party B" },
+      "example": "乙方科技有限公司"
+    },
+    {
+      "key": "甲方签字人姓名",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "甲方签字人姓名", "en": "Party A Signer Name" },
+      "example": "张三"
+    },
+    {
+      "key": "甲方签字人职务",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "甲方签字人职务", "en": "Party A Signer Title" },
+      "example": "法定代表人"
+    },
+    {
+      "key": "甲方通知地址",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "甲方通知地址", "en": "Party A Notice Address" },
+      "example": "legal-a@example.cn"
+    },
+    {
+      "key": "乙方签字人姓名",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "乙方签字人姓名", "en": "Party B Signer Name" },
+      "example": "李四"
+    },
+    {
+      "key": "乙方签字人职务",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "乙方签字人职务", "en": "Party B Signer Title" },
+      "example": "总经理"
+    },
+    {
+      "key": "乙方通知地址",
+      "section": "parties",
+      "type": "string",
+      "required": false,
+      "label": { "zh": "乙方通知地址", "en": "Party B Notice Address" },
+      "example": "legal-b@example.cn"
+    },
+    {
+      "key": "对标准条款的修订",
+      "section": "changes",
+      "type": "text",
+      "required": false,
+      "label": { "zh": "对标准条款的修订", "en": "Standard-Term Changes" },
+      "hint": { "zh": "留空表示不修改标准条款", "en": "Leave blank for no changes" },
+      "example": "无"
+    }
+  ]
+}

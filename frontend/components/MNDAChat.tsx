@@ -4,10 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, chatApi, type ChatTurn } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
-import {
-  mergeMndaUpdates,
-  type MndaState,
-} from "@/lib/mndaState";
+import type { MndaState } from "@/lib/mndaState";
 import { clearSession, readToken } from "@/lib/session";
 
 type Props = {
@@ -24,15 +21,12 @@ type Props = {
   // merge one draft's conversation into another and the debounced auto-save
   // would persist the corruption.
   getDraftEpoch: () => number;
-  // Accept either a value or an updater. When an LLM response arrives after
-  // an unrelated re-render (e.g., user switched to the form tab and edited
-  // a field), the updater form merges against the freshest state instead of
-  // a stale snapshot.
-  onStateChange: (next: MndaState | ((prev: MndaState) => MndaState)) => void;
   // Called when the LLM picks (or switches) the target document. Empty
   // string until intent is clear.
   onDocChange: (docId: string) => void;
-  // Called when the LLM extracts cover-page-level fields for non-MNDA docs.
+  // Called when the LLM extracts cover-page-level fields. Manifest documents
+  // turn these into server-owned field-patch proposals; fallback documents
+  // still use flat fields.
   onFieldUpdates: (
     updates: Record<string, string>,
     context: {
@@ -50,7 +44,7 @@ type Props = {
 };
 
 /**
- * Chat panel that drives the MNDA via free-form conversation.
+ * Chat panel for the currently selected document.
  *
  * History is a controlled prop owned by the page so it travels with the
  * saved draft (see app/page.tsx). The first assistant turn is rendered
@@ -64,7 +58,6 @@ export function MNDAChat({
   fields,
   docId,
   getDraftEpoch,
-  onStateChange,
   onDocChange,
   onFieldUpdates,
   history,
@@ -120,7 +113,6 @@ export function MNDAChat({
         // belongs to the other draft — drop the response instead.
         return;
       }
-      onStateChange((prev) => mergeMndaUpdates(prev, res.mnda_updates));
       // The LLM may leave selected_doc_id empty when it isn't yet sure what
       // the user wants — only propagate non-empty values so we don't reset
       // a doc the user already locked in.

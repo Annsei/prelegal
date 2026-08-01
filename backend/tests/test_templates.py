@@ -19,6 +19,20 @@ def test_get_template_returns_mnda_with_cover_page(client):
     assert "封面页" in body["cover_page"]
     # Standard terms include the boilerplate clauses.
     assert "保密信息" in body["standard_terms"]
+    assert body["manifest"] is not None
+    assert body["manifest"]["doc_id"] == "mutual-nda"
+    keys = [field["key"] for field in body["manifest"]["fields"]]
+    for expected in (
+        "保密用途",
+        "生效日期",
+        "协议期限",
+        "保密期限",
+        "适用法律",
+        "争议解决",
+        "甲方公司名称",
+        "乙方公司名称",
+    ):
+        assert expected in keys
 
 
 def test_get_template_returns_csa_without_cover_page(client):
@@ -65,6 +79,6 @@ def test_csa_template_includes_manifest(client):
 
 
 def test_docs_without_manifest_return_null_manifest(client):
-    res = client.get("/api/templates/mutual-nda")
+    res = client.get("/api/templates/professional-services-agreement")
     assert res.status_code == 200
     assert res.json()["manifest"] is None

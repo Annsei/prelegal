@@ -22,7 +22,7 @@ type Props = {
 const EMPTY_FIELD_STATES: Record<string, DraftFieldState> = {};
 
 /**
- * Manifest-driven manual-edit form — the generic counterpart of MNDAForm.
+ * Manifest-driven manual-edit form for kernel-managed documents.
  * One input per cover-page field, grouped by manifest section. Typing edits
  * local input state; the server-owned field state changes only when the user
  * explicitly confirms or rejects a value.
