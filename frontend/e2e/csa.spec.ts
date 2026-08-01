@@ -1,9 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-// End-to-end (mocked backend) coverage for the manifest-driven document
-// pipeline, using the CSA as the pilot doc: structured cover page, body
-// term-reference highlighting, manifest-driven edit form, and download
-// gating on required fields.
+import { expect, test, type Page } from "@playwright/test";
 
 const CSA_MANIFEST = {
   doc_id: "cloud-service-agreement",
@@ -20,7 +15,7 @@ const CSA_MANIFEST = {
       required: true,
       label: { zh: "服务商", en: "Provider (company)" },
       example: "Globex Cloud, Inc.",
-      aliases: ["Provider’s"],
+      aliases: ["Provider's"],
     },
     {
       key: "Customer",
@@ -29,7 +24,7 @@ const CSA_MANIFEST = {
       required: true,
       label: { zh: "客户", en: "Customer (company)" },
       example: "Acme, Inc.",
-      aliases: ["Customer’s"],
+      aliases: ["Customer's"],
     },
     {
       key: "Governing Law",
@@ -53,6 +48,356 @@ const CSA_TEMPLATE = {
   manifest: CSA_MANIFEST,
 };
 
+type FieldStatus =
+  | "confirmed"
+  | "pending_confirmation"
+  | "conflict"
+  | "missing";
+
+type MockField = {
+  key: string;
+  status: FieldStatus;
+  value?: string | null;
+  revision: number;
+  provenance: unknown[];
+  confirmed_at?: string | null;
+  confirmed_by_user_id?: number | null;
+  conflict?: { base_value?: string | null; proposed_value: string } | null;
+};
+
+type MockSnapshot = {
+  schema_version: "draft-state.v1";
+  manifest_version: number;
+  doc_id: string;
+  revision: number;
+  fields: Record<string, MockField>;
+  validation_errors: unknown[];
+  applied_patches: Record<string, unknown>;
+};
+
+type MockPatchOperation = {
+  op: "propose" | "confirm" | "reject";
+  key: string;
+  value?: string;
+};
+
+type MockPatchBody = {
+  patch_id: string;
+  base_revision: number;
+  source: string;
+  operations: MockPatchOperation[];
+};
+
+type MockDocState = {
+  chat?: unknown;
+  fields?: Record<string, string>;
+  draft_state?: MockSnapshot | null;
+};
+
+type MockPutBody = {
+  title?: string;
+  state?: {
+    chat?: unknown;
+    fields?: Record<string, string>;
+  };
+};
+
+function emptySnapshot(revision = 0): MockSnapshot {
+  return {
+    schema_version: "draft-state.v1",
+    manifest_version: 1,
+    doc_id: "cloud-service-agreement",
+    revision,
+    fields: Object.fromEntries(
+      CSA_MANIFEST.fields.map((field) => [
+        field.key,
+        {
+          key: field.key,
+          status: "missing" as const,
+          value: null,
+          revision: 0,
+          provenance: [],
+          confirmed_at: null,
+          confirmed_by_user_id: null,
+          conflict: null,
+        },
+      ]),
+    ),
+    validation_errors: [],
+    applied_patches: {},
+  };
+}
+
+function legacySnapshot(): MockSnapshot {
+  const snapshot = emptySnapshot();
+  snapshot.fields.Customer = {
+    key: "Customer",
+    status: "pending_confirmation",
+    value: "Legacy Co",
+    revision: 0,
+    provenance: [
+      {
+        patch_id: "legacy-migration",
+        source: "system",
+        operation: "legacy_unverified",
+        value: "Legacy Co",
+        at: null,
+      },
+    ],
+    confirmed_at: null,
+    confirmed_by_user_id: null,
+    conflict: null,
+  };
+  return snapshot;
+}
+
+function confirmedValues(snapshot: MockSnapshot): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [key, field] of Object.entries(snapshot.fields)) {
+    if (field.status === "confirmed" && field.value) values[key] = field.value;
+  }
+  return values;
+}
+
+function applyMockPatch(snapshot: MockSnapshot, body: MockPatchBody): MockSnapshot {
+  const next = structuredClone(snapshot) as MockSnapshot;
+  const activeOps = body.operations.filter((op) => {
+    const field = next.fields[op.key];
+    if (!field || op.op !== "propose") return true;
+    const candidate = field.conflict?.proposed_value ?? field.value;
+    return candidate !== op.value;
+  });
+  if (activeOps.length === 0) return next;
+  next.revision += 1;
+  for (const op of activeOps) {
+    const field = next.fields[op.key];
+    if (op.op === "propose") {
+      if (field.status === "confirmed" && field.value && field.value !== op.value) {
+        field.status = "conflict";
+        field.conflict = { base_value: field.value, proposed_value: op.value };
+      } else {
+        field.status = "pending_confirmation";
+        field.value = op.value;
+        field.conflict = null;
+        field.confirmed_at = null;
+        field.confirmed_by_user_id = null;
+      }
+    } else if (op.op === "confirm") {
+      field.status = "confirmed";
+      field.value = op.value ?? field.conflict?.proposed_value ?? field.value;
+      field.conflict = null;
+      field.confirmed_at = "2026-07-31T00:00:00+00:00";
+      field.confirmed_by_user_id = 1;
+    } else if (op.op === "reject") {
+      if (field.conflict?.base_value) {
+        field.status = "confirmed";
+        field.value = field.conflict.base_value;
+      } else {
+        field.status = "missing";
+        field.value = null;
+      }
+      field.conflict = null;
+    }
+    field.revision = next.revision;
+    field.provenance.push({
+      patch_id: body.patch_id,
+      source: body.source,
+      operation: op.op,
+      value: op.value ?? null,
+    });
+  }
+  return next;
+}
+
+async function installMockBackend(page: Page, options: { legacy?: boolean } = {}) {
+  const events: { patches: MockPatchBody[]; puts: MockPutBody[] } = {
+    patches: [],
+    puts: [],
+  };
+  let snapshot: MockSnapshot | null = options.legacy ? legacySnapshot() : null;
+  let doc = {
+    id: 1,
+    doc_id: "cloud-service-agreement",
+    title: "CSA draft",
+    state: (options.legacy
+      ? {
+          fields: { Customer: "Legacy Co" },
+          draft_state: snapshot,
+        }
+      : {}) as MockDocState,
+    created_at: "2026-07-01T00:00:00",
+    updated_at: "2026-07-01T00:00:00",
+  };
+
+  function syncState() {
+    if (!snapshot) return;
+    doc = {
+      ...doc,
+      state: {
+        ...doc.state,
+        draft_state: snapshot,
+        fields: {
+          ...(doc.state.fields ?? {}),
+          ...confirmedValues(snapshot),
+        },
+      },
+    };
+  }
+
+  await page.route("**/api/documents", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+      return;
+    }
+    if (route.request().method() === "POST") {
+      const body = (await route.request().postDataJSON()) as {
+        doc_id: string;
+        title: string;
+        state?: MockDocState;
+      };
+      doc = {
+        ...doc,
+        doc_id: body.doc_id,
+        title: body.title,
+        state: body.state ?? {},
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(doc),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.route(/\/api\/documents\/1\/field-patches$/, async (route) => {
+    const body = (await route.request().postDataJSON()) as MockPatchBody;
+    events.patches.push(body);
+    if (body.source === "system") {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            validation_errors: [{ kind: "forbidden_source" }],
+          },
+        }),
+      });
+      return;
+    }
+    snapshot = applyMockPatch(snapshot ?? emptySnapshot(), body);
+    syncState();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ snapshot, duplicate: false }),
+    });
+  });
+
+  await page.route(/\/api\/documents\/1\/download-readiness$/, async (route) => {
+    const unresolved = CSA_MANIFEST.fields
+      .filter((field) => field.required)
+      .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
+      .map((field) => field.key);
+    if (unresolved.length > 0) {
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            validation_errors: [{ kind: "download_blocked" }],
+            unresolved_required_fields: unresolved,
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        can_download: true,
+        unresolved_required_fields: [],
+      }),
+    });
+  });
+
+  await page.route(/\/api\/documents\/1$/, async (route) => {
+    if (route.request().method() === "PUT") {
+      const body = (await route.request().postDataJSON()) as MockPutBody;
+      events.puts.push(body);
+      doc = { ...doc, title: body.title ?? doc.title };
+      if (body.state) {
+        doc = {
+          ...doc,
+          state: {
+            ...doc.state,
+            chat: body.state.chat ?? doc.state.chat,
+          },
+        };
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(doc),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(doc),
+    });
+  });
+
+  await page.route("**/api/templates/cloud-service-agreement", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(CSA_TEMPLATE),
+    }),
+  );
+
+  return events;
+}
+
+async function mockChat(
+  page: Page,
+  fieldUpdates: Record<string, string>,
+  assistant = "Noted. What else?",
+) {
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        assistant_message: assistant,
+        selected_doc_id: "cloud-service-agreement",
+        mnda_updates: {},
+        field_updates: fieldUpdates,
+        done: false,
+      }),
+    }),
+  );
+}
+
+async function switchToCsaViaChat(
+  page: Page,
+  fieldUpdates: Record<string, string>,
+) {
+  await mockChat(page, fieldUpdates);
+  await page.goto("/");
+  await page.getByRole("button", { name: "English" }).click();
+  await page.getByLabel(/type a message/i).fill("I need a CSA");
+  await page.getByRole("button", { name: /^send$/i }).click();
+  await expect(page.getByText("Noted. What else?")).toBeVisible();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
@@ -68,111 +413,121 @@ test.beforeEach(async ({ page }) => {
       }),
     );
   });
-  const stubDoc = {
-    id: 1,
-    doc_id: "cloud-service-agreement",
-    title: "CSA draft",
-    state: {},
-    created_at: "2026-07-01T00:00:00",
-    updated_at: "2026-07-01T00:00:00",
-  };
-  await page.route("**/api/documents", (route) => {
-    if (route.request().method() === "GET") {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: "[]",
-      });
-    } else if (route.request().method() === "POST") {
-      route.fulfill({
-        status: 201,
-        contentType: "application/json",
-        body: JSON.stringify(stubDoc),
-      });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route(/\/api\/documents\/\d+$/, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(stubDoc),
-    }),
-  );
-  await page.route("**/api/templates/cloud-service-agreement", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(CSA_TEMPLATE),
-    }),
-  );
 });
 
-/** Drive one chat turn that switches the app to the CSA and returns the
- * given field updates. */
-async function switchToCsaViaChat(
-  page: import("@playwright/test").Page,
-  fieldUpdates: Record<string, string>,
-) {
-  await page.route("**/api/chat", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        assistant_message: "Noted. What else?",
-        selected_doc_id: "cloud-service-agreement",
-        mnda_updates: {},
-        field_updates: fieldUpdates,
-        done: false,
-      }),
-    }),
-  );
-  await page.goto("/");
-  await page.getByRole("button", { name: "English" }).click();
-  await page.getByLabel(/type a message/i).fill("I need a CSA");
-  await page.getByRole("button", { name: /^send$/i }).click();
-  await expect(page.getByText("Noted. What else?")).toBeVisible();
-}
-
-test.describe("CSA manifest pipeline", () => {
-  test("chat switch renders the structured cover page and highlights body refs", async ({
+test.describe("CSA document-state kernel adoption", () => {
+  test("chat field updates are submitted as LLM proposals and render pending", async ({
     page,
   }) => {
+    const events = await installMockBackend(page);
     await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
 
-    // Structured cover page with manifest sections and the filled value.
-    await expect(page.getByRole("heading", { name: "Cover Page" })).toBeVisible();
-    await expect(page.getByText("Acme, Inc.", { exact: true })).toBeVisible();
-    // Required-but-missing fields are flagged (Provider + Governing Law).
-    await expect(page.getByText("[Not provided]")).toHaveCount(2);
-
-    // Body term references: Customer defined (tooltip carries the value),
-    // Governing Law still missing.
-    const defined = page.locator(".term-defined", { hasText: "Customer" });
-    await expect(defined).toHaveAttribute("title", "Customer: Acme, Inc.");
+    expect(events.patches[0]).toMatchObject({
+      source: "llm",
+      base_revision: 0,
+      operations: [{ op: "propose", key: "Customer", value: "Acme, Inc." }],
+    });
+    await expect(page.getByText("Acme, Inc.")).toBeVisible();
+    await expect(page.getByText("Pending confirmation")).toBeVisible();
     await expect(
-      page.locator(".term-missing", { hasText: "Governing Law" }),
-    ).toBeVisible();
+      page.getByRole("button", { name: /download pdf/i }),
+    ).toBeDisabled();
+
+    await expect
+      .poll(() => events.puts.length)
+      .toBeGreaterThanOrEqual(1);
+    expect(events.puts.at(-1).state.fields).toBeUndefined();
   });
 
-  test("download unlocks only when all required cover-page fields are set", async ({
-    page,
-  }) => {
+  test("form confirmation writes through field-patches", async ({ page }) => {
+    const events = await installMockBackend(page);
     await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
 
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+
+    await expect(page.getByText("Confirmed").first()).toBeVisible();
+    expect(events.patches[1]).toMatchObject({
+      source: "form",
+      base_revision: 1,
+      operations: [{ op: "confirm", key: "Customer", value: "Acme, Inc." }],
+    });
+  });
+
+  test("conflicts show base and candidate and can be resolved both ways", async ({
+    page,
+  }) => {
+    const events = await installMockBackend(page);
+    await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByLabel(/Customer \(company\)/).fill("Acme, Inc.");
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+
+    await mockChat(page, { Customer: "Beta LLC" }, "Candidate noted.");
+    await page.getByRole("tab", { name: /ai chat/i }).click();
+    await page.getByLabel(/type a message/i).fill("Actually use Beta.");
+    await page.getByRole("button", { name: /^send$/i }).click();
+
+    await expect(page.getByText("Conflict")).toBeVisible();
+    await expect(page.getByText("Current: Acme, Inc.")).toBeVisible();
+    await expect(page.getByText("Candidate: Beta LLC")).toBeVisible();
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByRole("button", { name: "Reject" }).first().click();
+    await expect(page.getByText("Conflict")).toHaveCount(0);
+    await expect(page.getByText("Acme, Inc.")).toBeVisible();
+
+    await mockChat(page, { Customer: "Beta LLC" }, "Candidate noted again.");
+    await page.getByRole("tab", { name: /ai chat/i }).click();
+    await page.getByLabel(/type a message/i).fill("Try Beta again.");
+    await page.getByRole("button", { name: /^send$/i }).click();
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+    await expect(
+      page.getByLabel("Cover Page").getByText("Beta LLC").first(),
+    ).toBeVisible();
+
+    expect(events.patches.some((patch) => patch.operations[0].op === "reject"))
+      .toBe(true);
+    expect(events.patches.at(-1)).toMatchObject({
+      source: "form",
+      operations: [{ op: "confirm", key: "Customer", value: "Beta LLC" }],
+    });
+  });
+
+  test("download gate unlocks only after all required fields are confirmed", async ({
+    page,
+  }) => {
+    await installMockBackend(page);
+    await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
     const download = page.getByRole("button", { name: /download pdf/i });
     await expect(download).toBeDisabled();
 
-    // Fill the remaining required fields via the manifest-driven form tab.
     await page.getByRole("tab", { name: /edit fields/i }).click();
     await page.getByLabel(/Provider \(company\)/).fill("Globex Cloud, Inc.");
-    await page.getByLabel(/Governing Law/).fill("Delaware");
+    await page.getByRole("button", { name: "Confirm" }).nth(0).click();
+    await page.getByLabel(/Customer \(company\)/).fill("Acme, Inc.");
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+    await page.getByLabel(/Governing Law/).fill("PRC law");
+    await page.getByRole("button", { name: "Confirm" }).nth(2).click();
 
     await expect(download).toBeEnabled();
+  });
 
-    // And the cover page now shows every value with no missing markers.
-    await expect(page.getByText("[Not provided]")).toHaveCount(0);
-    await expect(page.getByText("Delaware", { exact: true })).toBeVisible();
+  test("legacy CSA drafts restored from GET render as pending until confirmed", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("prelegal:activeDocId", "1");
+    });
+    await installMockBackend(page, { legacy: true });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "English" }).click();
+
+    await expect(page.getByText("Legacy Co")).toBeVisible();
+    await expect(page.getByText("Pending confirmation")).toBeVisible();
+    await page.getByRole("tab", { name: /edit fields/i }).click();
+    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
+    await expect(page.getByText("Confirmed").first()).toBeVisible();
   });
 });

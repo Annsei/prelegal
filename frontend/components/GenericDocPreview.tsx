@@ -10,11 +10,17 @@ import {
   localized,
   type DocManifest,
 } from "@/lib/docManifest";
+import {
+  stableFieldValues,
+  type DraftFieldState,
+  type DraftStateSnapshot,
+} from "@/lib/draftState";
 import type { TemplateLoad } from "@/lib/useDocTemplate";
 
 type Props = {
   load: TemplateLoad;
   fields: Record<string, string>;
+  draftState?: DraftStateSnapshot | null;
   locale: Locale;
 };
 
@@ -33,7 +39,12 @@ type Props = {
  * Documents WITHOUT a manifest fall back to the flat key/value summary
  * card over the raw template.
  */
-export function GenericDocPreview({ load, fields, locale }: Props) {
+export function GenericDocPreview({
+  load,
+  fields,
+  draftState = null,
+  locale,
+}: Props) {
   const t = useDictionary(locale);
 
   if (load.kind === "loading" || load.kind === "idle") {
@@ -60,10 +71,13 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
 
   const { template } = load;
   const manifest = template.manifest ?? null;
+  const stableFields = manifest
+    ? stableFieldValues(manifest, draftState, fields)
+    : fields;
   const annotated = annotateTermRefs(
     template.standard_terms,
     manifest,
-    fields,
+    stableFields,
   );
   // marked is sync when called without async-only extensions; the result is
   // typed as `string | Promise<string>` so we narrow.
@@ -88,6 +102,7 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
         <CoverPage
           manifest={manifest}
           fields={fields}
+          draftState={draftState}
           locale={locale}
           template={template}
         />
@@ -107,11 +122,13 @@ export function GenericDocPreview({ load, fields, locale }: Props) {
 function CoverPage({
   manifest,
   fields,
+  draftState,
   locale,
   template,
 }: {
   manifest: DocManifest;
   fields: Record<string, string>;
+  draftState: DraftStateSnapshot | null;
   locale: Locale;
   template: TemplateResponse;
 }) {
@@ -150,20 +167,21 @@ function CoverPage({
             </h3>
             <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
               {sectionFields.map((field) => {
-                const value = (fields[field.key] ?? "").trim();
+                const fieldState = draftState?.fields[field.key];
+                const value = displayValue(fieldState, fields[field.key]);
                 return (
                   <div key={field.key} className="contents">
                     <dt className="font-medium" style={{ color: "var(--ink)" }}>
                       {localized(field.label, locale)}
                     </dt>
                     <dd style={{ color: "var(--ink)" }}>
-                      {value ? (
-                        <span className="filled">{value}</span>
-                      ) : field.required ? (
-                        <span className="missing">{t.coverPage.missing}</span>
-                      ) : (
-                        <span style={{ color: "var(--ink-3)" }}>—</span>
-                      )}
+                      <CoverPageValue
+                        value={value}
+                        required={field.required}
+                        fieldState={fieldState}
+                        missingLabel={t.coverPage.missing}
+                        labels={t.docForm}
+                      />
                     </dd>
                   </div>
                 );
@@ -195,6 +213,69 @@ function CoverPage({
       )}
     </section>
   );
+}
+
+function displayValue(
+  fieldState: DraftFieldState | undefined,
+  fallback: string | undefined,
+): string {
+  if (fieldState?.value) return fieldState.value.trim();
+  return (fallback ?? "").trim();
+}
+
+function CoverPageValue({
+  value,
+  required,
+  fieldState,
+  missingLabel,
+  labels,
+}: {
+  value: string;
+  required: boolean;
+  fieldState?: DraftFieldState;
+  missingLabel: string;
+  labels: {
+    pending: string;
+    confirmed: string;
+    conflict: string;
+    current: string;
+    candidate: string;
+  };
+}) {
+  if (fieldState?.status === "conflict" && fieldState.conflict) {
+    return (
+      <span className="space-y-0.5">
+        <span className="block text-xs font-semibold" style={{ color: "#8a1f1f" }}>
+          {labels.conflict}
+        </span>
+        <span className="block">
+          {labels.current}: {fieldState.conflict.base_value ?? value}
+        </span>
+        <span className="block" style={{ color: "var(--ink-3)" }}>
+          {labels.candidate}: {fieldState.conflict.proposed_value}
+        </span>
+      </span>
+    );
+  }
+  if (value) {
+    return (
+      <span className="filled">
+        {value}
+        {fieldState?.status === "pending_confirmation" && (
+          <span className="ml-2 text-xs" style={{ color: "#8a1f1f" }}>
+            {labels.pending}
+          </span>
+        )}
+        {fieldState?.status === "confirmed" && (
+          <span className="ml-2 text-xs" style={{ color: "var(--purple)" }}>
+            {labels.confirmed}
+          </span>
+        )}
+      </span>
+    );
+  }
+  if (required) return <span className="missing">{missingLabel}</span>;
+  return <span style={{ color: "var(--ink-3)" }}>—</span>;
 }
 
 /** Pre-manifest fallback: flat list of whatever the chat collected. */

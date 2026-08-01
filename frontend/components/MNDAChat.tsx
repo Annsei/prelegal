@@ -33,7 +33,14 @@ type Props = {
   // string until intent is clear.
   onDocChange: (docId: string) => void;
   // Called when the LLM extracts cover-page-level fields for non-MNDA docs.
-  onFieldUpdates: (updates: Record<string, string>) => void;
+  onFieldUpdates: (
+    updates: Record<string, string>,
+    context: {
+      docId: string;
+      history: ChatTurn[];
+      messageIndex: number;
+    },
+  ) => void | Promise<void>;
   // Conversation history is owned by the page so it can be auto-saved
   // and restored alongside the rest of the document state. Empty array
   // means "fresh chat" — we render a localized welcome bubble in its
@@ -117,14 +124,20 @@ export function MNDAChat({
       // The LLM may leave selected_doc_id empty when it isn't yet sure what
       // the user wants — only propagate non-empty values so we don't reset
       // a doc the user already locked in.
+      const targetDocId = res.selected_doc_id || docId;
       if (res.selected_doc_id) onDocChange(res.selected_doc_id);
-      if (res.field_updates && Object.keys(res.field_updates).length > 0) {
-        onFieldUpdates(res.field_updates);
-      }
-      onHistoryChange([
+      const completeHistory = [
         ...nextHistory,
-        { role: "assistant", content: res.assistant_message },
-      ]);
+        { role: "assistant" as const, content: res.assistant_message },
+      ];
+      if (res.field_updates && Object.keys(res.field_updates).length > 0) {
+        await onFieldUpdates(res.field_updates, {
+          docId: targetDocId,
+          history: completeHistory,
+          messageIndex: nextHistory.length - 1,
+        });
+      }
+      onHistoryChange(completeHistory);
       if (res.done) setDone(true);
     } catch (err) {
       // A late failure from a draft the user already left is noise — the

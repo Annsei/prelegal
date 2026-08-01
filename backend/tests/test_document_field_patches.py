@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.db import get_conn
+from app.manifests import load_manifest
 
 
 def _register(client, email: str, password: str = "secretpw1") -> str:
@@ -48,6 +49,16 @@ def _force_state_json(doc_id: int, state: dict) -> None:
             "UPDATE documents SET state_json = ? WHERE id = ?",
             (json.dumps(state, ensure_ascii=False), doc_id),
         )
+
+
+def _required_csa_keys() -> list[str]:
+    manifest = load_manifest("cloud-service-agreement")
+    assert manifest is not None
+    return [
+        field["key"]
+        for field in manifest["fields"]
+        if field.get("required") is True
+    ]
 
 
 def test_llm_patch_creates_pending_state_without_touching_legacy_fields(client):
@@ -239,6 +250,48 @@ def test_revision_conflict_and_duplicate_patch_behavior(client):
     assert stale.json()["detail"]["validation_errors"][0]["kind"] == (
         "revision_conflict"
     )
+
+
+def test_repeated_pending_proposal_is_noop_success_without_revision(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    first = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "llm-1",
+            "base_revision": 0,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "示例科技"},
+            ],
+        },
+    )
+    assert first.status_code == 200
+
+    repeated = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "llm-repeat",
+            "base_revision": 1,
+            "source": "llm",
+            "operations": [
+                {"op": "propose", "key": "客户", "value": "示例科技"},
+            ],
+        },
+    )
+
+    assert repeated.status_code == 200
+    snapshot = repeated.json()["snapshot"]
+    assert repeated.json()["duplicate"] is False
+    assert snapshot["revision"] == 1
+    assert set(snapshot["applied_patches"]) == {"llm-1"}
+    assert len(snapshot["fields"]["客户"]["provenance"]) == 1
 
 
 def test_same_patch_id_with_different_body_is_rejected(client):
@@ -640,6 +693,48 @@ def test_non_field_autosave_does_not_drop_concurrent_patch(client):
     assert state["fields"]["客户"] == "示例科技"
 
 
+def test_download_readiness_uses_server_unresolved_required_fields(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    blocked = client.get(
+        f"/api/documents/{doc['id']}/download-readiness",
+        headers=headers,
+    )
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["validation_errors"][0]["kind"] == "download_blocked"
+    assert "客户" in detail["unresolved_required_fields"]
+
+    operations = []
+    for key in _required_csa_keys():
+        value = "2026-07-01" if "日期" in key else f"{key}值"
+        operations.append({"op": "confirm", "key": key, "value": value})
+    confirm_all = _patch(
+        client,
+        headers,
+        doc["id"],
+        {
+            "patch_id": "confirm-all-required",
+            "base_revision": 0,
+            "source": "form",
+            "operations": operations,
+        },
+    )
+    assert confirm_all.status_code == 200
+
+    ready = client.get(
+        f"/api/documents/{doc['id']}/download-readiness",
+        headers=headers,
+    )
+    assert ready.status_code == 200
+    assert ready.json() == {
+        "can_download": True,
+        "unresolved_required_fields": [],
+    }
+
+
 def test_same_base_revision_patches_leave_exactly_one_success(client):
     token = _register(client, "alice@example.com")
     headers = _bearer(token)
@@ -719,7 +814,47 @@ def test_existing_invalid_draft_state_blocks_patch_without_mutation(client):
     assert fetched["state"] == bad_state
 
 
-def test_legacy_fields_require_migration_before_field_patch(client):
+def test_get_migrates_legacy_fields_to_pending_without_forged_confirmation(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(
+        client,
+        headers,
+        {"fields": {"客户": "旧客户", "Side Letter": "保留"}},
+    )
+
+    first = client.get(f"/api/documents/{doc['id']}", headers=headers)
+    assert first.status_code == 200
+    state = first.json()["state"]
+    assert state["fields"]["客户"] == "旧客户"
+    assert state["fields"]["Side Letter"] == "保留"
+    snapshot = state["draft_state"]
+    field = snapshot["fields"]["客户"]
+    assert snapshot["revision"] == 0
+    assert field["status"] == "pending_confirmation"
+    assert field["value"] == "旧客户"
+    assert field["confirmed_at"] is None
+    assert field["confirmed_by_user_id"] is None
+    assert field["provenance"] == [
+        {
+            "patch_id": "legacy-migration",
+            "source": "system",
+            "actor_user_id": None,
+            "operation": "legacy_unverified",
+            "value": "旧客户",
+            "client_source": None,
+            "message_index": None,
+            "message_index_trust": "none",
+            "at": None,
+        },
+    ]
+
+    second = client.get(f"/api/documents/{doc['id']}", headers=headers)
+    assert second.status_code == 200
+    assert second.json()["state"]["draft_state"] == snapshot
+
+
+def test_patch_auto_migrates_legacy_fields_before_applying_operations(client):
     token = _register(client, "alice@example.com")
     headers = _bearer(token)
     doc = _create_csa(client, headers, {"fields": {"客户": "旧客户"}})
@@ -733,18 +868,59 @@ def test_legacy_fields_require_migration_before_field_patch(client):
             "base_revision": 0,
             "source": "llm",
             "operations": [
-                {"op": "propose", "key": "客户", "value": "新客户"},
+                {"op": "propose", "key": "服务方", "value": "新服务方"},
             ],
         },
     )
 
-    assert res.status_code == 409
-    assert res.json()["detail"]["validation_errors"][0]["kind"] == (
-        "migration_required"
+    assert res.status_code == 200
+    snapshot = res.json()["snapshot"]
+    assert snapshot["revision"] == 1
+    assert snapshot["fields"]["客户"]["status"] == "pending_confirmation"
+    assert snapshot["fields"]["客户"]["value"] == "旧客户"
+    assert snapshot["fields"]["客户"]["provenance"][0]["operation"] == (
+        "legacy_unverified"
     )
+    assert snapshot["fields"]["服务方"]["status"] == "pending_confirmation"
     fetched = client.get(f"/api/documents/{doc['id']}", headers=headers).json()
     assert fetched["state"]["fields"]["客户"] == "旧客户"
-    assert "draft_state" not in fetched["state"]
+    assert fetched["state"]["draft_state"]["revision"] == 1
+
+
+def test_snapshot_with_missing_manifest_version_is_migrated_not_reset(client):
+    token = _register(client, "alice@example.com")
+    headers = _bearer(token)
+    doc = _create_csa(client, headers)
+
+    assert (
+        _patch(
+            client,
+            headers,
+            doc["id"],
+            {
+                "patch_id": "form-confirm",
+                "base_revision": 0,
+                "source": "form",
+                "operations": [
+                    {"op": "confirm", "key": "客户", "value": "示例科技"},
+                ],
+            },
+        ).status_code
+        == 200
+    )
+    state = client.get(f"/api/documents/{doc['id']}", headers=headers).json()[
+        "state"
+    ]
+    state["draft_state"]["manifest_version"] = None
+    _force_state_json(doc["id"], state)
+
+    migrated = client.get(f"/api/documents/{doc['id']}", headers=headers)
+
+    assert migrated.status_code == 200
+    snapshot = migrated.json()["state"]["draft_state"]
+    assert snapshot["manifest_version"] == 2
+    assert snapshot["revision"] == 1
+    assert snapshot["fields"]["客户"]["status"] == "confirmed"
 
 
 def test_patch_rejects_single_large_field_when_final_state_exceeds_limit(client):

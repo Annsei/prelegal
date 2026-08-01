@@ -146,6 +146,30 @@ export type DocumentRecord = DocumentSummary & {
   state: Record<string, unknown>;
 };
 
+export type FieldPatchOperation = {
+  op: "propose" | "confirm" | "reject";
+  key: string;
+  value?: unknown;
+};
+
+export type FieldPatchRequest = {
+  patch_id: string;
+  base_revision: number;
+  source: string;
+  message_index?: number | null;
+  operations: FieldPatchOperation[];
+};
+
+export type FieldPatchResponse = {
+  snapshot: import("@/lib/draftState").DraftStateSnapshot;
+  duplicate: boolean;
+};
+
+export type DownloadReadinessResponse = {
+  can_download: boolean;
+  unresolved_required_fields: string[];
+};
+
 export const documentsApi = {
   list: (token: string) =>
     apiFetch<DocumentSummary[]>("/api/documents", { token }),
@@ -170,6 +194,17 @@ export const documentsApi = {
       token,
       body: JSON.stringify(body),
     }),
+  fieldPatch: (token: string, id: number, body: FieldPatchRequest) =>
+    apiFetch<FieldPatchResponse>(`/api/documents/${id}/field-patches`, {
+      method: "POST",
+      token,
+      body: JSON.stringify(body),
+    }),
+  downloadReadiness: (token: string, id: number) =>
+    apiFetch<DownloadReadinessResponse>(
+      `/api/documents/${id}/download-readiness`,
+      { token },
+    ),
   delete: (token: string, id: number) =>
     apiFetch<void>(`/api/documents/${id}`, { method: "DELETE", token }),
 };

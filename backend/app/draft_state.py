@@ -40,7 +40,7 @@ class FieldProvenance(BaseModel):
     client_source: str | None = None
     message_index: int | None = None
     message_index_trust: MessageIndexTrust = "none"
-    at: str
+    at: str | None = None
 
 
 class FieldConflict(BaseModel):
@@ -197,6 +197,101 @@ def snapshot_from_document_state(
     return snapshot
 
 
+def migrate_document_state_if_needed(
+    *,
+    doc_id: str,
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+) -> tuple[dict[str, Any], DraftStateSnapshot, bool]:
+    """Return a state/snapshot pair, migrating legacy CSA field state.
+
+    Legacy `state.fields` values have unknown provenance. The migration keeps
+    the original flat fields in place for data recovery, but classifies managed
+    manifest values as `pending_confirmation` with explicit `legacy_unverified`
+    provenance. It never fabricates confirmation metadata.
+    """
+    next_state = copy.deepcopy(state)
+    raw = next_state.get("draft_state")
+    manifest_version = _manifest_version(manifest)
+
+    if (
+        isinstance(raw, dict)
+        and raw.get("schema_version") == FIELD_STATE_SCHEMA_VERSION
+    ):
+        try:
+            snapshot = DraftStateSnapshot.model_validate(raw)
+        except ValueError as exc:
+            raise _draft_state_rejected(
+                "invalid_draft_state",
+                "Stored draft_state is not a valid DraftStateSnapshot.",
+            ) from exc
+        if snapshot.doc_id != doc_id:
+            raise _draft_state_rejected(
+                "draft_state_doc_mismatch",
+                "Stored draft_state belongs to a different document type.",
+            )
+        if snapshot.manifest_version is None:
+            migrated = _ensure_manifest_fields(snapshot, manifest)
+            migrated.manifest_version = manifest_version
+            next_state["draft_state"] = migrated.model_dump(mode="json")
+            return next_state, migrated, True
+        snapshot = snapshot_from_document_state(
+            doc_id=doc_id,
+            state=next_state,
+            manifest=manifest,
+        )
+        return next_state, snapshot, False
+
+    if "draft_state" in next_state:
+        snapshot = snapshot_from_document_state(
+            doc_id=doc_id,
+            state=next_state,
+            manifest=manifest,
+        )
+        return next_state, snapshot, False
+
+    legacy_fields = next_state.get("fields")
+    managed_values: dict[str, str] = {}
+    if isinstance(legacy_fields, dict):
+        for key in manifest_field_keys(manifest):
+            value = legacy_fields.get(key)
+            if isinstance(value, str) and value.strip():
+                managed_values[key] = value.strip()
+
+    if managed_values:
+        snapshot = DraftStateSnapshot(
+            doc_id=doc_id,
+            manifest_version=manifest_version,
+        )
+        for key in manifest_field_keys(manifest):
+            value = managed_values.get(key)
+            if value is None:
+                snapshot.fields[key] = FieldState(key=key)
+                continue
+            snapshot.fields[key] = FieldState(
+                key=key,
+                status="pending_confirmation",
+                value=value,
+                provenance=[
+                    FieldProvenance(
+                        patch_id="legacy-migration",
+                        source="system",
+                        operation="legacy_unverified",
+                        value=value,
+                    ),
+                ],
+            )
+        next_state["draft_state"] = snapshot.model_dump(mode="json")
+        return next_state, snapshot, True
+
+    snapshot = snapshot_from_document_state(
+        doc_id=doc_id,
+        state=next_state,
+        manifest=manifest,
+    )
+    return next_state, snapshot, False
+
+
 def apply_field_patch(
     *,
     snapshot: DraftStateSnapshot,
@@ -255,6 +350,17 @@ def apply_field_patch(
     if errors:
         raise DraftPatchRejected(422, errors)
 
+    active_operations = [
+        operation
+        for operation in patch.operations
+        if not _is_noop_proposal(
+            operation,
+            snapshot.fields.get(operation.key, FieldState(key=operation.key)),
+        )
+    ]
+    if not active_operations:
+        return FieldPatchResponse(snapshot=snapshot)
+
     next_snapshot = copy.deepcopy(snapshot)
     next_revision = snapshot.revision + 1
     at = now or _now_iso()
@@ -269,7 +375,7 @@ def apply_field_patch(
     else:
         message_index_trust = "client_asserted"
 
-    for operation in patch.operations:
+    for operation in active_operations:
         field = next_snapshot.fields.setdefault(
             operation.key,
             FieldState(key=operation.key),
@@ -372,8 +478,15 @@ def embed_snapshot_in_state(
         for key, value in (existing if isinstance(existing, dict) else {}).items()
         if key not in manifest_keys
     }
+    legacy_unverified_values = {
+        key: value
+        for key, value in (existing if isinstance(existing, dict) else {}).items()
+        if key in manifest_keys
+        and _is_legacy_unverified_pending(snapshot.fields.get(key), value)
+    }
     next_state["fields"] = {
         **extras,
+        **legacy_unverified_values,
         **stable_values,
     }
     return next_state
@@ -631,6 +744,34 @@ def _apply_rejection(
     field.provenance.append(provenance)
 
 
+def _is_noop_proposal(
+    operation: FieldPatchOperation,
+    field: FieldState,
+) -> bool:
+    if operation.op != "propose":
+        return False
+    value = _normalize_value(operation.value)
+    if field.status == "pending_confirmation":
+        return field.value == value
+    if field.status == "conflict" and field.conflict is not None:
+        return field.conflict.proposed_value == value
+    return False
+
+
+def _is_legacy_unverified_pending(
+    field: FieldState | None,
+    current_value: Any,
+) -> bool:
+    if field is None or field.status != "pending_confirmation":
+        return False
+    if not isinstance(current_value, str) or current_value.strip() != field.value:
+        return False
+    return any(
+        provenance.operation == "legacy_unverified"
+        for provenance in field.provenance
+    )
+
+
 def _manifest_fields_by_key(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
         field["key"]: field
@@ -696,18 +837,6 @@ def _validate_transition(
                 field_key=operation.key,
                 message="Propose operations require a non-empty candidate value.",
             )
-        if field.status in {"pending_confirmation", "conflict"}:
-            current_candidate = (
-                field.conflict.proposed_value
-                if field.conflict is not None
-                else field.value
-            )
-            if current_candidate == value:
-                return ValidationErrorItem(
-                    kind="invalid_transition",
-                    field_key=operation.key,
-                    message="The candidate value is already active.",
-                )
         return None
 
     if operation.op in {"confirm", "reject"} and actor_source not in {

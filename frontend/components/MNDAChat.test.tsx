@@ -19,7 +19,14 @@ function Harness({
   docId?: string;
   fields?: Record<string, string>;
   onDocChange?: (id: string) => void;
-  onFieldUpdates?: (updates: Record<string, string>) => void;
+  onFieldUpdates?: (
+    updates: Record<string, string>,
+    context: {
+      docId: string;
+      history: ChatTurn[];
+      messageIndex: number;
+    },
+  ) => void | Promise<void>;
   initialHistory?: ChatTurn[];
   getDraftEpoch?: () => number;
 }) {
@@ -217,10 +224,16 @@ describe("MNDAChat", () => {
     await waitFor(() =>
       expect(onDocChange).toHaveBeenCalledWith("cloud-service-agreement"),
     );
-    expect(onFieldUpdates).toHaveBeenCalledWith({
-      Customer: "Acme",
-      Provider: "Globex",
-    });
+    expect(onFieldUpdates).toHaveBeenCalledWith(
+      {
+        Customer: "Acme",
+        Provider: "Globex",
+      },
+      expect.objectContaining({
+        docId: "cloud-service-agreement",
+        messageIndex: 0,
+      }),
+    );
   });
 
   it("does not call onDocChange when selected_doc_id is empty", async () => {
