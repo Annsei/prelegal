@@ -177,24 +177,18 @@ def _merge_public_state_update(
     managed_keys = set(manifest_field_keys(manifest))
     current_fields = current_state.get("fields")
     incoming_fields = merged.get("fields")
-    extras: dict[str, Any] = {}
+    fields_for_embed: dict[str, Any] = {}
     if isinstance(current_fields, dict):
-        extras.update(
-            {
-                key: value
-                for key, value in current_fields.items()
-                if key not in managed_keys
-            },
-        )
+        fields_for_embed.update(current_fields)
     if isinstance(incoming_fields, dict):
-        extras.update(
+        fields_for_embed.update(
             {
                 key: value
                 for key, value in incoming_fields.items()
                 if key not in managed_keys
             },
         )
-    merged["fields"] = extras
+    merged["fields"] = fields_for_embed
     return embed_snapshot_in_state(merged, snapshot, manifest)
 
 

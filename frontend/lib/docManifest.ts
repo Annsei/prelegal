@@ -9,11 +9,19 @@ export type LocalizedText = { zh: string; en: string };
 
 export type ManifestFieldType = "string" | "text" | "date";
 
+export type RequiredWhenCondition = {
+  field: string;
+  op?: "equals" | "not_equals" | "in" | "exists";
+  value?: string;
+  values?: string[];
+};
+
 export type ManifestField = {
   key: string;
   section: string;
   type: ManifestFieldType;
   required: boolean;
+  required_when?: RequiredWhenCondition | RequiredWhenCondition[];
   label: LocalizedText;
   hint?: LocalizedText;
   example?: string;

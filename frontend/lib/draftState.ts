@@ -1,4 +1,4 @@
-import type { DocManifest } from "@/lib/docManifest";
+import type { DocManifest, RequiredWhenCondition } from "@/lib/docManifest";
 
 export type FieldStatus =
   | "confirmed"
@@ -94,13 +94,12 @@ export function unresolvedRequiredKeys(
   manifest: DocManifest,
   snapshot: DraftStateSnapshot | null,
 ): string[] {
+  const requiredKeys = requiredFieldKeys(manifest, snapshot);
   if (!snapshot) {
-    return manifest.fields
-      .filter((field) => field.required)
-      .map((field) => field.key);
+    return requiredKeys;
   }
   return manifest.fields
-    .filter((field) => field.required)
+    .filter((field) => requiredKeys.includes(field.key))
     .filter((field) => {
       const state = snapshot.fields[field.key];
       return state?.status !== "confirmed" || !state.value;
@@ -113,4 +112,41 @@ export function isCompleteForDownload(
   snapshot: DraftStateSnapshot | null,
 ): boolean {
   return unresolvedRequiredKeys(manifest, snapshot).length === 0;
+}
+
+function requiredFieldKeys(
+  manifest: DocManifest,
+  snapshot: DraftStateSnapshot | null,
+): string[] {
+  // Mirrors backend `required_field_keys` for responsive UI; the
+  // `/download-readiness` endpoint remains authoritative before printing.
+  const stableValues = stableFieldValues(manifest, snapshot, {});
+  return manifest.fields
+    .filter(
+      (field) =>
+        field.required || requiredWhenMatches(field.required_when, stableValues),
+    )
+    .map((field) => field.key);
+}
+
+function requiredWhenMatches(
+  condition: RequiredWhenCondition | RequiredWhenCondition[] | undefined,
+  stableValues: Record<string, string>,
+): boolean {
+  if (!condition) return false;
+  const conditions = Array.isArray(condition) ? condition : [condition];
+  return conditions.every((item) => singleConditionMatches(item, stableValues));
+}
+
+function singleConditionMatches(
+  condition: RequiredWhenCondition,
+  stableValues: Record<string, string>,
+): boolean {
+  const value = stableValues[condition.field];
+  const op = condition.op ?? "equals";
+  if (op === "equals") return value === condition.value;
+  if (op === "not_equals") return Boolean(value) && value !== condition.value;
+  if (op === "in") return Boolean(value) && (condition.values ?? []).includes(value);
+  if (op === "exists") return Boolean(value);
+  return false;
 }

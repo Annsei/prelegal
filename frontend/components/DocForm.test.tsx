@@ -79,6 +79,59 @@ describe("DocForm", () => {
     expect(onConfirm).toHaveBeenLastCalledWith("Customer", "Acme!");
   });
 
+  it("disables confirm for empty missing fields before sending a doomed patch", () => {
+    const onConfirm = vi.fn();
+    render(
+      <DocForm
+        locale="en"
+        manifest={MANIFEST}
+        values={{}}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const confirm = screen.getAllByRole("button", { name: "Confirm" })[0];
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAttribute(
+      "title",
+      "Enter a value before confirming a missing field.",
+    );
+    expect(confirm).toHaveAccessibleDescription(
+      "Enter a value before confirming a missing field.",
+    );
+  });
+
+  it("keeps explicit clear-and-confirm available for fields that already exist", async () => {
+    const onConfirm = vi.fn();
+    const fieldStates: Record<string, DraftFieldState> = {
+      Customer: {
+        key: "Customer",
+        status: "confirmed",
+        value: "Acme",
+        revision: 1,
+        provenance: [],
+        confirmed_at: "2026-07-31T00:00:00+00:00",
+        confirmed_by_user_id: 1,
+      },
+    };
+    render(
+      <DocForm
+        locale="en"
+        manifest={MANIFEST}
+        values={{ Customer: "Acme" }}
+        fieldStates={fieldStates}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const customer = screen.getByLabelText(/Customer \(company\)/);
+    await userEvent.clear(customer);
+    const confirm = screen.getAllByRole("button", { name: "Confirm" })[0];
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledWith("Customer", "");
+  });
+
   it("shows pending and conflict states with confirm/reject actions", async () => {
     const onConfirm = vi.fn();
     const onReject = vi.fn();
