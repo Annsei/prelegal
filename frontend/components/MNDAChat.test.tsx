@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MNDAChat } from "./MNDAChat";
 import type { ChatTurn } from "@/lib/api";
-import { INITIAL_STATE } from "@/lib/mndaState";
 
 function Harness({
   locale = "en" as "en" | "zh",
@@ -34,7 +33,6 @@ function Harness({
   return (
     <MNDAChat
       locale={locale}
-      state={INITIAL_STATE}
       fields={fields}
       docId={docId}
       getDraftEpoch={getDraftEpoch}
@@ -71,6 +69,21 @@ describe("MNDAChat", () => {
     expect(screen.getByText("Earlier assistant reply")).toBeInTheDocument();
     // Welcome bubble suppressed when history isn't empty.
     expect(screen.queryByText(/draft a legal agreement/i)).toBeNull();
+  });
+
+  it("renders assistant newlines with pre-wrapped whitespace", () => {
+    render(
+      <Harness
+        locale="en"
+        initialHistory={[
+          { role: "assistant", content: "First line\nSecond line" },
+        ]}
+      />,
+    );
+
+    const bubble = screen.getByText(/First line/);
+    expect(bubble).toHaveClass("whitespace-pre-wrap");
+    expect(bubble.textContent).toBe("First line\nSecond line");
   });
 
   it("sends a turn, appends the assistant reply, and forwards MNDA field updates", async () => {
@@ -121,10 +134,9 @@ describe("MNDAChat", () => {
       role: "user",
       content: "We're evaluating a partnership.",
     });
-    expect(body.mnda_state).toMatchObject({ purpose: expect.any(String) });
+    expect(body.mnda_state).toEqual({});
     expect(body.document_state).toMatchObject({
       doc_id: "mutual-nda",
-      mnda: { purpose: expect.any(String) },
       fields: {},
     });
     // The open doc travels with every turn so the backend can inject its

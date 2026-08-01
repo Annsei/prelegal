@@ -73,11 +73,7 @@ def test_chat_returns_assistant_message_and_updates(chat_client):
 
     # The route should have forwarded both history and state to the LLM layer.
     assert chat_client.captured["mnda_state"] == {"purpose": ""}
-    assert chat_client.captured["document_state"] == {
-        "doc_id": "",
-        "mnda": {"purpose": ""},
-        "fields": {},
-    }
+    assert chat_client.captured["document_state"] == {"doc_id": "", "fields": {}}
     assert chat_client.captured["messages"][0]["role"] == "user"
 
 
@@ -201,4 +197,7 @@ def test_chat_forwards_document_state_to_llm_layer(client, monkeypatch):
     assert res.status_code == 200
     assert captured["doc_id"] == "cloud-service-agreement"
     assert captured["mnda_state"] == {}
-    assert captured["document_state"] == document_state
+    assert captured["document_state"] == {
+        "doc_id": "cloud-service-agreement",
+        "fields": {"客户": "示例科技", "服务方": "云服务商"},
+    }

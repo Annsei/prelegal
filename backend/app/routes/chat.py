@@ -42,7 +42,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     mnda_state: dict[str, Any] = Field(default_factory=dict)
     # Unified drafting state for manifest-driven docs. `mnda_state` stays
-    # as a compatibility field for older callers and legacy MNDA context.
+    # as a compatibility field for older callers, but it is ignored by the
+    # retired typed MNDA channel.
     document_state: dict[str, Any] | None = None
     # The doc the frontend currently has open. Lets the LLM layer inject
     # that document's cover-page field checklist (see app/manifests.py).
@@ -90,8 +91,8 @@ def chat(
         )
 
     document_state = dict(payload.document_state or {})
+    document_state.pop("mnda", None)
     document_state.setdefault("doc_id", payload.doc_id)
-    document_state.setdefault("mnda", payload.mnda_state)
     document_state.setdefault("fields", {})
 
     try:

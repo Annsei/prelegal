@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -218,6 +219,13 @@ def _ensure_api_key() -> str:
 
 
 _QUESTION_MARKS = ("?", "？")
+_LITERAL_NEWLINE_TOKEN = re.compile(r"\\r\\n|\\n")
+_PATHISH_PRECEDING_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:/\\.-",
+)
+_FORMAT_NEWLINE_PRECEDING_CHARS = frozenset(
+    " \t([{<\"'“‘《（【「『。！？!?；;，,、）)]】」』”’",
+)
 
 
 def _ends_with_question(text: str) -> bool:
@@ -233,6 +241,59 @@ def _is_chinese(text: str) -> bool:
     return any(
         "一" <= ch <= "鿿" or "㐀" <= ch <= "䶿" for ch in text
     )
+
+
+def _normalize_assistant_message(message: str) -> str:
+    """Decode only LLM formatting newline escapes in assistant copy.
+
+    Some upstream responses double-escape paragraph breaks as literal
+    ``\\n``/``\\r\\n`` inside the JSON string. Avoid a generic unicode_escape
+    pass: assistant text may legitimately mention backslash sequences such
+    as Windows paths (for example ``C:\\name``), and field values are handled
+    separately by `_normalize_result`.
+    """
+
+    pieces: list[str] = []
+    cursor = 0
+    previous_was_converted = False
+    for match in _LITERAL_NEWLINE_TOKEN.finditer(message):
+        token = match.group(0)
+        pieces.append(message[cursor : match.start()])
+        if _should_decode_literal_newline(
+            message,
+            start=match.start(),
+            end=match.end(),
+            previous_was_converted=previous_was_converted,
+        ):
+            pieces.append("\n")
+            previous_was_converted = True
+        else:
+            pieces.append(token)
+            previous_was_converted = False
+        cursor = match.end()
+    pieces.append(message[cursor:])
+    return "".join(pieces)
+
+
+def _should_decode_literal_newline(
+    message: str,
+    *,
+    start: int,
+    end: int,
+    previous_was_converted: bool,
+) -> bool:
+    if previous_was_converted:
+        return True
+    if _LITERAL_NEWLINE_TOKEN.match(message, end):
+        return True
+    before = message[start - 1] if start > 0 else ""
+    if not before:
+        return True
+    if before in _FORMAT_NEWLINE_PRECEDING_CHARS:
+        return True
+    if _is_chinese(before):
+        return True
+    return before not in _PATHISH_PRECEDING_CHARS and before.isspace()
 
 
 def _ensure_followup(message: str) -> str:
@@ -353,7 +414,7 @@ def _normalize_result(
                 else json.dumps(value, ensure_ascii=False)
             )
     return {
-        "assistant_message": message,
+        "assistant_message": _normalize_assistant_message(message),
         "selected_doc_id": doc_id if isinstance(doc_id, str) else "",
         # Compatibility for the route/frontend response shape while the
         # typed MNDA channel is retired.
@@ -394,13 +455,13 @@ def chat_complete(
     if manifest:
         system += "\n\n" + _manifest_prompt_section(manifest)
 
-    current_state: dict[str, Any] = {
-        "doc_id": doc_id,
-        "mnda": mnda_state,
-        "fields": {},
-    }
+    # `mnda_state` remains accepted by the public API for older clients, but
+    # the retired typed MNDA object is no longer authoritative and should not
+    # be reintroduced into the LLM's grounding context.
+    current_state: dict[str, Any] = {"doc_id": doc_id, "fields": {}}
     if isinstance(document_state, dict):
         current_state.update(document_state)
+    current_state.pop("mnda", None)
 
     state_summary = json.dumps(current_state, indent=2, ensure_ascii=False)
     system += f"\n\nCurrent document state:\n{state_summary}"
