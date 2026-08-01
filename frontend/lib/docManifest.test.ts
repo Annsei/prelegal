@@ -106,6 +106,21 @@ describe("annotateTermRefs", () => {
     expect(out).not.toContain('title="Customer: Acme "');
   });
 
+  it("preserves extra attributes on term-reference spans", () => {
+    const withAttrs =
+      '<span id="customer-ref" class="coverpage_link existing" data-ref="1">Customer</span> ' +
+      '<span class="keyterms_link" id="law-ref">Governing Law</span>';
+
+    const out = annotateTermRefs(withAttrs, MANIFEST, { Customer: "Acme" });
+
+    expect(out).toContain(
+      '<span id="customer-ref" class="coverpage_link existing term-defined" data-ref="1" title="Customer: Acme">Customer</span>',
+    );
+    expect(out).toContain(
+      '<span class="keyterms_link term-missing" id="law-ref">Governing Law</span>',
+    );
+  });
+
   it("is a no-op without a manifest", () => {
     expect(annotateTermRefs(body, null, { Customer: "Acme" })).toBe(body);
   });

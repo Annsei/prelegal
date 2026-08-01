@@ -78,7 +78,10 @@ export function extraFields(
 // cover page in Common Paper's own product) — we must not substitute
 // values inline, only mark each reference as defined or still missing.
 const TERM_REF_RE =
-  /<span class="(coverpage_link|orderform_link|keyterms_link)">([^<]+)<\/span>/g;
+  /<span\b(?=[^>]*\bclass="[^"]*\b(?:coverpage_link|orderform_link|keyterms_link)\b[^"]*")([^>]*)>([^<]+)<\/span>/g;
+const TERM_CLASS_RE = /\b(coverpage_link|orderform_link|keyterms_link)\b/;
+const CLASS_ATTR_RE = /\bclass="([^"]*)"/;
+const TITLE_ATTR_RE = /\s+title="[^"]*"/g;
 
 /** Map every span text (canonical key or alias) to its manifest field. */
 export function buildTermLookup(
@@ -108,16 +111,34 @@ export function annotateTermRefs(
 ): string {
   if (!manifest) return markdown;
   const lookup = buildTermLookup(manifest);
-  return markdown.replace(TERM_REF_RE, (match, cls: string, text: string) => {
+  return markdown.replace(TERM_REF_RE, (match, attrs: string, text: string) => {
+    if (!hasTermRefClass(attrs)) return match;
     const field = lookup.get(text);
     if (!field) return match;
     const value = filledValue(fields, field.key);
+    const nextAttrs = addTermStateClass(
+      attrs.replace(TITLE_ATTR_RE, ""),
+      value ? "term-defined" : "term-missing",
+    );
     if (value) {
-      return `<span class="${cls} term-defined" title="${escapeAttr(
+      return `<span${nextAttrs} title="${escapeAttr(
         `${field.key}: ${value}`,
       )}">${text}</span>`;
     }
-    return `<span class="${cls} term-missing">${text}</span>`;
+    return `<span${nextAttrs}>${text}</span>`;
+  });
+}
+
+function hasTermRefClass(attrs: string): boolean {
+  const match = attrs.match(CLASS_ATTR_RE);
+  return Boolean(match?.[1]?.match(TERM_CLASS_RE));
+}
+
+function addTermStateClass(attrs: string, stateClass: string): string {
+  return attrs.replace(CLASS_ATTR_RE, (_match, classValue: string) => {
+    const classes = new Set(classValue.split(/\s+/).filter(Boolean));
+    classes.add(stateClass);
+    return `class="${Array.from(classes).join(" ")}"`;
   });
 }
 

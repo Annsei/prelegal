@@ -70,7 +70,7 @@ def test_chat_rate_limited_per_user(client, monkeypatch):
     monkeypatch.setattr(
         chat_route,
         "chat_complete",
-        lambda messages, mnda_state, doc_id="": {
+        lambda messages, mnda_state, doc_id="", document_state=None: {
             "assistant_message": "Sure — what else?",
             "selected_doc_id": "",
             "mnda_updates": {},
@@ -155,6 +155,24 @@ def test_chat_rejects_oversized_state(client):
         json={
             "messages": [{"role": "user", "content": "hi"}],
             "mnda_state": {"blob": "x" * (70 * 1024)},  # > 64KB cap
+        },
+    )
+    assert res.status_code == 422
+    assert "too large" in res.text
+
+
+def test_chat_rejects_oversized_document_state(client):
+    headers = {"Authorization": f"Bearer {_register(client)}"}
+    res = client.post(
+        "/api/chat",
+        headers=headers,
+        json={
+            "messages": [{"role": "user", "content": "hi"}],
+            "mnda_state": {},
+            "document_state": {
+                "doc_id": "cloud-service-agreement",
+                "fields": {"blob": "x" * (70 * 1024)},  # > 64KB cap
+            },
         },
     )
     assert res.status_code == 422

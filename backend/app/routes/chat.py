@@ -40,18 +40,26 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     mnda_state: dict[str, Any] = Field(default_factory=dict)
+    # Unified drafting state for manifest-driven docs. `mnda_state` stays
+    # as a compatibility field while MNDA is still on its bespoke slice.
+    document_state: dict[str, Any] | None = None
     # The doc the frontend currently has open. Lets the LLM layer inject
     # that document's cover-page field checklist (see app/manifests.py).
     # Empty on the first turn, before a document is picked.
     doc_id: str = Field(default="", max_length=100)
 
-    @field_validator("mnda_state")
+    @field_validator("mnda_state", "document_state")
     @classmethod
-    def _cap_state_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+    def _cap_state_size(
+        cls,
+        value: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if value is None:
+            return value
         encoded = len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
         if encoded > MAX_STATE_BYTES:
             raise ValueError(
-                f"mnda_state too large ({encoded} bytes > {MAX_STATE_BYTES})",
+                f"state too large ({encoded} bytes > {MAX_STATE_BYTES})",
             )
         return value
 
@@ -78,11 +86,17 @@ def chat(
             detail="last message must be from the user",
         )
 
+    document_state = dict(payload.document_state or {})
+    document_state.setdefault("doc_id", payload.doc_id)
+    document_state.setdefault("mnda", payload.mnda_state)
+    document_state.setdefault("fields", {})
+
     try:
         result = chat_complete(
             messages=[m.model_dump() for m in payload.messages],
             mnda_state=payload.mnda_state,
             doc_id=payload.doc_id,
+            document_state=document_state,
         )
     except LLMUnavailableError as exc:
         raise HTTPException(
