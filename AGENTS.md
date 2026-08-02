@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft legal agreements based on templat
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms. The manifest-driven document-state kernel is authoritative for CSA and MNDA: `templates/manifests/<doc_id>.json` drives the LLM field checklist, server-owned field states, the edit form, structured Cover Page preview, term-reference highlighting, and download gating. The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD and AI chat; drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata, while manifest-managed fields are written through field patches. Drafts show up in a left sidebar and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms. The manifest-driven document-state kernel is authoritative for CSA, MNDA, the official-baseline professional-services agreement, and the official-baseline data/individual-information processing agreement: `templates/manifests/<doc_id>.json` drives the LLM field checklist, server-owned field states, the edit form, structured Cover Page preview, term-reference highlighting, and download gating. The remaining 7 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest. Official source captures and adaptation limits for the two new documents are recorded in `templates/sources/` and ADR 0002. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD and AI chat; drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata, while manifest-managed fields are written through field patches. Drafts show up in a left sidebar and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -98,11 +98,11 @@ frontend/        Next.js 15 (static export, output: "export")
                    — covers focus-return, non-MNDA doc switching, sidebar +
                    debounced auto-save with bearer token, and chat history
                    restoration after refresh)
-templates/       11 PRC-law Chinese markdown packages (Prelegal 范本 v1.0,
-                 AI-drafted; mutual-nda has cover_page + standard_terms,
-                 others have standard_terms only). templates.json indexes
-                 them with source metadata; manifests/ holds field manifests
-                 for kernel-managed documents.
+templates/       11 PRC-law Chinese markdown packages. Nine remain Prelegal
+                 范本 v1.0, AI-drafted; professional-services-agreement and
+                 data-processing-agreement use 2025 official GF baselines with
+                 immutable source captures in templates/sources/. templates.json
+                 indexes source metadata; manifests/ holds kernel field manifests.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
                  catalog.json and templates/ are COPYed into the runtime image
                  at /app and /app/templates respectively

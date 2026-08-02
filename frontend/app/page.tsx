@@ -36,6 +36,8 @@ const MNDA_DOC_ID = "mutual-nda";
 const KERNEL_MANAGED_DOC_IDS = new Set([
   "cloud-service-agreement",
   MNDA_DOC_ID,
+  "professional-services-agreement",
+  "data-processing-agreement",
 ]);
 const AUTOSAVE_DEBOUNCE_MS = 800;
 // Remembers which draft the user was last editing so a page refresh

@@ -6,7 +6,7 @@ This is a SaaS product to allow users to draft **PRC-law (中国法) Chinese leg
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). The **manifest-driven document-state kernel** is authoritative for CSA and MNDA (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → server-owned pending/confirmed/conflict/missing states → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields). The remaining 9 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON plus tests. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata; manifest-managed fields are written through field patches and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). The **manifest-driven document-state kernel** is authoritative for CSA, MNDA, the official-baseline professional-services agreement, and the official-baseline data/individual-information processing agreement (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → server-owned pending/confirmed/conflict/missing states → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields). The remaining 7 docs read the markdown template through the generic renderer with a flat summary card until they get a manifest — adding one doc ≈ writing one manifest JSON plus tests. Official source captures and adaptation limits for the two new documents live in `templates/sources/` and ADR 0002. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata; manifest-managed fields are written through field patches and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
 
 ## Development process
 
@@ -119,15 +119,18 @@ frontend/        Next.js 15 (static export, output: "export")
                    manifest pipelines: cover page, term-ref highlighting,
                    field-patch writes, conflict resolution, download gating,
                    and legacy MNDA migration)
-templates/       11 PRC-law Chinese markdown packages (Prelegal 范本 v1.0,
-                 AI-drafted; mutual-nda has cover_page + standard_terms,
-                 others standard_terms only). Same span conventions as the
-                 old Common Paper library (header_2/3, coverpage_link /
-                 orderform_link / keyterms_link with Chinese variable
-                 names). templates.json indexes them (origin: prelegal).
+templates/       11 PRC-law Chinese markdown packages. Nine remain Prelegal
+                 范本 v1.0, AI-drafted; professional-services-agreement and
+                 data-processing-agreement use 2025 official GF baselines,
+                 with immutable source captures in templates/sources/. Same
+                 span conventions as the old Common Paper library
+                 (header_2/3, coverpage_link / orderform_link / keyterms_link
+                 with Chinese variable names). templates.json indexes each
+                 document's first-party or official source metadata.
                  manifests/<doc_id>.json — cover-page field manifests (key,
                  type, required, zh/en labels, hint, example, alias span
-                 texts). CSA and MNDA have manifests today; adding a doc to
+                 texts). CSA, MNDA, professional-services-agreement, and
+                 data-processing-agreement have manifests today; adding a doc to
                  the full pipeline ≈ adding its manifest here (+ flipping its
                  catalog.json status to "available") plus tests.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;

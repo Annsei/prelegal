@@ -1,12 +1,17 @@
 # Legal Document Templates
 
-This directory holds the seed dataset of legal agreement templates that the
-prelegal system will customize for users.
+This directory holds the PRC-law Chinese agreement templates that Prelegal
+customizes for users. Each template's source is recorded in
+`templates.json`; official source captures and provenance live under
+`sources/<doc_id>/`.
 
-All templates are sourced from [Common Paper](https://commonpaper.com/) (via
-the [CommonPaper GitHub organization](https://github.com/CommonPaper)) and are
-distributed under the Creative Commons Attribution 4.0 International License
-(CC BY 4.0). See `LICENSE` in this directory for full attribution.
+Most current templates remain first-party Prelegal 范本 v1.0, AI-assisted and
+not lawyer-reviewed. `professional-services-agreement` and
+`data-processing-agreement` use 2025 official model-contract baselines;
+see [ADR 0002](../docs/adr/0002-official-template-baseline.md) for the full
+mapping and adaptation limits. The legacy `LICENSE` remains in the repository
+for its historical Common Paper material and does not describe the official
+model-contract sources.
 
 ## Layout
 
@@ -15,6 +20,7 @@ templates/
 ├── LICENSE                 CC BY 4.0 attribution for the upstream templates
 ├── README.md               this file
 ├── templates.json          machine-readable manifest of all templates
+├── sources/<template-id>/  immutable official source capture + provenance
 └── <template-id>/          one directory per template
     └── *.md                one or more Markdown files (cover page, standard terms, etc.)
 ```
@@ -28,12 +34,11 @@ it records:
 - `title`, `description`, `category`
 - `files` — the Markdown files that make up the template, each tagged with a
   `type` (e.g. `cover_page`, `standard_terms`)
-- `source.repo` and `source.commit` — the upstream Common Paper repository and
-  the exact commit that each local file was copied from, so the dataset can be
-  refreshed deterministically
+- `source` — the first-party or official baseline, version/number, issuer, URL,
+  and acquisition metadata needed to audit a template
 
 ## Refreshing the dataset
 
-To pull newer upstream revisions, re-download the files listed in
-`templates.json` from the corresponding `source.repo` at the `main` branch and
-update the `source.commit` / `source.commit_date` fields to the new HEAD.
+Do not overwrite a file below `sources/`: it is the immutable capture against
+which product adaptations are reviewed. A new official revision needs a new
+capture, provenance record, and ADR update before a product template changes.
