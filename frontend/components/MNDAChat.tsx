@@ -4,12 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, chatApi, type ChatTurn } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
-import type { MndaState } from "@/lib/mndaState";
 import { clearSession, readToken } from "@/lib/session";
 
 type Props = {
   locale: Locale;
-  state: MndaState;
   fields: Record<string, string>;
   // The catalog doc currently open. Sent with each chat turn so the
   // backend can inject that document's cover-page field checklist into
@@ -54,7 +52,6 @@ type Props = {
  */
 export function MNDAChat({
   locale,
-  state,
   fields,
   docId,
   getDraftEpoch,
@@ -99,11 +96,10 @@ export function MNDAChat({
       const res = await chatApi.send(
         readToken(),
         nextHistory,
-        state as unknown as Record<string, unknown>,
+        {},
         docId,
         {
           doc_id: docId,
-          mnda: state as unknown as Record<string, unknown>,
           fields,
         },
       );

@@ -230,12 +230,17 @@ def migrate_document_state_if_needed(
             migrated = _ensure_manifest_fields(snapshot, manifest)
             migrated.manifest_version = manifest_version
             next_state["draft_state"] = migrated.model_dump(mode="json")
+            if doc_id == "mutual-nda":
+                next_state.pop("mnda", None)
             return next_state, migrated, True
         snapshot = snapshot_from_document_state(
             doc_id=doc_id,
             state=next_state,
             manifest=manifest,
         )
+        if doc_id == "mutual-nda" and "mnda" in next_state:
+            next_state.pop("mnda", None)
+            return next_state, snapshot, True
         return next_state, snapshot, False
 
     if "draft_state" in next_state:
@@ -280,6 +285,8 @@ def migrate_document_state_if_needed(
         next_fields.update(managed_values)
         next_state["fields"] = next_fields
         next_state["draft_state"] = snapshot.model_dump(mode="json")
+        if doc_id == "mutual-nda":
+            next_state.pop("mnda", None)
         return next_state, snapshot, True
 
     snapshot = snapshot_from_document_state(

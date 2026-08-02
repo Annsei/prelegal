@@ -119,12 +119,73 @@ def test_chat_complete_parses_structured_response(monkeypatch):
         "allow_fallbacks": False,
     }
     assert captured["response_format"]["type"] == "json_schema"
-    # System prompt should embed the current document state for grounding.
+    # System prompt should embed the current manifest state for grounding,
+    # without reviving the retired typed MNDA object.
     system = captured["messages"][0]
     assert system["role"] == "system"
     assert "Current document state" in system["content"]
-    assert '"mnda"' in system["content"]
-    assert '"purpose"' in system["content"]
+    state_json = system["content"].split("Current document state:\n", 1)[1]
+    assert json.loads(state_json) == {"doc_id": "", "fields": {}}
+
+
+def test_normalize_result_converts_literal_newlines_in_assistant_message():
+    result = llm._normalize_result(
+        {
+            "assistant_message": (
+                "我已记录保密用途。\\n\\n生效日期是哪一天？\\r\\n谢谢。"
+            ),
+            "field_updates": {"保密用途": "包含字面 \\n 的字段值不应变"},
+            "done": False,
+        },
+    )
+
+    assert result["assistant_message"] == (
+        "我已记录保密用途。\n\n生效日期是哪一天？\n谢谢。"
+    )
+    assert result["field_updates"] == {"保密用途": "包含字面 \\n 的字段值不应变"}
+
+
+def test_normalize_result_converts_literal_newlines_after_fullwidth_colon():
+    result = llm._normalize_result(
+        {
+            "assistant_message": (
+                "已记录以下信息：\\n- 甲方公司名称：甲方科技有限公司"
+                "\\n- 乙方公司名称：乙方科技有限公司"
+            ),
+            "field_updates": {},
+            "done": False,
+        },
+    )
+
+    assert result["assistant_message"] == (
+        "已记录以下信息：\n- 甲方公司名称：甲方科技有限公司"
+        "\n- 乙方公司名称：乙方科技有限公司"
+    )
+
+
+def test_normalize_result_leaves_plain_assistant_message_unchanged():
+    result = llm._normalize_result(
+        {
+            "assistant_message": "保密用途我记下了。生效日期是哪一天？",
+            "field_updates": {"保密用途": "评估融资合作"},
+            "done": False,
+        },
+    )
+
+    assert result["assistant_message"] == "保密用途我记下了。生效日期是哪一天？"
+    assert result["field_updates"] == {"保密用途": "评估融资合作"}
+
+
+def test_normalize_result_does_not_decode_path_like_literal_newline():
+    result = llm._normalize_result(
+        {
+            "assistant_message": "示例路径 C:\\name 保持原样？",
+            "field_updates": {},
+            "done": False,
+        },
+    )
+
+    assert result["assistant_message"] == "示例路径 C:\\name 保持原样？"
 
 
 def test_system_prompt_embeds_full_catalog(monkeypatch):
@@ -482,6 +543,7 @@ def test_chat_complete_embeds_manifest_doc_fields_in_current_state(monkeypatch):
     system = captured["messages"][0]["content"]
     assert "Current document state" in system
     assert '"fields"' in system
+    assert '"mnda"' not in system
     assert '"客户": "示例科技（北京）有限公司"' in system
     assert '"订阅期": "12 个月"' in system
 

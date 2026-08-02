@@ -89,7 +89,6 @@ export type ChatResponse = {
 
 export type ChatDocumentState = {
   doc_id: string;
-  mnda: Record<string, unknown>;
   fields: Record<string, string>;
 };
 
@@ -105,7 +104,6 @@ export const chatApi = {
     docId: string,
     documentState: ChatDocumentState = {
       doc_id: docId,
-      mnda: mndaState,
       fields: {},
     },
   ) =>

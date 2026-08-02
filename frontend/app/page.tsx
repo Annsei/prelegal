@@ -28,7 +28,6 @@ import {
 } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
-import { INITIAL_STATE, type MndaState } from "@/lib/mndaState";
 import { clearSession, readSession, readToken } from "@/lib/session";
 
 type EditMode = "chat" | "form";
@@ -46,13 +45,12 @@ const AUTOSAVE_DEBOUNCE_MS = 800;
 const ACTIVE_DOC_KEY = "prelegal:activeDocId";
 
 // Wrapped shape we persist into a document's `state_json` column. The
-// chat history goes in `chat`; the rest is either MndaState (for
-// mutual-nda) or a free-form key/value map (for any other doc). Older
-// rows from before this format existed will be missing `chat` — we
-// treat that as "fresh chat".
+// chat history goes in `chat`; fallback docs keep a free-form key/value
+// map in `fields`. Kernel-managed docs persist field values through
+// `draft_state`; older rows from before this format existed will be
+// missing `chat`, which we treat as "fresh chat".
 type SavedDocState = {
   chat?: ChatTurn[];
-  mnda?: Partial<MndaState>;
   fields?: Record<string, string>;
   draft_state?: unknown;
 };
@@ -140,12 +138,11 @@ const ROLE_KEYS = [
 function deriveTitle(
   docId: string,
   docTitleFor: (id: string) => string,
-  state: MndaState,
   fields: Record<string, string>,
 ): string {
   if (docId === MNDA_DOC_ID) {
-    const a = (fields["甲方公司名称"] ?? state.party1.company).trim();
-    const b = (fields["乙方公司名称"] ?? state.party2.company).trim();
+    const a = fields["甲方公司名称"]?.trim() ?? "";
+    const b = fields["乙方公司名称"]?.trim() ?? "";
     if (a && b) return `${a} × ${b} 保密协议`;
     if (a || b) return `${a || b} 保密协议`;
     return "保密协议草稿";
@@ -166,7 +163,6 @@ export default function Home() {
 
   const [mode, setMode] = useState<EditMode>("chat");
   const [docId, setDocId] = useState<string>(MNDA_DOC_ID);
-  const [state, setState] = useState<MndaState>(INITIAL_STATE);
   const [genericFields, setGenericFields] = useState<Record<string, string>>(
     {},
   );
@@ -283,15 +279,13 @@ export default function Home() {
       // PUT branch will pick it up.
       if (activeDocId == null && creating.current) return;
 
-      const title = deriveTitle(docId, lookupDocTitle, state, displayGenericFields);
+      const title = deriveTitle(docId, lookupDocTitle, displayGenericFields);
       // Wrap chat history alongside the document data so refresh and
       // re-login can restore the conversation, not just the form fields.
       const wrappedState: SavedDocState =
         kernelManagedDoc
-            ? { chat: chatHistory }
-            : docId === MNDA_DOC_ID
-              ? { chat: chatHistory, mnda: state }
-              : { chat: chatHistory, fields: genericFields };
+          ? { chat: chatHistory }
+          : { chat: chatHistory, fields: genericFields };
       const body = {
         title,
         state: wrappedState as unknown as Record<string, unknown>,
@@ -330,7 +324,6 @@ export default function Home() {
   }, [
     token,
     docId,
-    state,
     genericFields,
     displayGenericFields,
     kernelManagedDoc,
@@ -351,7 +344,6 @@ export default function Home() {
         setActiveDocId(null);
         writeActiveDocId(null);
         setSaveState("idle");
-        setState(INITIAL_STATE);
         setGenericFields({});
         setDraftState(null);
         setDownloadBlockedKeys([]);
@@ -368,7 +360,6 @@ export default function Home() {
     // overwrite the fresh draft we're about to show.
     selectSeq.current += 1;
     setDocId(MNDA_DOC_ID);
-    setState(INITIAL_STATE);
     setGenericFields({});
     setDraftState(null);
     setDownloadBlockedKeys([]);
@@ -383,15 +374,10 @@ export default function Home() {
 
   const loadDraftFromRecord = useCallback((rec: DocumentRecord) => {
     draftEpoch.current += 1;
-    // Saved state is wrapped: { chat?, mnda?, fields? }. Decode each
+    // Saved state is wrapped: { chat?, fields?, draft_state? }. Decode each
     // piece defensively — bad/missing data falls back to a fresh draft.
     const saved = (rec.state ?? {}) as SavedDocState;
     setDocId(rec.doc_id);
-    setState(
-      rec.doc_id === MNDA_DOC_ID && saved.mnda
-        ? { ...INITIAL_STATE, ...saved.mnda }
-        : INITIAL_STATE,
-    );
     setGenericFields(
       saved.fields && typeof saved.fields === "object" ? saved.fields : {},
     );
@@ -492,7 +478,6 @@ export default function Home() {
           title: deriveTitle(
             targetDocId,
             lookupDocTitle,
-            state,
             displayGenericFields,
           ),
           state: { chat: historyForState },
@@ -501,7 +486,6 @@ export default function Home() {
         const createdSnapshot = readDraftStateSnapshot(saved.draft_state);
         if (targetDocId !== docId) {
           setDocId(targetDocId);
-          setState(INITIAL_STATE);
           setGenericFields({});
         }
         setDraftState(createdSnapshot);
@@ -523,7 +507,6 @@ export default function Home() {
       draftState,
       lookupDocTitle,
       refreshList,
-      state,
     ],
   );
 
@@ -772,7 +755,6 @@ export default function Home() {
               // resets without us having to plumb every flag through props.
               key={activeDocId ?? "new"}
               locale={locale}
-              state={state}
               fields={stableGenericFields}
               docId={docId}
               getDraftEpoch={getDraftEpoch}

@@ -173,6 +173,11 @@ def _merge_public_state_update(
     )
     merged = copy.deepcopy(incoming_state)
     merged.pop("draft_state", None)
+    if doc_id == "mutual-nda":
+        # MNDA's retired typed state is no longer authoritative after the
+        # manifest kernel exists. Old clients may still PUT it during
+        # autosave, but public writes must not resurrect that dead envelope.
+        merged.pop("mnda", None)
 
     managed_keys = set(manifest_field_keys(manifest))
     current_fields = current_state.get("fields")
