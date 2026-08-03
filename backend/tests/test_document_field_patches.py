@@ -411,9 +411,9 @@ def test_field_patch_rejects_docs_without_manifest_but_crud_still_works(client):
         "/api/documents",
         headers=headers,
         json={
-            "doc_id": "pilot-agreement",
-            "title": "Pilot draft",
-            "state": {"fields": {"试点目的": "合作评估"}},
+            "doc_id": "design-partner-agreement",
+            "title": "Design partner draft",
+            "state": {"fields": {"合作目的": "合作评估"}},
         },
     ).json()
 
@@ -438,10 +438,10 @@ def test_field_patch_rejects_docs_without_manifest_but_crud_still_works(client):
     update = client.put(
         f"/api/documents/{created['id']}",
         headers=headers,
-        json={"state": {"fields": {"试点目的": "更新后的用途"}}},
+        json={"state": {"fields": {"合作目的": "更新后的用途"}}},
     )
     assert update.status_code == 200
-    assert update.json()["state"]["fields"]["试点目的"] == "更新后的用途"
+    assert update.json()["state"]["fields"]["合作目的"] == "更新后的用途"
 
 
 def test_public_patch_rejects_system_and_user_source_spoofing(client):

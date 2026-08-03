@@ -1,13 +1,13 @@
 # 软件许可协议
 
 1. <span class="header_2" id="1">定义</span>
-    1. <span class="header_3" id="1.1">许可软件。</span>  指<span class="coverpage_link">许可方</span>依据本协议以本地部署或者其他可安装方式向<span class="coverpage_link">被许可方</span>提供的计算机软件（目标代码形式），包括随附的许可密钥以及封面页载明的功能模块。
+    1. <span class="header_3" id="1.1">许可软件。</span>  指<span class="coverpage_link">许可方</span>依据本协议以本地部署或者其他可安装方式向<span class="coverpage_link">被许可方</span>提供的计算机软件（目标代码形式），包括随附的许可密钥以及封面页载明的<span class="orderform_link">许可软件及功能模块</span>。
     2. <span class="header_3" id="1.2">文档。</span>  指<span class="coverpage_link">许可方</span>随许可软件提供的安装手册、用户手册、配置说明等技术资料。
     3. <span class="header_3" id="1.3">更新。</span>  指<span class="coverpage_link">许可方</span>就许可软件发布的补丁、缺陷修复和小版本升级，不包括<span class="coverpage_link">许可方</span>单独定价销售的新产品或者重大功能版本。
     4. <span class="header_3" id="1.4">授权环境。</span>  指<span class="coverpage_link">被许可方</span>拥有或者控制的、符合文档载明配置要求的服务器和终端设备。
 
 2. <span class="header_2" id="2">许可范围与限制</span>
-    1. <span class="header_3" id="2.1">许可授予。</span>  在<span class="orderform_link">许可期限</span>内并以<span class="coverpage_link">被许可方</span>遵守本协议为前提，<span class="coverpage_link">许可方</span>授予<span class="coverpage_link">被许可方</span>一项非独占、不可转让、不可分许可的使用许可，允许其在<span class="orderform_link">授权数量</span>范围内，在授权环境中安装、运行许可软件，并为使用许可软件之目的复制、使用文档，仅限用于<span class="coverpage_link">被许可方</span>自身内部经营目的。
+    1. <span class="header_3" id="2.1">许可授予。</span>  在<span class="orderform_link">许可期限</span>内并以<span class="coverpage_link">被许可方</span>遵守本协议为前提，<span class="coverpage_link">许可方</span>授予<span class="coverpage_link">被许可方</span>一项非独占、不可转让、不可分许可的使用许可，允许其在<span class="orderform_link">授权数量</span>及<span class="orderform_link">许可范围</span>内，在授权环境中安装、运行许可软件，并为使用许可软件之目的复制、使用文档，仅限用于<span class="coverpage_link">被许可方</span>自身内部经营目的。
     2. <span class="header_3" id="2.2">使用限制。</span>  除本协议明确允许或者法律、行政法规另有规定外，<span class="coverpage_link">被许可方</span>不得（并不得允许任何第三方）：
         a. 对许可软件进行反向工程、反编译、反汇编，或者以其他方式试图获取其源代码、内部结构或者算法；
         b. 出租、出借、出售、转许可许可软件，或者以托管、服务等方式使第三方获得许可软件的功能；
@@ -19,11 +19,11 @@
 
 3. <span class="header_2" id="3">交付与部署</span>
     1. <span class="header_3" id="3.1">交付。</span>  <span class="coverpage_link">许可方</span>应自<span class="keyterms_link">生效日期</span>起<span class="orderform_link">交付期限</span>内，以电子下载或者存储介质方式向<span class="coverpage_link">被许可方</span>交付许可软件、许可密钥和文档。
-    2. <span class="header_3" id="3.2">部署协助。</span>  封面页约定由<span class="coverpage_link">许可方</span>提供安装部署协助的，<span class="coverpage_link">许可方</span>应指派技术人员协助完成安装、配置和初始化；<span class="coverpage_link">被许可方</span>应提供必要的环境、权限和人员配合。
+    2. <span class="header_3" id="3.2">部署协助。</span>  双方应按照封面页约定的<span class="orderform_link">部署协助安排</span>完成安装、配置和初始化；<span class="coverpage_link">被许可方</span>应提供必要的环境、权限和人员配合。
     3. <span class="header_3" id="3.3">验证。</span>  <span class="coverpage_link">被许可方</span>应自交付完成之日起十日内按照文档载明的功能指标进行验证；期限届满未提出书面异议的，视为交付合格。验证不合格的，<span class="coverpage_link">许可方</span>应在合理期限内修复并重新交付。
 
 4. <span class="header_2" id="4">维护与支持</span>
-    1. <span class="header_3" id="4.1">维护服务。</span>  在<span class="orderform_link">维护服务期</span>内，<span class="coverpage_link">许可方</span>应向<span class="coverpage_link">被许可方</span>提供更新、缺陷修复和远程技术支持，支持渠道与服务时间以封面页或者文档载明者为准。
+    1. <span class="header_3" id="4.1">维护服务。</span>  在<span class="orderform_link">维护服务期</span>内，<span class="coverpage_link">许可方</span>应向<span class="coverpage_link">被许可方</span>提供更新、缺陷修复和远程技术支持，支持渠道与服务时间以封面页载明的<span class="orderform_link">技术支持安排</span>为准。
     2. <span class="header_3" id="4.2">响应。</span>  对<span class="coverpage_link">被许可方</span>报告的软件缺陷，<span class="coverpage_link">许可方</span>应按照缺陷严重程度分级响应，并以修复、提供规避方案或者纳入后续更新等方式处理。
     3. <span class="header_3" id="4.3">例外。</span>  因<span class="coverpage_link">被许可方</span>未按文档使用、擅自修改许可软件、软硬件环境不符合要求或者第三方软件原因导致的问题，不属于维护服务范围；<span class="coverpage_link">许可方</span>可以另行报价提供协助。
     4. <span class="header_3" id="4.4">续期。</span>  <span class="orderform_link">维护服务期</span>届满后，双方可以就维护服务的续期及费用另行协商并书面确认。
@@ -67,7 +67,7 @@
     2. <span class="header_3" id="11.2">争议解决。</span>  因本协议引起的或者与本协议有关的任何争议，双方应首先友好协商解决；自一方书面提出协商之日起三十日内协商不成的，任何一方均有权按照封面页约定的<span class="keyterms_link">争议解决</span>方式解决。争议解决期间，除争议事项外，双方应继续履行本协议其他部分。
 
 12. <span class="header_2" id="12">其他约定</span>
-    1. <span class="header_3" id="12.1">通知。</span>  与本协议有关的通知应以书面形式发送至封面页载明的联系人和地址（含电子邮箱）。专人送达的，交付时视为送达；以快递发出的，交寄后第三日视为送达；以电子邮件发出的，进入对方指定的接收系统时视为送达。
+    1. <span class="header_3" id="12.1">通知。</span>  与本协议有关的通知应以书面形式发送至封面页载明的<span class="coverpage_link">许可方通知信息</span>或<span class="coverpage_link">被许可方通知信息</span>（含电子邮箱）。专人送达的，交付时视为送达；以快递发出的，交寄后第三日视为送达；以电子邮件发出的，进入对方指定的接收系统时视为送达。
     2. <span class="header_3" id="12.2">转让。</span>  未经对方书面同意，任何一方不得向第三方转让本协议项下的权利义务。
     3. <span class="header_3" id="12.3">完整协议与可分性。</span>  本协议（含封面页）构成双方就本协议标的达成的完整约定，取代此前的全部口头或者书面磋商。本协议部分条款无效或者不可执行的，不影响其他条款的效力。
     4. <span class="header_3" id="12.4">修改与弃权。</span>  本协议的修改、补充应以双方书面签署的文件为准。一方未行使或者迟延行使本协议项下的权利，不构成对该权利的放弃。

@@ -15,12 +15,12 @@
         a. 一级故障：服务整体中断，或者核心功能完全不可用，导致<span class="coverpage_link">客户</span>业务全面停滞；
         b. 二级故障：服务的重要功能受损或者性能严重下降，<span class="coverpage_link">客户</span>业务受到重大影响但尚可部分开展；
         c. 三级故障：服务的非核心功能异常或者存在轻微缺陷，对<span class="coverpage_link">客户</span>业务影响有限。
-    2. <span class="header_3" id="3.2">响应与修复时限。</span>  自<span class="coverpage_link">客户</span>通过约定支持渠道报障或者<span class="coverpage_link">服务方</span>监测发现故障之时起（以较早者为准），除封面页另有约定外：一级故障，<span class="coverpage_link">服务方</span>应在三十（30）分钟内响应，四（4）小时内修复或者提供可行的临时解决方案；二级故障，应在两（2）小时内响应，二十四（24）小时内修复或者提供可行的临时解决方案；三级故障，应在八（8）小时内响应，七十二（72）小时内修复或者列入版本修复计划并告知<span class="coverpage_link">客户</span>预计修复时间。自动回复不构成本条所称的响应。
+    2. <span class="header_3" id="3.2">响应与修复时限。</span>  自<span class="coverpage_link">客户</span>通过约定支持渠道报障或者<span class="coverpage_link">服务方</span>监测发现故障之时起（以较早者为准），除封面页另有约定的<span class="orderform_link">故障响应与修复时限</span>外：一级故障，<span class="coverpage_link">服务方</span>应在三十（30）分钟内响应，四（4）小时内修复或者提供可行的临时解决方案；二级故障，应在两（2）小时内响应，二十四（24）小时内修复或者提供可行的临时解决方案；三级故障，应在八（8）小时内响应，七十二（72）小时内修复或者列入版本修复计划并告知<span class="coverpage_link">客户</span>预计修复时间。自动回复不构成本条所称的响应。
     3. <span class="header_3" id="3.3">故障通报。</span>  发生一级、二级故障的，<span class="coverpage_link">服务方</span>应当及时向<span class="coverpage_link">客户</span>通报故障范围、影响和处理进展，并在故障消除后五（5）个工作日内提供书面故障报告，说明故障原因、处理过程和整改措施。
     4. <span class="header_3" id="3.4">升级机制。</span>  故障超过约定修复时限仍未消除的，<span class="coverpage_link">客户</span>有权要求<span class="coverpage_link">服务方</span>将故障处理升级至其技术负责人协调解决；<span class="coverpage_link">服务方</span>应当投入合理资源持续处理，直至故障消除。
 
 4. <span class="header_2" id="4">服务积分补偿</span>
-    1. <span class="header_3" id="4.1">积分计算。</span>  某一<span class="orderform_link">统计周期</span>的实际可用率低于<span class="orderform_link">可用率目标</span>的，<span class="coverpage_link">客户</span>有权按照下列标准获得服务积分，除封面页另有约定外：
+    1. <span class="header_3" id="4.1">积分计算。</span>  某一<span class="orderform_link">统计周期</span>的实际可用率低于<span class="orderform_link">可用率目标</span>的，<span class="coverpage_link">客户</span>有权按照下列标准获得服务积分，除封面页另有约定的<span class="orderform_link">服务积分补偿档位</span>外：
         a. 实际可用率低于<span class="orderform_link">可用率目标</span>但不低于 99.0% 的，服务积分为该周期<span class="orderform_link">月度服务费</span>的 10%；
         b. 实际可用率低于 99.0% 但不低于 95.0% 的，服务积分为该周期<span class="orderform_link">月度服务费</span>的 25%；
         c. 实际可用率低于 95.0% 的，服务积分为该周期<span class="orderform_link">月度服务费</span>的 50%。
@@ -66,7 +66,7 @@
     2. <span class="header_3" id="9.2">争议解决。</span>  因本协议引起的或者与本协议有关的任何争议，双方应首先友好协商解决；自一方书面提出协商之日起三十（30）日内协商不成的，按照双方在封面页约定的<span class="keyterms_link">争议解决</span>方式（向有管辖权的人民法院提起诉讼，或者提交约定的仲裁机构仲裁）解决。
 
 10. <span class="header_2" id="10">其他约定</span>
-    1. <span class="header_3" id="10.1">通知。</span>  与本协议有关的通知应当以书面形式（包括电子邮件）发送至封面页载明的联系方式，自到达对方时发生效力；电子邮件自进入对方指定的电子邮箱系统之日视为到达。
+    1. <span class="header_3" id="10.1">通知。</span>  与本协议有关的通知应当以书面形式（包括电子邮件）发送至封面页载明的<span class="coverpage_link">服务方通知信息</span>或<span class="coverpage_link">客户通知信息</span>，自到达对方时发生效力；电子邮件自进入对方指定的电子邮箱系统之日视为到达。
     2. <span class="header_3" id="10.2">变更。</span>  对本协议的任何变更（包括调整<span class="orderform_link">可用率目标</span>、故障时限或者积分标准），须经双方书面确认后生效。
     3. <span class="header_3" id="10.3">可分性。</span>  本协议部分条款无效或者不可执行的，不影响其他条款的效力。
     4. <span class="header_3" id="10.4">弃权。</span>  一方未行使或者迟延行使本协议项下权利的，不视为放弃该权利；部分行使权利的，不妨碍该权利其余部分以及其他权利的行使。

@@ -212,8 +212,8 @@ test.describe("Document chat", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          assistant_message: "Got it — drafting a CSA. Who's the customer?",
-          selected_doc_id: "pilot-agreement",
+          assistant_message: "Got it — drafting a design partner agreement. Who's the customer?",
+          selected_doc_id: "design-partner-agreement",
           mnda_updates: {},
           field_updates: { Customer: "Acme" },
           done: false,
@@ -221,14 +221,14 @@ test.describe("Document chat", () => {
       }),
     );
     // Mock the template endpoint too — the dev server doesn't run the backend.
-    await page.route("**/api/templates/pilot-agreement", (route) =>
+    await page.route("**/api/templates/design-partner-agreement", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          doc_id: "pilot-agreement",
-          title: "Pilot Agreement",
-          standard_terms: "# Pilot Agreement\n\nThis is a stub.",
+          doc_id: "design-partner-agreement",
+          title: "Design Partner Agreement",
+          standard_terms: "# Design Partner Agreement\n\nThis is a stub.",
           cover_page: null,
         }),
       }),
@@ -242,14 +242,13 @@ test.describe("Document chat", () => {
 
     // Header now reflects the new doc.
     await expect(page.getByText(/Drafting:/)).toContainText(
-      "Pilot Agreement",
+      "Design Partner Agreement",
     );
-    // The generic preview rendered the fetched template title (with the
-    // catalog title format including the abbreviation in parentheses) and
-    // the AI-collected Cover Page Summary.
+    // The generic preview rendered the fetched template title and the
+    // AI-collected Cover Page Summary.
     await expect(
       page.getByRole("heading", {
-        name: "Pilot Agreement",
+        name: "Design Partner Agreement",
         level: 1,
       }).first(),
     ).toBeVisible();

@@ -26,12 +26,12 @@ responsibility is `unassigned`; that continues to block paid-product and
 | `mutual-nda` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified official NDA baseline; retained as prototype/regression sample |
 | `cloud-service-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified official SaaS/CSA baseline; retained as kernel pilot/regression sample |
 | `design-partner-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified direct official baseline; retained |
-| `service-level-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified direct official SLA baseline; retained |
+| `service-level-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | Final product baseline by product decision; manifest-enabled in PL-20 batch 1 |
 | `professional-services-agreement` | SAMR `委托合同（示范文本）` GF-2025-1001, July 2025 | Official model contract | Replaced in this batch; original capture at `templates/sources/professional-services-agreement/` |
 | `data-processing-agreement` | National Data Administration and SAMR `数据委托处理服务合同（示范文本）` GF-2025-2616, July 2025 | Official model contract | Replaced in this batch; original capture at `templates/sources/data-processing-agreement/` |
-| `software-license-agreement` | Ministry of Science and Technology `技术许可（技术秘密）合同` series, 国科发政字[2001]244号 | Official baseline identified | Pending: source `.doc` could not be retrieved in the current network conditions; no replacement made |
+| `software-license-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | Final product baseline by product decision; manifest-enabled in PL-20 batch 1. The previously identified Ministry of Science and Technology text is not a product dependency. |
 | `partnership-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified direct official baseline; retained |
-| `pilot-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified direct official baseline; retained |
+| `pilot-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | Final product baseline by product decision; manifest-enabled in PL-20 batch 1 |
 | `business-associate-agreement` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified PRC medical-health data collaboration baseline; retained |
 | `ai-addendum` | Prelegal 范本 v1.0, AI-assisted | First-party only | No identified direct official AI addendum baseline; retained |
 
@@ -43,6 +43,22 @@ The data-processing replacement is for domestic data and personal-information
 processing. It is not the CAC personal-information outbound standard contract.
 Outbound transfers remain subject to their own statutory route and are out of
 scope for this template.
+
+## Prelegal v1.0 Final-Baseline Decision
+
+The product owner has decided that every remaining catalog document uses its
+existing Prelegal 范本 v1.0 text as the final product baseline. The decision
+removes any requirement to find, wait for, or archive an external official
+model contract before enabling a remaining document in the manifest pipeline.
+
+This is a product-delivery decision, not a claim that first-party templates
+are official or lawyer-reviewed. The existing three lawyer-review disclaimers
+remain mandatory, legal-review responsibility remains `unassigned`, and the
+decision does not authorize paid-product or "lawyer review" claims. The three
+documents enabled in PL-20 batch 1 are `service-level-agreement`,
+`software-license-agreement`, and `pilot-agreement`; the other four remaining
+Prelegal v1.0 documents may be enabled by later manifest batches without a
+source-provenance prerequisite.
 
 ## Captured Sources
 

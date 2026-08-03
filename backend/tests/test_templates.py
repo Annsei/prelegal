@@ -79,6 +79,6 @@ def test_csa_template_includes_manifest(client):
 
 
 def test_docs_without_manifest_return_null_manifest(client):
-    res = client.get("/api/templates/pilot-agreement")
+    res = client.get("/api/templates/design-partner-agreement")
     assert res.status_code == 200
     assert res.json()["manifest"] is None

@@ -249,4 +249,85 @@ describe("draftState helpers", () => {
       "枚举触发字段",
     ]);
   });
+
+  it("requires paid-pilot fee details after the pricing model is confirmed", () => {
+    const paidPilotManifest: DocManifest = {
+      doc_id: "pilot-agreement",
+      version: 1,
+      sections: [
+        { key: "commercial", label: { zh: "费用", en: "Fees" } },
+      ],
+      fields: [
+        {
+          key: "试点收费方式",
+          section: "commercial",
+          type: "string",
+          required: true,
+          label: { zh: "试点收费方式", en: "Pilot pricing model" },
+        },
+        {
+          key: "试点费用",
+          section: "commercial",
+          type: "string",
+          required: false,
+          required_when: { field: "试点收费方式", op: "equals", value: "付费" },
+          label: { zh: "试点费用", en: "Pilot fee" },
+        },
+        {
+          key: "付款安排",
+          section: "commercial",
+          type: "text",
+          required: false,
+          required_when: { field: "试点收费方式", op: "equals", value: "付费" },
+          label: { zh: "付款安排", en: "Payment arrangement" },
+        },
+      ],
+    };
+    const paidPilotSnapshot: DraftStateSnapshot = {
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: "pilot-agreement",
+      revision: 1,
+      fields: {
+        试点收费方式: {
+          key: "试点收费方式",
+          status: "confirmed",
+          value: "付费",
+          revision: 1,
+          provenance: [],
+          confirmed_at: "2026-08-03T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+          conflict: null,
+        },
+        试点费用: {
+          key: "试点费用",
+          status: "missing",
+          value: null,
+          revision: 0,
+          provenance: [],
+          confirmed_at: null,
+          confirmed_by_user_id: null,
+          conflict: null,
+        },
+        付款安排: {
+          key: "付款安排",
+          status: "missing",
+          value: null,
+          revision: 0,
+          provenance: [],
+          confirmed_at: null,
+          confirmed_by_user_id: null,
+          conflict: null,
+        },
+      },
+      validation_errors: [],
+      applied_patches: {},
+    };
+
+    expect(unresolvedRequiredKeys(paidPilotManifest, paidPilotSnapshot)).toEqual([
+      "试点费用",
+      "付款安排",
+    ]);
+    expect(isCompleteForDownload(paidPilotManifest, paidPilotSnapshot)).toBe(false);
+  });
 });

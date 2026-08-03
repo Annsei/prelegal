@@ -38,6 +38,9 @@ const KERNEL_MANAGED_DOC_IDS = new Set([
   MNDA_DOC_ID,
   "professional-services-agreement",
   "data-processing-agreement",
+  "service-level-agreement",
+  "software-license-agreement",
+  "pilot-agreement",
 ]);
 const AUTOSAVE_DEBOUNCE_MS = 800;
 // Remembers which draft the user was last editing so a page refresh

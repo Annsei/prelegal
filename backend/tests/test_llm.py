@@ -602,7 +602,7 @@ def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
     llm.chat_complete(
         messages=[{"role": "user", "content": "hi"}],
         mnda_state={},
-        doc_id="pilot-agreement",  # no manifest yet
+        doc_id="design-partner-agreement",  # no manifest yet
     )
 
     system = captured["messages"][0]["content"]
@@ -611,3 +611,49 @@ def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
         "properties"
     ]["field_updates"]
     assert field_schema["additionalProperties"] == {"type": "string"}
+
+
+@pytest.mark.parametrize(
+    ("doc_id", "manifest_key"),
+    [
+        ("service-level-agreement", "可用率目标"),
+        ("software-license-agreement", "许可费"),
+        ("pilot-agreement", "试点期限"),
+    ],
+)
+def test_chat_complete_constrains_batch_template_updates_to_manifest_keys(
+    monkeypatch,
+    doc_id: str,
+    manifest_key: str,
+):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "已记录。还需要确认什么？",
+                "selected_doc_id": doc_id,
+                "field_updates": {
+                    manifest_key: "已提取的值",
+                    "Unknown": "must be dropped",
+                },
+                "done": False,
+            }
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "请起草协议"}],
+        mnda_state={},
+        doc_id=doc_id,
+    )
+
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["additionalProperties"] is False
+    assert manifest_key in field_schema["properties"]
+    assert result["field_updates"] == {manifest_key: "已提取的值"}
