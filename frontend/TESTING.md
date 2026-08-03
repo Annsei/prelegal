@@ -57,14 +57,16 @@ focus on browser rendering, PDF print behavior, and copy clarity.
 - [ ] Confirming all required fields unlocks download readiness
 - [ ] Attempted downloads blocked by the server show the missing field labels
 
-### PDF Print
+### Document Exports
 
-- [ ] Click **下载 PDF** / **Download PDF** and save from the browser print dialog
-- [ ] Header, form, sidebar, and download controls are absent from the printed output
+- [ ] Download both **DOCX** and **PDF** and confirm each file opens correctly
+- [ ] The downloaded filename contains the document title and current date
 - [ ] Cover Page appears before Standard Terms
-- [ ] Standard Terms flow across pages without clipping
+- [ ] Confirmed values appear in the Cover Page and referenced Standard Terms
+- [ ] Unconfirmed optional fields display the Standard Terms default marker
+- [ ] The lawyer-review disclaimer appears at the end of each file
 - [ ] Page margins are suitable for A4 printing
-- [ ] Missing/pending/conflict visual markers do not obscure the legal text
+- [ ] PDF Chinese text renders without missing glyphs
 
 ### Responsive And Accessibility
 

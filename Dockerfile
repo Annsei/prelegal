@@ -11,6 +11,15 @@ RUN npm run build
 # ---------- Python runtime ----------
 FROM python:3.12-slim AS runtime
 
+# WeasyPrint needs Pango at runtime; Noto CJK supplies deterministic Chinese
+# glyph coverage for PDF generation instead of relying on host fonts.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        fonts-noto-cjk \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # uv: pinned binary, copied straight from the official image. Faster than
 # `pip install uv` and avoids needing build tools in the final image.
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/

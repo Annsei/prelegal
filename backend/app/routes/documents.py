@@ -9,15 +9,21 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import sqlite3
-from typing import Any
+from datetime import date
+from io import BytesIO
+from typing import Any, Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 
 from app.auth import current_user
 from app.db import get_conn
 from app.draft_state import (
     DraftPatchRejected,
+    DraftStateSnapshot,
     FieldPatchRequest,
     FieldPatchResponse,
     ValidationErrorItem,
@@ -26,6 +32,12 @@ from app.draft_state import (
     migrate_document_state_if_needed,
     snapshot_from_document_state,
     unresolved_required_field_keys,
+)
+from app.export import (
+    ExportTemplateError,
+    build_export_document,
+    render_docx,
+    render_pdf,
 )
 from app.manifests import load_manifest, manifest_field_keys
 from app.models import (
@@ -215,6 +227,80 @@ def _fetch_owned_in(
     ).fetchone()
 
 
+def _download_context(
+    conn: sqlite3.Connection,
+    *,
+    doc_pk: int,
+    user_id: int,
+) -> tuple[sqlite3.Row, dict[str, Any], DraftStateSnapshot]:
+    """Load, migrate, and gate one owned manifest-backed document."""
+    row = _fetch_owned_in(conn, doc_pk, user_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    manifest = load_manifest(row["doc_id"])
+    if manifest is None:
+        _raise_validation_errors(
+            status.HTTP_409_CONFLICT,
+            [
+                ValidationErrorItem(
+                    kind="unsupported_document_schema",
+                    message=(
+                        "Download is only available for manifest-backed "
+                        "documents."
+                    ),
+                ),
+            ],
+        )
+
+    try:
+        state_blob, snapshot, changed = migrate_document_state_if_needed(
+            doc_id=row["doc_id"],
+            state=_safe_load_state(row["state_json"]),
+            manifest=manifest,
+        )
+    except DraftPatchRejected as exc:
+        _raise_validation_errors(exc.status_code, exc.errors)
+    if changed:
+        _persist_state(
+            conn,
+            doc_pk=doc_pk,
+            user_id=user_id,
+            state=state_blob,
+        )
+
+    unresolved = unresolved_required_field_keys(manifest, snapshot)
+    if unresolved:
+        detail = _validation_error_detail(
+            [
+                ValidationErrorItem(
+                    kind="download_blocked",
+                    message=(
+                        "Required fields must be confirmed before download."
+                    ),
+                ),
+            ],
+        )
+        detail["unresolved_required_fields"] = unresolved
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    return row, manifest, snapshot
+
+
+def _download_filename(title: str, file_format: str) -> str:
+    cleaned = re.sub(r'[\x00-\x1f<>:"/\\|?*]+', "-", title).strip(" .-")
+    base = cleaned or "法律协议"
+    return f"{base}-{date.today():%Y%m%d}.{file_format}"
+
+
+def _content_disposition(filename: str) -> str:
+    extension = filename.rsplit(".", maxsplit=1)[-1]
+    ascii_fallback = f"agreement-{date.today():%Y%m%d}.{extension}"
+    return (
+        f'attachment; filename="{ascii_fallback}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
+
+
 @router.get("", response_model=list[DocumentSummary])
 def list_documents(
     user: sqlite3.Row = Depends(current_user),
@@ -337,58 +423,58 @@ def get_download_readiness(
 ) -> dict[str, Any]:
     with get_conn() as conn:
         conn.execute("BEGIN IMMEDIATE")
-        row = _fetch_owned_in(conn, doc_pk, user["id"])
-        if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        _download_context(
+            conn,
+            doc_pk=doc_pk,
+            user_id=int(user["id"]),
+        )
+    return {"can_download": True, "unresolved_required_fields": []}
 
-        manifest = load_manifest(row["doc_id"])
-        if manifest is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_validation_error_detail(
-                    [
-                        ValidationErrorItem(
-                            kind="unsupported_document_schema",
-                            message=(
-                                "Download readiness is only available for "
-                                "manifest-backed documents."
-                            ),
-                        ),
-                    ],
-                ),
-            )
 
-        try:
-            state_blob, snapshot, changed = migrate_document_state_if_needed(
-                doc_id=row["doc_id"],
-                state=_safe_load_state(row["state_json"]),
-                manifest=manifest,
-            )
-        except DraftPatchRejected as exc:
-            _raise_validation_errors(exc.status_code, exc.errors)
-        if changed:
-            _persist_state(
-                conn,
-                doc_pk=doc_pk,
-                user_id=int(user["id"]),
-                state=state_blob,
-            )
+@router.get("/{doc_pk}/download")
+def download_document(
+    doc_pk: int,
+    file_format: Literal["docx", "pdf"] = Query(alias="format"),
+    user: sqlite3.Row = Depends(current_user),
+) -> StreamingResponse:
+    with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row, manifest, snapshot = _download_context(
+            conn,
+            doc_pk=doc_pk,
+            user_id=int(user["id"]),
+        )
 
-    unresolved = unresolved_required_field_keys(manifest, snapshot)
-    if unresolved:
-        detail = _validation_error_detail(
+    try:
+        model = build_export_document(
+            doc_id=row["doc_id"],
+            title=row["title"],
+            manifest=manifest,
+            snapshot=snapshot,
+        )
+        payload = render_docx(model) if file_format == "docx" else render_pdf(model)
+    except ExportTemplateError as exc:
+        _raise_validation_errors(
+            status.HTTP_409_CONFLICT,
             [
                 ValidationErrorItem(
-                    kind="download_blocked",
-                    message=(
-                        "Required fields must be confirmed before download."
-                    ),
+                    kind="export_template_unavailable",
+                    message=str(exc),
                 ),
             ],
         )
-        detail["unresolved_required_fields"] = unresolved
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
-    return {"can_download": True, "unresolved_required_fields": []}
+
+    filename = _download_filename(row["title"], file_format)
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if file_format == "docx"
+        else "application/pdf"
+    )
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type=media_type,
+        headers={"Content-Disposition": _content_disposition(filename)},
+    )
 
 
 @router.post("/{doc_pk}/field-patches", response_model=FieldPatchResponse)

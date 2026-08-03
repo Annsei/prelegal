@@ -7,10 +7,11 @@ type Dictionary = {
   appSubtitle: string;
   langToggle: string;
   download: string;
+  downloadFormat: string;
   downloadUnavailable: string;
   downloadIncomplete: string;
   downloadBlockedFields: string;
-  printHint: string;
+  downloadHint: string;
   drafting: string;
   comingSoon: string;
   manifestNote: string;
@@ -126,17 +127,18 @@ const zh: Dictionary = {
   appTitle: "法律协议生成器",
   appSubtitle: "中国法标准范本。与 AI 对话选择并起草协议，右侧实时预览。",
   langToggle: "English",
-  download: "下载 PDF",
+  download: "下载",
+  downloadFormat: "下载格式",
   downloadUnavailable:
     "该文档尚无封面页字段清单，暂不支持下载，以免输出未填充的误导性文件。",
   downloadIncomplete:
     "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
   downloadBlockedFields: "请先确认这些必填字段：",
-  printHint: "在打印对话框中选择「存储为 PDF / Save as PDF」。",
+  downloadHint: "默认下载可编辑的 DOCX，也可切换为 PDF。",
   drafting: "正在起草",
-  comingSoon: "该文档的完整生成与 PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
+  comingSoon: "该文档的完整生成与 DOCX/PDF 下载尚未开放。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
   manifestNote:
-    "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 PDF。",
+    "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 DOCX 或 PDF。",
   coverPage: {
     title: "封面页（Cover Page）",
     missing: "[未填写]",
@@ -211,7 +213,7 @@ const zh: Dictionary = {
     send: "发送",
     sending: "正在发送…",
     error: "出错了，请重试。",
-    doneBanner: "协议已就绪，可以在右侧预览并下载 PDF。",
+    doneBanner: "协议已就绪，可以在右侧预览并下载 DOCX 或 PDF。",
   },
   sections: {
     agreement: "协议信息",
@@ -261,15 +263,16 @@ const en: Dictionary = {
   appTitle: "Legal Agreement Generator",
   appSubtitle: "PRC-law standard templates. Chat with the AI to pick and draft an agreement; preview on the right.",
   langToggle: "中文",
-  download: "Download PDF",
+  download: "Download",
+  downloadFormat: "Download format",
   downloadUnavailable:
     "Download is disabled for this document — it has no cover-page field manifest yet, so the output would be an unpopulated template.",
   downloadIncomplete:
     "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
   downloadBlockedFields: "Confirm these required fields before downloading:",
-  printHint: "In the print dialog, choose “Save as PDF” as the destination.",
+  downloadHint: "Downloads an editable DOCX by default; PDF is also available.",
   drafting: "Drafting",
-  comingSoon: "Full generation and PDF download for this document are coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
+  comingSoon: "DOCX/PDF generation is not available for this document yet. The chat keeps collecting key terms; below is the underlying PRC-law template.",
   manifestNote:
     "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
   coverPage: {

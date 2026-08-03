@@ -20,6 +20,7 @@ import { useDocTemplate } from "@/lib/useDocTemplate";
 import {
   ApiError,
   type ChatTurn,
+  type DownloadFormat,
   documentsApi,
   type DocumentRecord,
   type DocumentSummary,
@@ -178,6 +179,8 @@ export default function Home() {
   const [draftState, setDraftState] = useState<DraftStateSnapshot | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
   const [downloadBlockedKeys, setDownloadBlockedKeys] = useState<string[]>([]);
+  const [downloadFormat, setDownloadFormat] =
+    useState<DownloadFormat>("docx");
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -635,7 +638,7 @@ export default function Home() {
   // output would be a raw unpopulated template.
   const canDownload = manifestComplete;
   const downloadTitle = canDownload
-    ? t.printHint
+    ? t.downloadHint
     : manifest
       ? t.downloadIncomplete
       : t.downloadUnavailable;
@@ -645,9 +648,20 @@ export default function Home() {
     const tk = readToken();
     if (!tk) return;
     try {
-      await documentsApi.downloadReadiness(tk, activeDocId);
+      const file = await documentsApi.download(
+        tk,
+        activeDocId,
+        downloadFormat,
+      );
       setDownloadBlockedKeys([]);
-      window.print();
+      const url = URL.createObjectURL(file.blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
     } catch (err) {
       const blockedKeys = unresolvedRequiredFieldsFromError(err);
       if (blockedKeys.length > 0) {
@@ -657,7 +671,7 @@ export default function Home() {
       setSaveState("failed");
       handleAuthError(err);
     }
-  }, [activeDocId, handleAuthError, manifest]);
+  }, [activeDocId, downloadFormat, handleAuthError, manifest]);
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
@@ -719,15 +733,33 @@ export default function Home() {
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
             />
-            <button
-              type="button"
-              onClick={() => void handleDownload()}
-              disabled={!canDownload}
-              className="btn btn-ink"
-              title={downloadTitle}
-            >
-              {t.download}
-            </button>
+            <div className="flex items-stretch">
+              <label className="sr-only" htmlFor="download-format">
+                {t.downloadFormat}
+              </label>
+              <select
+                id="download-format"
+                value={downloadFormat}
+                onChange={(event) =>
+                  setDownloadFormat(event.target.value as DownloadFormat)
+                }
+                className="rounded-l border border-r-0 px-2 text-xs"
+                style={{ borderColor: "var(--ink)", color: "var(--ink)" }}
+                title={t.downloadFormat}
+              >
+                <option value="docx">DOCX</option>
+                <option value="pdf">PDF</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleDownload()}
+                disabled={!canDownload}
+                className="btn btn-ink rounded-l-none"
+                title={downloadTitle}
+              >
+                {t.download} {downloadFormat.toUpperCase()}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -787,7 +819,7 @@ export default function Home() {
             </div>
           )}
           <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
-            {t.printHint}
+            {t.downloadHint}
           </p>
           {downloadBlockedLabels.length > 0 && (
             <div

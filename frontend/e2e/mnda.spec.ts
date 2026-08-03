@@ -348,33 +348,38 @@ async function installMockBackend(page: Page, options: { legacy?: boolean } = {}
     });
   });
 
-  await page.route(/\/api\/documents\/1\/download-readiness$/, async (route) => {
-    const unresolved = MNDA_MANIFEST.fields
-      .filter((field) => field.required)
-      .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
-      .map((field) => field.key);
-    if (unresolved.length > 0) {
+  await page.route(
+    /\/api\/documents\/1\/download\?format=(docx|pdf)$/,
+    async (route) => {
+      const unresolved = MNDA_MANIFEST.fields
+        .filter((field) => field.required)
+        .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
+        .map((field) => field.key);
+      if (unresolved.length > 0) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              validation_errors: [{ kind: "download_blocked" }],
+              unresolved_required_fields: unresolved,
+            },
+          }),
+        });
+        return;
+      }
       await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          detail: {
-            validation_errors: [{ kind: "download_blocked" }],
-            unresolved_required_fields: unresolved,
-          },
-        }),
+        status: 200,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers: {
+          "Content-Disposition":
+            "attachment; filename=agreement.docx; filename*=UTF-8''MNDA-20260803.docx",
+        },
+        body: "PK-mocked-docx",
       });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        can_download: true,
-        unresolved_required_fields: [],
-      }),
-    });
-  });
+    },
+  );
 
   await page.route(/\/api\/documents\/1$/, async (route) => {
     if (route.request().method() === "PUT") {
@@ -476,7 +481,7 @@ test.describe("MNDA document-state kernel adoption", () => {
     });
     await expect(page.getByText("评估融资合作")).toBeVisible();
     await expect(page.getByText("待确认")).toBeVisible();
-    await expect(page.getByRole("button", { name: /下载 PDF/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /下载 DOCX/ })).toBeDisabled();
     await expect.poll(() => events.puts.length).toBeGreaterThanOrEqual(1);
     expect((events.puts.at(-1) as { state?: { fields?: unknown } }).state?.fields)
       .toBeUndefined();
@@ -521,11 +526,6 @@ test.describe("MNDA document-state kernel adoption", () => {
   test("download gate unlocks only after all required fields are confirmed", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      window.print = () => {
-        window.dispatchEvent(new Event("prelegal-print"));
-      };
-    });
     await installMockBackend(page);
     await startMndaChat(page, {
       保密用途: "评估融资合作",
@@ -539,7 +539,7 @@ test.describe("MNDA document-state kernel adoption", () => {
     });
     await page.getByRole("tab", { name: "手动编辑" }).click();
 
-    const download = page.getByRole("button", { name: /下载 PDF/ });
+    const download = page.getByRole("button", { name: /下载 DOCX/ });
     await expect(download).toBeDisabled();
 
     await confirmField(page, /保密用途/);
@@ -552,7 +552,10 @@ test.describe("MNDA document-state kernel adoption", () => {
     await confirmField(page, /乙方公司名称/);
 
     await expect(download).toBeEnabled();
+    const downloadEvent = page.waitForEvent("download");
     await download.click();
+    const savedFile = await downloadEvent;
+    expect(savedFile.suggestedFilename()).toBe("MNDA-20260803.docx");
   });
 
   test("legacy state.mnda drafts restore as pending kernel fields", async ({
