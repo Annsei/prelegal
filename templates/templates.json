@@ -69,8 +69,12 @@
       "path": "service-level-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "service-level-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "service-level-agreement/sla.md"
+          "path": "service-level-agreement/standard_terms.md"
         }
       ],
       "source": {
@@ -140,8 +144,12 @@
       "path": "software-license-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "software-license-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "software-license-agreement/Software-License-Agreement.md"
+          "path": "software-license-agreement/standard_terms.md"
         }
       ],
       "source": {
@@ -174,8 +182,12 @@
       "path": "pilot-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "pilot-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "pilot-agreement/Pilot-Agreement.md"
+          "path": "pilot-agreement/standard_terms.md"
         }
       ],
       "source": {

@@ -17,7 +17,7 @@
     2. <span class="header_3" id="2.2">期限届满。</span>  <span class="orderform_link">试点期限</span>届满且双方未依照第 8 条签署正式协议、亦未书面延长试点的，本协议自动终止，<span class="coverpage_link">客户</span>的产品访问权限同时终止。
 
 3. <span class="header_2" id="3">费用与支付</span>
-    1. <span class="header_3" id="3.1">试点费用。</span>  <span class="coverpage_link">客户</span>应当按照封面页约定的<span class="orderform_link">试点费用</span>及付款安排向<span class="coverpage_link">服务方</span>付款；<span class="orderform_link">试点费用</span>约定为零或者免费的，试点期间<span class="coverpage_link">客户</span>无须付款，本条其余款项不适用。
+    1. <span class="header_3" id="3.1">试点费用。</span>  <span class="coverpage_link">客户</span>应当按照封面页约定的<span class="orderform_link">试点收费方式</span>、<span class="orderform_link">试点费用</span>及<span class="orderform_link">付款安排</span>向<span class="coverpage_link">服务方</span>付款；<span class="orderform_link">试点收费方式</span>约定为免费或者<span class="orderform_link">试点费用</span>约定为零的，试点期间<span class="coverpage_link">客户</span>无须付款，本条其余款项不适用。
     2. <span class="header_3" id="3.2">发票与税费。</span>  <span class="coverpage_link">服务方</span>应当在收到款项后按照法律规定向<span class="coverpage_link">客户</span>开具合法有效的发票；各方依法各自承担因履行本协议产生的税费。
     3. <span class="header_3" id="3.3">逾期付款。</span>  <span class="coverpage_link">客户</span>逾期支付<span class="orderform_link">试点费用</span>的，每逾期一日，应按逾期金额的万分之五向<span class="coverpage_link">服务方</span>支付违约金；逾期超过三十（30）日的，<span class="coverpage_link">服务方</span>有权中止试点服务直至款项付清。
     4. <span class="header_3" id="3.4">退费。</span>  因<span class="coverpage_link">服务方</span>原因致使本协议在<span class="orderform_link">试点期限</span>届满前解除的，<span class="coverpage_link">服务方</span>应当按照剩余试点天数占总天数的比例退还已预付的<span class="orderform_link">试点费用</span>。
@@ -43,8 +43,8 @@
     3. <span class="header_3" id="7.3">保密期限。</span>  本条保密义务自<span class="keyterms_link">生效日期</span>起算，至本协议终止后<span class="keyterms_link">保密期限</span>届满时止；构成商业秘密的信息，在其依法作为商业秘密受保护的期间内持续适用本条约定。
 
 8. <span class="header_2" id="8">评估与转为正式协议</span>
-    1. <span class="header_3" id="8.1">评估。</span>  <span class="orderform_link">试点期限</span>届满前十五（15）日内，双方应当就试点结果进行评估沟通；<span class="coverpage_link">客户</span>应当就是否采购正式服务向<span class="coverpage_link">服务方</span>作出初步反馈，但该反馈不构成缔约义务。
-    2. <span class="header_3" id="8.2">转正式协议。</span>  <span class="coverpage_link">客户</span>决定正式采购的，双方应当另行签署正式服务协议；除双方另有约定外，正式协议签署后本协议自动终止，试点期间产生的客户数据按<span class="coverpage_link">客户</span>指示迁移至正式环境。双方可以在封面页约定<span class="orderform_link">试点费用</span>可否抵扣正式协议项下的服务费用。
+    1. <span class="header_3" id="8.1">评估。</span>  <span class="orderform_link">试点期限</span>届满前十五（15）日内，双方应当就试点结果进行评估沟通，并对照封面页约定的<span class="orderform_link">试点成功标准</span>；<span class="coverpage_link">客户</span>应当就是否采购正式服务向<span class="coverpage_link">服务方</span>作出初步反馈，但该反馈不构成缔约义务。
+    2. <span class="header_3" id="8.2">转正式协议。</span>  <span class="coverpage_link">客户</span>决定正式采购的，双方应当另行签署正式服务协议；除双方另有约定外，正式协议签署后本协议自动终止，试点期间产生的客户数据按<span class="coverpage_link">客户</span>指示迁移至正式环境。双方可以在封面页约定<span class="orderform_link">正式采购费用抵扣安排</span>。
     3. <span class="header_3" id="8.3">不转化。</span>  任何一方均无签署正式协议的义务；未能达成正式协议的，任何一方均不因此向另一方承担缔约过失以外的责任。
 
 9. <span class="header_2" id="9">违约责任</span>

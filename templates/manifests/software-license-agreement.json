@@ -1,0 +1,31 @@
+{
+  "doc_id": "software-license-agreement",
+  "version": 1,
+  "description": "《软件许可协议》（中国法，Prelegal 范本 v1.0）封面页字段清单。字段键与正文及封面页的 coverpage_link / orderform_link / keyterms_link span 逐字一致。",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "license", "label": { "zh": "软件与许可范围", "en": "Software and License Scope" } },
+    { "key": "delivery", "label": { "zh": "交付、部署与维护", "en": "Delivery, Deployment, and Support" } },
+    { "key": "commercial", "label": { "zh": "费用与法律条款", "en": "Fees and Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "许可方", "section": "parties", "type": "string", "required": true, "label": { "zh": "许可方", "en": "Licensor" }, "hint": { "zh": "授予软件使用许可的一方完整主体名称", "en": "Full legal name of the party granting the license" }, "example": "示例软件（上海）有限公司" },
+    { "key": "许可方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "许可方通知信息", "en": "Licensor notice details" }, "hint": { "zh": "联系人、地址、电话和电子邮箱", "en": "Contact, address, phone, and email" }, "example": "联系人：李四；地址：上海市浦东新区示例路1号；邮箱：legal@example.cn" },
+    { "key": "被许可方", "section": "parties", "type": "string", "required": true, "label": { "zh": "被许可方", "en": "Licensee" }, "hint": { "zh": "获得软件使用许可的一方完整主体名称", "en": "Full legal name of the licensee" }, "example": "示例科技（北京）有限公司" },
+    { "key": "被许可方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "被许可方通知信息", "en": "Licensee notice details" }, "hint": { "zh": "联系人、地址、电话和电子邮箱", "en": "Contact, address, phone, and email" }, "example": "联系人：张三；地址：北京市海淀区示例街2号；邮箱：legal@example.com" },
+    { "key": "许可软件及功能模块", "section": "license", "type": "text", "required": true, "label": { "zh": "许可软件及功能模块", "en": "Licensed software and modules" }, "hint": { "zh": "软件名称、版本、目标代码交付物和授权功能模块", "en": "Software name, version, object-code deliverables, and licensed modules" }, "example": "示例数据分析平台 v3.0：数据接入、报表和权限管理模块" },
+    { "key": "许可范围", "section": "license", "type": "text", "required": true, "label": { "zh": "许可范围", "en": "License scope" }, "hint": { "zh": "说明被许可方可使用的主体、业务场景和部署环境；不得突破正文的非独占、不可转让、内部使用限制", "en": "State permitted entities, use cases, and deployment environments without overriding the standard restrictions" }, "example": "仅限被许可方中国境内研发、运营和财务团队在其自有私有云环境中内部使用" },
+    { "key": "授权数量", "section": "license", "type": "string", "required": true, "label": { "zh": "授权数量", "en": "Authorized quantity" }, "hint": { "zh": "用户、终端、服务器或实例的数量上限", "en": "Maximum users, devices, servers, or instances" }, "example": "不超过100名命名用户和2个生产服务器实例" },
+    { "key": "许可期限", "section": "license", "type": "string", "required": true, "label": { "zh": "许可期限", "en": "License term" }, "hint": { "zh": "软件使用许可的起止日期或期限", "en": "Start/end dates or duration of the software license" }, "example": "自交付之日起36个月" },
+    { "key": "生效日期", "section": "delivery", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-01" },
+    { "key": "交付期限", "section": "delivery", "type": "string", "required": true, "label": { "zh": "交付期限", "en": "Delivery period" }, "hint": { "zh": "自生效日期起完成软件、密钥和文档交付的期限", "en": "Deadline after the effective date to deliver software, keys, and documentation" }, "example": "10个工作日内" },
+    { "key": "部署协助安排", "section": "delivery", "type": "text", "required": true, "label": { "zh": "部署协助安排", "en": "Deployment assistance" }, "hint": { "zh": "写明是否提供、双方分工、地点/方式和预计工期", "en": "State whether assistance is provided, each party's responsibilities, delivery mode, and expected duration" }, "example": "许可方远程提供安装、配置和初始化协助；被许可方提供服务器、网络权限和现场联系人" },
+    { "key": "维护服务期", "section": "delivery", "type": "string", "required": true, "label": { "zh": "维护服务期", "en": "Maintenance period" }, "hint": { "zh": "更新、缺陷修复和支持服务的起止日期或期限", "en": "Start/end dates or duration for updates, fixes, and support" }, "example": "自交付合格之日起12个月" },
+    { "key": "技术支持安排", "section": "delivery", "type": "text", "required": true, "label": { "zh": "技术支持安排", "en": "Technical support arrangement" }, "hint": { "zh": "支持渠道、服务时间、响应级别和联系人", "en": "Support channels, service hours, response levels, and contacts" }, "example": "工作日9:00-18:00通过工单和邮件支持；紧急故障4小时内响应" },
+    { "key": "许可费", "section": "commercial", "type": "string", "required": true, "label": { "zh": "许可费", "en": "License fee" }, "hint": { "zh": "金额、币种、税费口径及是否包含维护服务", "en": "Amount, currency, tax treatment, and whether maintenance is included" }, "example": "人民币120,000元（含税，含首年维护服务）" },
+    { "key": "付款期限", "section": "commercial", "type": "string", "required": true, "label": { "zh": "付款期限", "en": "Payment term" }, "hint": { "zh": "收到符合约定发票后的付款期限和节点", "en": "Payment deadline and milestones after receipt of a compliant invoice" }, "example": "收到发票后30日内一次性支付" },
+    { "key": "保密期限", "section": "commercial", "type": "string", "required": true, "label": { "zh": "保密期限", "en": "Confidentiality period" }, "hint": { "zh": "协议终止后保密义务的期限；商业秘密依法持续保护", "en": "Post-termination confidentiality period; trade secrets remain protected by law" }, "example": "协议终止后5年" },
+    { "key": "责任上限", "section": "commercial", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "任何一方累计赔偿责任的上限", "en": "Aggregate liability cap for either party" }, "example": "不超过被许可方在索赔发生前12个月内已支付的许可费总额" },
+    { "key": "争议解决", "section": "commercial", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "选择有管辖权人民法院，或写明仲裁委员会", "en": "Choose a competent court or name an arbitration commission" }, "example": "向被许可方住所地有管辖权的人民法院提起诉讼" }
+  ]
+}

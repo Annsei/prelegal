@@ -28,7 +28,7 @@
       "title": "服务等级协议（SLA）",
       "category": "commercial-addendum",
       "use_when": "为云服务或软件协议附加可用性与故障响应承诺。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "professional-services-agreement",
@@ -49,7 +49,7 @@
       "title": "软件许可协议",
       "category": "commercial",
       "use_when": "许可本地部署或可安装软件（非 SaaS），覆盖许可范围、维护支持与商务条款。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "partnership-agreement",
@@ -63,7 +63,7 @@
       "title": "试点协议",
       "category": "commercial",
       "use_when": "限定期限或范围的付费/免费试点、试用。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "business-associate-agreement",

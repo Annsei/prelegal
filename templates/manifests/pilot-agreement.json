@@ -1,0 +1,27 @@
+{
+  "doc_id": "pilot-agreement",
+  "version": 1,
+  "description": "《试点协议》（中国法，Prelegal 范本 v1.0）封面页字段清单。字段键与正文及封面页的 coverpage_link / orderform_link / keyterms_link span 逐字一致。",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "pilot", "label": { "zh": "试点范围与评估", "en": "Pilot Scope and Evaluation" } },
+    { "key": "commercial", "label": { "zh": "费用与转正式协议", "en": "Fees and Production Conversion" } },
+    { "key": "legal", "label": { "zh": "法律条款", "en": "Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "服务方", "section": "parties", "type": "string", "required": true, "label": { "zh": "服务方", "en": "Service provider" }, "hint": { "zh": "提供试点产品或服务的一方完整主体名称", "en": "Full legal name of the party providing the pilot product or service" }, "example": "示例云计算（上海）有限公司" },
+    { "key": "客户", "section": "parties", "type": "string", "required": true, "label": { "zh": "客户", "en": "Customer" }, "hint": { "zh": "评估、测试并可能采购正式服务的一方完整主体名称", "en": "Full legal name of the party evaluating the product" }, "example": "示例科技（北京）有限公司" },
+    { "key": "试点范围", "section": "pilot", "type": "text", "required": true, "label": { "zh": "试点范围", "en": "Pilot scope" }, "hint": { "zh": "产品、功能模块、部署环境、业务场景和允许使用人员", "en": "Product, modules, environment, use cases, and permitted users" }, "example": "客户服务知识库产品的智能检索和工单摘要模块，仅在测试环境供客服团队使用" },
+    { "key": "用户数量上限", "section": "pilot", "type": "string", "required": true, "label": { "zh": "用户数量上限", "en": "Maximum users" }, "hint": { "zh": "试点期间可访问产品的用户、账号或席位数量上限", "en": "Maximum users, accounts, or seats during the pilot" }, "example": "不超过30名命名用户" },
+    { "key": "生效日期", "section": "pilot", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-01" },
+    { "key": "试点期限", "section": "pilot", "type": "string", "required": true, "label": { "zh": "试点期限", "en": "Pilot period" }, "hint": { "zh": "试点的起止日期或总期限", "en": "Start/end dates or duration of the pilot" }, "example": "2026-08-01 至 2026-10-31" },
+    { "key": "试点成功标准", "section": "pilot", "type": "text", "required": true, "label": { "zh": "试点成功标准", "en": "Pilot success criteria" }, "hint": { "zh": "双方评估试点结果的可验证指标、验收样本或业务目标", "en": "Verifiable metrics, samples, or business outcomes for evaluating the pilot" }, "example": "不少于20名客服完成培训；知识库检索准确率达到85%；客户书面确认满足试点需求" },
+    { "key": "试点收费方式", "section": "commercial", "type": "string", "required": true, "label": { "zh": "试点收费方式", "en": "Pilot pricing model" }, "hint": { "zh": "填写“免费”或“付费”；选择付费时必须补充试点费用和付款安排", "en": "Enter free or paid; a paid pilot requires the fee and payment arrangement" }, "example": "免费" },
+    { "key": "试点费用", "section": "commercial", "type": "string", "required": false, "required_when": { "field": "试点收费方式", "op": "equals", "value": "付费" }, "label": { "zh": "试点费用", "en": "Pilot fee" }, "hint": { "zh": "付费试点的金额、币种、税费口径和计费方式", "en": "Amount, currency, tax treatment, and billing basis for a paid pilot" }, "example": "人民币30,000元（含税）" },
+    { "key": "付款安排", "section": "commercial", "type": "text", "required": false, "required_when": { "field": "试点收费方式", "op": "equals", "value": "付费" }, "label": { "zh": "付款安排", "en": "Payment arrangement" }, "hint": { "zh": "付费试点的付款节点、期限和发票要求", "en": "Payment milestones, deadlines, and invoice requirements for a paid pilot" }, "example": "签署后10日内支付；服务方收到款项后开具增值税专用发票" },
+    { "key": "正式采购费用抵扣安排", "section": "commercial", "type": "text", "required": false, "label": { "zh": "正式采购费用抵扣安排", "en": "Production purchase fee offset" }, "hint": { "zh": "试点费用是否以及如何抵扣正式协议项下服务费；没有约定可留空", "en": "Whether and how pilot fees offset fees under a production agreement; leave blank if none" }, "example": "试点费用可在正式服务协议首年服务费中全额抵扣" },
+    { "key": "保密期限", "section": "legal", "type": "string", "required": true, "label": { "zh": "保密期限", "en": "Confidentiality period" }, "hint": { "zh": "协议终止后保密义务的期限；商业秘密依法持续保护", "en": "Post-termination confidentiality period; trade secrets remain protected by law" }, "example": "协议终止后5年" },
+    { "key": "责任上限", "section": "legal", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "任何一方累计赔偿责任的上限", "en": "Aggregate liability cap for either party" }, "example": "不超过人民币50,000元" },
+    { "key": "争议解决", "section": "legal", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "选择有管辖权人民法院，或写明仲裁委员会", "en": "Choose a competent court or name an arbitration commission" }, "example": "向客户住所地有管辖权的人民法院提起诉讼" }
+  ]
+}

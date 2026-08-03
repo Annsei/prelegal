@@ -1,13 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
 
-type OfficialDoc = {
-  docId: "professional-services-agreement" | "data-processing-agreement";
+type ManifestDoc = {
+  docId:
+    | "professional-services-agreement"
+    | "data-processing-agreement"
+    | "service-level-agreement"
+    | "software-license-agreement"
+    | "pilot-agreement";
   title: string;
   firstField: { key: string; label: string; value: string };
   secondField: { key: string; label: string; value: string };
 };
 
-const OFFICIAL_DOCS: OfficialDoc[] = [
+const MANIFEST_DOCS: ManifestDoc[] = [
   {
     docId: "professional-services-agreement",
     title: "Professional Services Agreement",
@@ -32,6 +37,24 @@ const OFFICIAL_DOCS: OfficialDoc[] = [
       value: "Globex Processing Co.",
     },
   },
+  {
+    docId: "service-level-agreement",
+    title: "Service Level Agreement",
+    firstField: { key: "服务方", label: "Service provider", value: "Globex Cloud Co." },
+    secondField: { key: "可用率目标", label: "Availability target", value: "99.9%" },
+  },
+  {
+    docId: "software-license-agreement",
+    title: "Software License Agreement",
+    firstField: { key: "许可方", label: "Licensor", value: "Globex Software Co." },
+    secondField: { key: "许可费", label: "License fee", value: "人民币 120,000 元" },
+  },
+  {
+    docId: "pilot-agreement",
+    title: "Pilot Agreement",
+    firstField: { key: "服务方", label: "Service provider", value: "Globex Pilot Co." },
+    secondField: { key: "试点期限", label: "Pilot period", value: "2026-08-01 至 2026-10-31" },
+  },
 ];
 
 type MockField = {
@@ -45,7 +68,7 @@ type MockField = {
   conflict: null;
 };
 
-async function installOfficialTemplateBackend(page: Page, doc: OfficialDoc) {
+async function installManifestTemplateBackend(page: Page, doc: ManifestDoc) {
   const manifest = {
     doc_id: doc.docId,
     version: 1,
@@ -196,9 +219,9 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-for (const doc of OFFICIAL_DOCS) {
+for (const doc of MANIFEST_DOCS) {
   test(`${doc.docId} uses kernel proposals, confirmations, and download gating`, async ({ page }) => {
-    await installOfficialTemplateBackend(page, doc);
+    await installManifestTemplateBackend(page, doc);
     await page.goto("/");
     await page.getByRole("button", { name: "English" }).click();
     await page.getByLabel(/type a message/i).fill(`Draft ${doc.title}`);
