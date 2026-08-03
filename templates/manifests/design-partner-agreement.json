@@ -1,0 +1,25 @@
+{
+  "doc_id": "design-partner-agreement",
+  "version": 1,
+  "description": "Prelegal 范本 v1.0《设计合作伙伴协议》封面页字段清单，覆盖产品试用、反馈合作、对价与关键法律条款。",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "collaboration", "label": { "zh": "产品与合作安排", "en": "Product and Collaboration" } },
+    { "key": "legal", "label": { "zh": "法律条款", "en": "Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "甲方", "section": "parties", "type": "string", "required": true, "label": { "zh": "甲方（产品提供方）", "en": "Product provider" }, "hint": { "zh": "开发并提供早期产品试用的一方完整主体名称", "en": "Full legal name of the party developing and providing the early-stage product" }, "example": "示例产品科技（上海）有限公司" },
+    { "key": "甲方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "甲方通知信息", "en": "Product provider notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：张三；地址：上海市浦东新区示例路1号；邮箱：legal@example.cn" },
+    { "key": "乙方", "section": "parties", "type": "string", "required": true, "label": { "zh": "乙方（设计合作伙伴）", "en": "Design partner" }, "hint": { "zh": "参与试用并提供反馈的一方完整主体名称", "en": "Full legal name of the party testing the product and providing feedback" }, "example": "示例客户科技（北京）有限公司" },
+    { "key": "乙方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "乙方通知信息", "en": "Design partner notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：李四；地址：北京市朝阳区示例街2号；邮箱：legal@example.com" },
+    { "key": "产品", "section": "collaboration", "type": "text", "required": true, "label": { "zh": "产品", "en": "Product" }, "hint": { "zh": "早期产品或服务名称、版本及核心功能", "en": "Early-stage product or service name, version, and core functionality" }, "example": "客户洞察平台 Beta 版，包括访谈整理和需求聚类模块" },
+    { "key": "试用授权范围", "section": "collaboration", "type": "text", "required": true, "label": { "zh": "试用授权范围", "en": "Evaluation licence scope" }, "hint": { "zh": "允许使用的功能、环境、账号数量、人员与评估场景", "en": "Permitted features, environments, account count, users, and evaluation scenarios" }, "example": "测试环境；不超过20名指定用户；仅用于产品评估和反馈" },
+    { "key": "合作期限", "section": "collaboration", "type": "string", "required": true, "label": { "zh": "合作期限", "en": "Collaboration period" }, "hint": { "zh": "合作起止日期或总期限", "en": "Start/end dates or total collaboration period" }, "example": "自生效日期起3个月" },
+    { "key": "反馈频率", "section": "collaboration", "type": "string", "required": true, "label": { "zh": "反馈频率", "en": "Feedback frequency" }, "hint": { "zh": "反馈提交、访谈或评审会议的频率", "en": "Frequency of feedback submissions, interviews, or review meetings" }, "example": "每两周提交一次书面反馈，并参加一次产品评审会议" },
+    { "key": "合作对价", "section": "collaboration", "type": "text", "required": true, "label": { "zh": "合作对价", "en": "Collaboration consideration" }, "hint": { "zh": "写明免费试用、优惠折扣、付费金额或其他对价安排", "en": "State free access, discounts, fees, or other consideration" }, "example": "免费试用；正式采购时首年订阅费优惠20%" },
+    { "key": "生效日期", "section": "legal", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-15" },
+    { "key": "保密期限", "section": "legal", "type": "string", "required": true, "label": { "zh": "保密期限", "en": "Confidentiality period" }, "hint": { "zh": "协议终止后保密义务的期限；商业秘密依法持续保护", "en": "Post-termination confidentiality period; trade secrets remain protected by law" }, "example": "协议终止后5年" },
+    { "key": "责任上限", "section": "legal", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "任何一方累计赔偿责任总额上限", "en": "Aggregate liability cap for either party" }, "example": "不超过已支付合作对价总额；免费合作为人民币50,000元" },
+    { "key": "争议解决", "section": "legal", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "选择有管辖权人民法院，或写明仲裁委员会", "en": "Choose a competent court or specify an arbitration commission" }, "example": "向甲方住所地有管辖权的人民法院提起诉讼" }
+  ]
+}

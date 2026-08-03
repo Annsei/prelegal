@@ -1,11 +1,11 @@
 # 渠道合作协议
 
 1. <span class="header_2" id="1">定义</span>
-    1. <span class="header_3" id="1.1">合作产品。</span>  指封面页载明的、由<span class="coverpage_link">供应商</span>提供并纳入双方合作范围的产品和服务。
+    1. <span class="header_3" id="1.1">合作产品。</span>  指封面页载明的<span class="orderform_link">合作产品</span>，由<span class="coverpage_link">供应商</span>提供并纳入双方合作范围。
     2. <span class="header_3" id="1.2">最终客户。</span>  指在<span class="orderform_link">合作区域</span>内实际采购或者使用合作产品的企业或者其他组织。
     3. <span class="header_3" id="1.3">商机报备。</span>  指<span class="coverpage_link">合作方</span>按照<span class="coverpage_link">供应商</span>指定的方式，将潜在最终客户及项目信息提交<span class="coverpage_link">供应商</span>确认的行为。
     4. <span class="header_3" id="1.4">品牌元素。</span>  指一方的注册商标、标识、字号及其他品牌标志。
-    5. <span class="header_3" id="1.5">考核周期。</span>  指封面页载明的业绩考核区间；未约定的，以每个日历年度为一个考核周期。
+    5. <span class="header_3" id="1.5">考核周期。</span>  指封面页载明的<span class="orderform_link">考核周期</span>；未约定的，以每个日历年度为一个考核周期。
 
 2. <span class="header_2" id="2">合作模式与授权范围</span>
     1. <span class="header_3" id="2.1">合作模式。</span>  双方按照封面页载明的<span class="orderform_link">合作模式</span>（联合营销、转售或者转介绍之一或者其组合）开展合作；不同模式项下的具体业务流程，以封面页及双方书面确认的操作规程为准。
@@ -67,7 +67,7 @@
 
 12. <span class="header_2" id="12">其他约定</span>
     1. <span class="header_3" id="12.1">独立关系。</span>  双方为相互独立的民事主体，各自独立经营、自负盈亏。本协议不在双方之间设立合伙企业或者联营体，亦不构成劳动、特许经营或者共同投资关系；除本协议明确约定外，任何一方无权代表另一方。
-    2. <span class="header_3" id="12.2">通知。</span>  与本协议有关的通知应以书面形式发送至封面页载明的联系人和地址（含电子邮箱）。专人送达的，交付时视为送达；以快递发出的，交寄后第三日视为送达；以电子邮件发出的，进入对方指定的接收系统时视为送达。
+    2. <span class="header_3" id="12.2">通知。</span>  与本协议有关的通知应以书面形式发送至封面页载明的相应一方通知信息（<span class="coverpage_link">供应商通知信息</span>或<span class="coverpage_link">合作方通知信息</span>）。专人送达的，交付时视为送达；以快递发出的，交寄后第三日视为送达；以电子邮件发出的，进入对方指定的接收系统时视为送达。
     3. <span class="header_3" id="12.3">转让。</span>  未经对方书面同意，任何一方不得向第三方转让本协议项下的权利义务。
     4. <span class="header_3" id="12.4">完整协议与可分性。</span>  本协议（含封面页）构成双方就本协议标的达成的完整约定，取代此前的全部口头或者书面磋商。本协议部分条款无效或者不可执行的，不影响其他条款的效力。
     5. <span class="header_3" id="12.5">修改与弃权。</span>  本协议的修改、补充应以双方书面签署的文件为准。一方未行使或者迟延行使本协议项下的权利，不构成对该权利的放弃。

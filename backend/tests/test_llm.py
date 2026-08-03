@@ -602,7 +602,7 @@ def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
     llm.chat_complete(
         messages=[{"role": "user", "content": "hi"}],
         mnda_state={},
-        doc_id="design-partner-agreement",  # no manifest yet
+        doc_id="unmanaged-test-document",
     )
 
     system = captured["messages"][0]["content"]
@@ -619,6 +619,10 @@ def test_chat_complete_keeps_freeform_schema_without_manifest(monkeypatch):
         ("service-level-agreement", "可用率目标"),
         ("software-license-agreement", "许可费"),
         ("pilot-agreement", "试点期限"),
+        ("design-partner-agreement", "试用授权范围"),
+        ("partnership-agreement", "合作模式"),
+        ("business-associate-agreement", "处理目的"),
+        ("ai-addendum", "主协议"),
     ],
 )
 def test_chat_complete_constrains_batch_template_updates_to_manifest_keys(

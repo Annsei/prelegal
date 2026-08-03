@@ -1,0 +1,22 @@
+{
+  "doc_id": "ai-addendum",
+  "version": 1,
+  "description": "Prelegal 范本 v1.0《人工智能服务附加条款》封面页字段清单，作为主协议的人工智能专项附属文件。",
+  "sections": [
+    { "key": "agreement", "label": { "zh": "当事方与主协议", "en": "Parties and Main Agreement" } },
+    { "key": "service", "label": { "zh": "人工智能服务", "en": "AI Services" } },
+    { "key": "legal", "label": { "zh": "法律条款", "en": "Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "客户", "section": "agreement", "type": "string", "required": true, "label": { "zh": "客户", "en": "Customer" }, "hint": { "zh": "接受人工智能服务的一方完整主体名称", "en": "Full legal name of the party receiving the AI services" }, "example": "示例科技（北京）有限公司" },
+    { "key": "服务方", "section": "agreement", "type": "string", "required": true, "label": { "zh": "服务方", "en": "Service provider" }, "hint": { "zh": "提供人工智能服务的一方完整主体名称", "en": "Full legal name of the party providing the AI services" }, "example": "示例人工智能科技（上海）有限公司" },
+    { "key": "主协议", "section": "agreement", "type": "string", "required": true, "label": { "zh": "主协议", "en": "Main agreement" }, "hint": { "zh": "本附加条款所依附协议的名称、签署日期或编号", "en": "Name, signing date, or identifier of the agreement this addendum supplements" }, "example": "双方于2026年8月1日签署的《SaaS服务协议》（编号：CSA-2026-001）" },
+    { "key": "生效日期", "section": "agreement", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-15" },
+    { "key": "服务内容", "section": "service", "type": "text", "required": true, "label": { "zh": "服务内容", "en": "AI service scope" }, "hint": { "zh": "模型、功能、输入输出类型和使用场景", "en": "Models, features, input/output types, and use cases" }, "example": "为客户客服团队提供知识库检索、工单摘要和回复建议生成功能" },
+    { "key": "服务期限", "section": "service", "type": "string", "required": true, "label": { "zh": "服务期限", "en": "AI service term" }, "hint": { "zh": "人工智能服务的起止日期或总期限，应与主协议衔接", "en": "Start/end dates or total term, aligned with the main agreement" }, "example": "与主协议订阅期一致" },
+    { "key": "使用限额", "section": "service", "type": "string", "required": true, "label": { "zh": "使用限额", "en": "Usage limit" }, "hint": { "zh": "调用次数、token、并发、用户或其他限额", "en": "Request, token, concurrency, user, or other usage limits" }, "example": "每月不超过100万token，最大并发10次" },
+    { "key": "训练用途", "section": "service", "type": "text", "required": false, "label": { "zh": "训练用途", "en": "Training use" }, "hint": { "zh": "仅在允许服务方使用输入或输出训练时填写具体范围；留空则适用正文默认禁止训练", "en": "Specify permitted training use only when authorised; leave blank for the standard no-training default" }, "example": "仅使用经客户书面确认并完成匿名化的反馈样本微调客户专属模型" },
+    { "key": "责任上限", "section": "legal", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "除正文例外情形外的累计赔偿责任上限", "en": "Aggregate liability cap excluding the standard exceptions" }, "example": "不超过主协议项下过去12个月已支付的人工智能服务费" },
+    { "key": "争议解决", "section": "legal", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "与主协议一致，或明确选择有管辖权人民法院或仲裁委员会", "en": "Match the main agreement or specify a competent court or arbitration commission" }, "example": "按照主协议约定提交上海仲裁委员会仲裁" }
+  ]
+}

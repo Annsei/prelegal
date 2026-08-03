@@ -52,8 +52,12 @@
       "path": "design-partner-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "design-partner-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "design-partner-agreement/design-partner-agreement.md"
+          "path": "design-partner-agreement/standard_terms.md"
         }
       ],
       "source": {
@@ -165,8 +169,12 @@
       "path": "partnership-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "partnership-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "partnership-agreement/Partnership-Agreement.md"
+          "path": "partnership-agreement/standard_terms.md"
         }
       ],
       "source": {
@@ -203,8 +211,12 @@
       "path": "business-associate-agreement",
       "files": [
         {
+          "type": "cover_page",
+          "path": "business-associate-agreement/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "business-associate-agreement/BAA.md"
+          "path": "business-associate-agreement/standard_terms.md"
         }
       ],
       "source": {
@@ -220,8 +232,12 @@
       "path": "ai-addendum",
       "files": [
         {
+          "type": "cover_page",
+          "path": "ai-addendum/cover_page.md"
+        },
+        {
           "type": "standard_terms",
-          "path": "ai-addendum/AI-Addendum.md"
+          "path": "ai-addendum/standard_terms.md"
         }
       ],
       "source": {

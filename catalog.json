@@ -21,7 +21,7 @@
       "title": "设计合作伙伴协议",
       "category": "commercial",
       "use_when": "早期产品厂商与设计合作伙伴共同打磨、验证产品（通常在正式发布前）。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "service-level-agreement",
@@ -56,7 +56,7 @@
       "title": "渠道合作协议",
       "category": "commercial",
       "use_when": "两家公司联合营销、转售或相互转介绍产品。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "pilot-agreement",
@@ -70,14 +70,14 @@
       "title": "医疗健康数据合作协议",
       "category": "privacy-addendum",
       "use_when": "医疗机构或健康服务方委托技术服务方处理医疗健康数据（敏感个人信息）。",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "ai-addendum",
       "title": "人工智能服务附加条款",
       "category": "commercial-addendum",
       "use_when": "在既有服务协议上叠加 AI 专项条款（训练数据、输入输出权属、内容标识、禁止用途）。",
-      "status": "planned"
+      "status": "available"
     }
   ]
 }

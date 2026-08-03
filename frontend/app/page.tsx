@@ -41,6 +41,10 @@ const KERNEL_MANAGED_DOC_IDS = new Set([
   "service-level-agreement",
   "software-license-agreement",
   "pilot-agreement",
+  "design-partner-agreement",
+  "partnership-agreement",
+  "business-associate-agreement",
+  "ai-addendum",
 ]);
 const AUTOSAVE_DEBOUNCE_MS = 800;
 // Remembers which draft the user was last editing so a page refresh

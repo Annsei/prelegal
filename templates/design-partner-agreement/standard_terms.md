@@ -1,7 +1,7 @@
 # 设计合作伙伴协议
 
 1. <span class="header_2" id="1">合作内容</span>
-    1. <span class="header_3" id="1.1">合作目的。</span>  <span class="coverpage_link">甲方</span>正在开发处于早期阶段的产品（以下简称"产品"），<span class="coverpage_link">乙方</span>愿意作为设计合作伙伴，在产品正式发布前试用产品、参与联合打磨并提供反馈，协助<span class="coverpage_link">甲方</span>验证和完善产品。双方本着平等自愿、诚实信用的原则，经协商一致订立本协议。
+    1. <span class="header_3" id="1.1">合作目的。</span>  <span class="coverpage_link">甲方</span>正在开发封面页所列、处于早期阶段的<span class="orderform_link">产品</span>（以下简称"产品"），<span class="coverpage_link">乙方</span>愿意作为设计合作伙伴，在产品正式发布前试用产品、参与联合打磨并提供反馈，协助<span class="coverpage_link">甲方</span>验证和完善产品。双方本着平等自愿、诚实信用的原则，经协商一致订立本协议。
     2. <span class="header_3" id="1.2">试用授权。</span>  在<span class="orderform_link">合作期限</span>内，<span class="coverpage_link">甲方</span>授予<span class="coverpage_link">乙方</span>一项非独占、不可转让、不可分许可的使用许可，允许<span class="coverpage_link">乙方</span>在<span class="orderform_link">试用授权范围</span>内访问和使用产品，仅用于内部评估、测试及向<span class="coverpage_link">甲方</span>提供反馈之目的。
     3. <span class="header_3" id="1.3">授权限制。</span>  除本协议明确许可外，<span class="coverpage_link">乙方</span>不得（亦不得允许任何第三方）：
         a. 对产品进行反向工程、反编译、解密或者以其他方式试图获取产品源代码，法律另有强制性规定的除外；
@@ -67,14 +67,14 @@
     2. <span class="header_3" id="9.2">争议解决。</span>  因本协议引起的或者与本协议有关的任何争议，双方应首先友好协商解决；自一方书面提出协商之日起三十（30）日内协商不成的，按照双方在封面页约定的<span class="keyterms_link">争议解决</span>方式（向有管辖权的人民法院提起诉讼，或者提交约定的仲裁机构仲裁）解决。
 
 10. <span class="header_2" id="10">其他约定</span>
-    1. <span class="header_3" id="10.1">通知。</span>  与本协议有关的通知应当以书面形式（包括电子邮件）发送至封面页载明的联系方式。通知自到达对方时发生效力：专人送达的，签收之日到达；邮寄的，签收之日或者首次投递被拒收之日到达；电子邮件的，邮件进入对方指定的电子邮箱系统之日到达。
+    1. <span class="header_3" id="10.1">通知。</span>  与本协议有关的通知应当以书面形式（包括电子邮件）发送至封面页载明的相应一方通知信息（<span class="coverpage_link">甲方通知信息</span>或<span class="coverpage_link">乙方通知信息</span>）。通知自到达对方时发生效力：专人送达的，签收之日到达；邮寄的，签收之日或者首次投递被拒收之日到达；电子邮件的，邮件进入对方指定的电子邮箱系统之日到达。
     2. <span class="header_3" id="10.2">转让。</span>  未经对方书面同意，任何一方不得将本协议项下的权利义务全部或者部分转让给第三方；一方因合并、分立需要由承继主体继续履行本协议的，应当及时书面通知对方。
     3. <span class="header_3" id="10.3">不可抗力。</span>  因不可抗力不能履行本协议的，根据不可抗力的影响，部分或者全部免除责任，但应当及时通知对方以减轻可能给对方造成的损失，并在合理期限内提供证明。
     4. <span class="header_3" id="10.4">完整协议与变更。</span>  本协议（含封面页）构成双方就合作事项达成的完整约定，取代此前的口头或者书面磋商内容；对本协议的任何变更，须经双方书面确认后生效。
     5. <span class="header_3" id="10.5">可分性与弃权。</span>  本协议部分条款无效或者不可执行的，不影响其他条款的效力；一方未行使或者迟延行使本协议项下权利的，不视为放弃该权利。
 
 11. <span class="header_2" id="11">释义</span>
-    1. <span class="header_3" id="11.1">产品。</span>  指<span class="coverpage_link">甲方</span>开发并向<span class="coverpage_link">乙方</span>提供试用的处于早期阶段的软件、服务及配套文档，具体以<span class="orderform_link">试用授权范围</span>载明的内容为准。
+    1. <span class="header_3" id="11.1">产品。</span>  指<span class="coverpage_link">甲方</span>开发并向<span class="coverpage_link">乙方</span>提供试用的<span class="orderform_link">产品</span>及配套文档，具体以<span class="orderform_link">试用授权范围</span>载明的内容为准。
     2. <span class="header_3" id="11.2">反馈。</span>  指<span class="coverpage_link">乙方</span>就产品向<span class="coverpage_link">甲方</span>提供的缺陷报告、评估意见、改进建议、需求描述及其他相关信息。
     3. <span class="header_3" id="11.3">合作成果。</span>  指双方在合作期间为验证产品而共同形成的调研报告、场景方案、评测记录等成果，不包括产品本身以及乙方数据。
     4. <span class="header_3" id="11.4">保密信息。</span>  指一方以书面、口头、电子或者其他形式向另一方披露的，已标明保密或者按照其性质、披露情形应当理解为保密的信息，包括技术资料、商业计划、客户信息和未公开的产品信息。

@@ -12,7 +12,7 @@
     7. <span class="header_3" id="1.7">释义规则。</span>  本协议所称"法律法规"包括《中华人民共和国个人信息保护法》《中华人民共和国数据安全法》《中华人民共和国网络安全法》《中华人民共和国基本医疗卫生与健康促进法》及国家卫生健康主管部门发布的健康医疗数据管理规范与相关国家标准；章节标题仅为方便阅读，不影响条款的解释。
 
 2. <span class="header_2" id="2">合作范围与委托处理</span>
-    1. <span class="header_3" id="2.1">合作内容。</span>  <span class="coverpage_link">技术服务方</span>按照<span class="orderform_link">服务内容</span>为<span class="coverpage_link">医疗机构</span>提供技术服务，并仅得在为提供该等服务所必需的范围内处理医疗健康数据。
+    1. <span class="header_3" id="2.1">合作内容。</span>  <span class="coverpage_link">技术服务方</span>按照<span class="orderform_link">服务内容</span>为<span class="coverpage_link">医疗机构</span>提供技术服务，并仅得为<span class="orderform_link">处理目的</span>在提供该等服务所必需的范围内处理医疗健康数据。
     2. <span class="header_3" id="2.2">数据范围。</span>  <span class="coverpage_link">技术服务方</span>处理的医疗健康数据以<span class="orderform_link">数据范围</span>所列为限，不得收集、接入或者处理任何超出该范围的数据。
     3. <span class="header_3" id="2.3">委托性质。</span>  就本协议项下的处理活动，<span class="coverpage_link">医疗机构</span>为个人信息处理者，<span class="coverpage_link">技术服务方</span>为受托人；<span class="coverpage_link">技术服务方</span>仅得按照本协议及<span class="coverpage_link">医疗机构</span>的书面指示处理医疗健康数据。
     4. <span class="header_3" id="2.4">按指示处理。</span>  <span class="coverpage_link">技术服务方</span>认为<span class="coverpage_link">医疗机构</span>的指示违反法律法规的，应及时书面告知<span class="coverpage_link">医疗机构</span>并暂缓执行该指示。
@@ -30,7 +30,7 @@
 
 5. <span class="header_2" id="5">数据安全保护措施</span>
     1. <span class="header_3" id="5.1">等级保护。</span>  <span class="coverpage_link">技术服务方</span>承诺承载医疗健康数据的信息系统已按照国家网络安全等级保护制度完成不低于<span class="keyterms_link">等保级别</span>的定级、备案与测评整改，并在本协议有效期内持续满足相应等级的安全要求。
-    2. <span class="header_3" id="5.2">技术措施。</span>  <span class="coverpage_link">技术服务方</span>应对医疗健康数据实施传输加密与存储加密、访问控制、身份鉴别、安全审计以及数据备份与恢复；开发、测试环境不得使用真实医疗健康数据，确需使用的应先行脱敏。
+    2. <span class="header_3" id="5.2">技术措施。</span>  <span class="coverpage_link">技术服务方</span>应按照<span class="orderform_link">安全措施</span>对医疗健康数据实施传输加密与存储加密、访问控制、身份鉴别、安全审计以及数据备份与恢复；开发、测试环境不得使用真实医疗健康数据，确需使用的应先行脱敏。
     3. <span class="header_3" id="5.3">组织与人员。</span>  <span class="coverpage_link">技术服务方</span>应指定数据安全负责人，制定数据安全管理制度与应急预案，定期开展培训与考核，并与接触医疗健康数据的人员签署保密承诺。
     4. <span class="header_3" id="5.4">日志留痕。</span>  <span class="coverpage_link">技术服务方</span>应对医疗健康数据的访问与操作保留完整日志，日志保存期限不得低于法律法规的要求，并应<span class="coverpage_link">医疗机构</span>要求提供。
     5. <span class="header_3" id="5.5">存储地点。</span>  医疗健康数据应存储于<span class="orderform_link">存储地点</span>，未经<span class="coverpage_link">医疗机构</span>书面同意不得变更<span class="orderform_link">存储地点</span>。
@@ -68,7 +68,7 @@
     3. <span class="header_3" id="11.3">影响评估。</span>  <span class="coverpage_link">技术服务方</span>应配合<span class="coverpage_link">医疗机构</span>开展个人信息保护影响评估与数据安全风险评估，并提供必要的信息与书面说明。
 
 12. <span class="header_2" id="12">数据删除与返还</span>
-    1. <span class="header_3" id="12.1">删除或返还。</span>  <span class="orderform_link">处理期限</span>届满或者本协议终止、解除的，<span class="coverpage_link">技术服务方</span>应按照<span class="coverpage_link">医疗机构</span>的选择返还或者删除全部医疗健康数据及其副本；法律法规要求保留的，仅得存储并采取必要的安全保护措施，保留期届满后立即删除。
+    1. <span class="header_3" id="12.1">删除或返还。</span>  <span class="orderform_link">处理期限</span>届满或者本协议终止、解除的，<span class="coverpage_link">技术服务方</span>应按照<span class="coverpage_link">医疗机构</span>的选择及<span class="orderform_link">数据删除与返还安排</span>返还或者删除全部医疗健康数据及其副本；法律法规要求保留的，仅得存储并采取必要的安全保护措施，保留期届满后立即删除。
     2. <span class="header_3" id="12.2">删除证明。</span>  <span class="coverpage_link">技术服务方</span>应在完成删除或返还后十个工作日内向<span class="coverpage_link">医疗机构</span>出具书面确认文件。
 
 13. <span class="header_2" id="13">违约责任</span>
@@ -86,7 +86,7 @@
     2. <span class="header_3" id="15.2">争议解决。</span>  因本协议引起的或者与本协议有关的任何争议，双方应首先友好协商解决；协商不成的，按照<span class="keyterms_link">争议解决</span>的约定处理。
 
 16. <span class="header_2" id="16">其他约定</span>
-    1. <span class="header_3" id="16.1">通知。</span>  一方依据本协议发出的通知应以书面形式送达对方指定的联系人及地址；紧急情形下可先以电子方式发送，并及时补送书面文本。
+    1. <span class="header_3" id="16.1">通知。</span>  一方依据本协议发出的通知应以书面形式送达封面页载明的相应一方通知信息（<span class="coverpage_link">医疗机构通知信息</span>或<span class="coverpage_link">技术服务方通知信息</span>）；紧急情形下可先以电子方式发送，并及时补送书面文本。
     2. <span class="header_3" id="16.2">可分性。</span>  本协议任何条款被认定无效或者不可执行的，不影响其他条款的效力，双方应以最接近原条款意旨的有效约定替代之。
     3. <span class="header_3" id="16.3">完整协议。</span>  本协议构成双方就医疗健康数据处理事宜达成的完整约定；本协议与双方相关技术服务合同不一致的，就数据保护事项以本协议为准。
     4. <span class="header_3" id="16.4">文本与份数。</span>  本协议以中文书就，一式两份，双方各执一份，具有同等法律效力。
