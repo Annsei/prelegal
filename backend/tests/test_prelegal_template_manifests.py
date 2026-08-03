@@ -1,4 +1,4 @@
-"""Manifest-pipeline coverage for Prelegal v1.0 batch-one templates."""
+"""Manifest-pipeline coverage for Prelegal v1.0 product baselines."""
 
 from __future__ import annotations
 
@@ -8,21 +8,62 @@ import pytest
 
 from app.manifests import load_manifest, manifest_field_keys
 
-BATCH_DOCUMENTS = {
+PRELEGAL_MANIFEST_DOCUMENTS = {
     "service-level-agreement": {
         "title": "服务等级协议（SLA）",
         "required_keys": {"服务方", "客户", "可用率目标", "服务积分上限"},
         "body_marker": "服务可用性承诺",
+        "field_count": 14,
+        "required_count": 12,
+        "conditional_count": 0,
     },
     "software-license-agreement": {
         "title": "软件许可协议",
         "required_keys": {"许可方", "被许可方", "许可范围", "许可费"},
         "body_marker": "许可范围与限制",
+        "field_count": 18,
+        "required_count": 18,
+        "conditional_count": 0,
     },
     "pilot-agreement": {
         "title": "试点协议",
         "required_keys": {"服务方", "客户", "试点期限", "试点成功标准"},
         "body_marker": "试点内容与范围",
+        "field_count": 14,
+        "required_count": 11,
+        "conditional_count": 2,
+    },
+    "design-partner-agreement": {
+        "title": "设计合作伙伴协议",
+        "required_keys": {"甲方", "乙方", "产品", "试用授权范围"},
+        "body_marker": "合作内容",
+        "field_count": 13,
+        "required_count": 13,
+        "conditional_count": 0,
+    },
+    "partnership-agreement": {
+        "title": "渠道合作协议",
+        "required_keys": {"供应商", "合作方", "合作产品", "合作模式"},
+        "body_marker": "合作模式与授权范围",
+        "field_count": 16,
+        "required_count": 14,
+        "conditional_count": 0,
+    },
+    "business-associate-agreement": {
+        "title": "医疗健康数据合作协议",
+        "required_keys": {"医疗机构", "技术服务方", "处理目的", "安全措施"},
+        "body_marker": "合作范围与委托处理",
+        "field_count": 16,
+        "required_count": 16,
+        "conditional_count": 0,
+    },
+    "ai-addendum": {
+        "title": "人工智能服务附加条款",
+        "required_keys": {"客户", "服务方", "主协议", "服务内容"},
+        "body_marker": "训练数据使用限制",
+        "field_count": 10,
+        "required_count": 9,
+        "conditional_count": 0,
     },
 }
 
@@ -40,12 +81,12 @@ def _register(client, email: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['token']}"}
 
 
-@pytest.mark.parametrize("doc_id", BATCH_DOCUMENTS)
-def test_batch_template_loads_cover_page_and_manifest_with_declared_term_refs(
+@pytest.mark.parametrize("doc_id", PRELEGAL_MANIFEST_DOCUMENTS)
+def test_prelegal_template_loads_cover_page_and_manifest_with_declared_term_refs(
     client,
     doc_id: str,
 ):
-    expected = BATCH_DOCUMENTS[doc_id]
+    expected = PRELEGAL_MANIFEST_DOCUMENTS[doc_id]
 
     response = client.get(f"/api/templates/{doc_id}")
 
@@ -59,6 +100,13 @@ def test_batch_template_loads_cover_page_and_manifest_with_declared_term_refs(
     assert manifest["doc_id"] == doc_id
     assert expected["required_keys"] <= set(manifest_field_keys(manifest))
     assert load_manifest(doc_id) == manifest
+    assert len(manifest["fields"]) == expected["field_count"]
+    assert sum(field["required"] for field in manifest["fields"]) == expected[
+        "required_count"
+    ]
+    assert sum("required_when" in field for field in manifest["fields"]) == expected[
+        "conditional_count"
+    ]
 
     referenced_keys = set(
         _TERM_REF_PATTERN.findall(body["cover_page"] + body["standard_terms"])
@@ -66,8 +114,8 @@ def test_batch_template_loads_cover_page_and_manifest_with_declared_term_refs(
     assert referenced_keys <= set(manifest_field_keys(manifest))
 
 
-@pytest.mark.parametrize("doc_id", BATCH_DOCUMENTS)
-def test_batch_template_required_fields_gate_download_until_confirmed(
+@pytest.mark.parametrize("doc_id", PRELEGAL_MANIFEST_DOCUMENTS)
+def test_prelegal_template_required_fields_gate_download_until_confirmed(
     client,
     doc_id: str,
 ):

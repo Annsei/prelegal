@@ -1,0 +1,29 @@
+{
+  "doc_id": "partnership-agreement",
+  "version": 1,
+  "description": "Prelegal 范本 v1.0《渠道合作协议》封面页字段清单，覆盖合作模式、区域、业绩、返佣与关键法律条款。",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "scope", "label": { "zh": "合作范围", "en": "Partnership Scope" } },
+    { "key": "commercial", "label": { "zh": "业绩与结算", "en": "Performance and Settlement" } },
+    { "key": "legal", "label": { "zh": "法律条款", "en": "Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "供应商", "section": "parties", "type": "string", "required": true, "label": { "zh": "供应商", "en": "Supplier" }, "hint": { "zh": "提供合作产品的一方完整主体名称", "en": "Full legal name of the party supplying the products" }, "example": "示例软件科技（上海）有限公司" },
+    { "key": "供应商通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "供应商通知信息", "en": "Supplier notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：张三；地址：上海市浦东新区示例路1号；邮箱：channel@example.cn" },
+    { "key": "合作方", "section": "parties", "type": "string", "required": true, "label": { "zh": "合作方", "en": "Channel partner" }, "hint": { "zh": "开展联合营销、转售或转介绍的一方完整主体名称", "en": "Full legal name of the joint-marketing, reseller, or referral partner" }, "example": "示例渠道科技（深圳）有限公司" },
+    { "key": "合作方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "合作方通知信息", "en": "Channel partner notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：李四；地址：深圳市南山区示例大道2号；邮箱：partner@example.com" },
+    { "key": "合作产品", "section": "scope", "type": "text", "required": true, "label": { "zh": "合作产品", "en": "Partnership products" }, "hint": { "zh": "纳入合作范围的产品、服务和版本", "en": "Products, services, and versions included in the partnership" }, "example": "企业知识库 SaaS 专业版及实施服务" },
+    { "key": "合作模式", "section": "scope", "type": "string", "required": true, "label": { "zh": "合作模式", "en": "Partnership model" }, "hint": { "zh": "填写“联合营销”“转售”“转介绍”之一，或明确写出组合模式", "en": "Enter joint marketing, resale, referral, or an explicit combination" }, "example": "转介绍" },
+    { "key": "合作区域", "section": "scope", "type": "string", "required": true, "label": { "zh": "合作区域", "en": "Territory" }, "hint": { "zh": "允许开展合作业务的地域或客户范围", "en": "Geographic or customer territory for partnership activities" }, "example": "中国大陆地区（不含港澳台）" },
+    { "key": "合作期限", "section": "scope", "type": "string", "required": true, "label": { "zh": "合作期限", "en": "Partnership term" }, "hint": { "zh": "合作起止日期或总期限", "en": "Start/end dates or total partnership term" }, "example": "自生效日期起2年" },
+    { "key": "考核周期", "section": "commercial", "type": "string", "required": false, "label": { "zh": "考核周期", "en": "Performance period" }, "hint": { "zh": "业绩考核区间；留空则正文默认每个日历年度为一个考核周期", "en": "Performance assessment interval; leave blank for the standard calendar-year default" }, "example": "每个自然季度" },
+    { "key": "业绩目标", "section": "commercial", "type": "text", "required": false, "label": { "zh": "业绩目标", "en": "Performance target" }, "hint": { "zh": "销售额、订单数、有效商机数等目标；不设目标可留空", "en": "Revenue, order, or qualified-lead target; leave blank if none" }, "example": "每个自然季度确认成交金额不低于人民币500,000元" },
+    { "key": "返佣比例", "section": "commercial", "type": "string", "required": true, "label": { "zh": "返佣比例", "en": "Commission rate" }, "hint": { "zh": "按合作模式或产品写明比例；无返佣安排填写“0%”", "en": "Rate by model or product; enter 0% when no commission applies" }, "example": "供应商实际收到的不含税订单款项的15%" },
+    { "key": "结算周期", "section": "commercial", "type": "string", "required": true, "label": { "zh": "结算周期", "en": "Settlement cycle" }, "hint": { "zh": "返佣对账与结算频率", "en": "Frequency for commission reconciliation and settlement" }, "example": "每个自然季度结束后15个工作日内对账" },
+    { "key": "生效日期", "section": "legal", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-15" },
+    { "key": "保密期限", "section": "legal", "type": "string", "required": true, "label": { "zh": "保密期限", "en": "Confidentiality period" }, "hint": { "zh": "协议终止后保密义务的期限；商业秘密依法持续保护", "en": "Post-termination confidentiality period; trade secrets remain protected by law" }, "example": "协议终止后5年" },
+    { "key": "责任上限", "section": "legal", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "任何一方累计赔偿责任总额上限", "en": "Aggregate liability cap for either party" }, "example": "不超过违约前12个月已支付返佣总额" },
+    { "key": "争议解决", "section": "legal", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "选择有管辖权人民法院，或写明仲裁委员会", "en": "Choose a competent court or specify an arbitration commission" }, "example": "提交上海仲裁委员会仲裁" }
+  ]
+}

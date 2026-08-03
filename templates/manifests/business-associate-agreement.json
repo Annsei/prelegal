@@ -1,0 +1,29 @@
+{
+  "doc_id": "business-associate-agreement",
+  "version": 1,
+  "description": "Prelegal 范本 v1.0《医疗健康数据合作协议》封面页字段清单，用于境内医疗健康敏感个人信息委托处理。",
+  "sections": [
+    { "key": "parties", "label": { "zh": "当事方", "en": "Parties" } },
+    { "key": "processing", "label": { "zh": "委托处理范围", "en": "Processing Scope" } },
+    { "key": "security", "label": { "zh": "安全与数据处置", "en": "Security and Data Disposition" } },
+    { "key": "legal", "label": { "zh": "法律条款", "en": "Legal Terms" } }
+  ],
+  "fields": [
+    { "key": "医疗机构", "section": "parties", "type": "string", "required": true, "label": { "zh": "医疗机构", "en": "Healthcare institution" }, "hint": { "zh": "作为个人信息处理者的医疗机构完整主体名称", "en": "Full legal name of the healthcare institution acting as personal-information processor" }, "example": "示例市第一人民医院" },
+    { "key": "医疗机构通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "医疗机构通知信息", "en": "Healthcare institution notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：信息中心张主任；地址：上海市示例路1号；邮箱：security@hospital.example.cn" },
+    { "key": "技术服务方", "section": "parties", "type": "string", "required": true, "label": { "zh": "技术服务方", "en": "Technology service provider" }, "hint": { "zh": "受托处理医疗健康数据的一方完整主体名称", "en": "Full legal name of the party entrusted to process healthcare data" }, "example": "示例医疗科技（上海）有限公司" },
+    { "key": "技术服务方通知信息", "section": "parties", "type": "text", "required": true, "label": { "zh": "技术服务方通知信息", "en": "Service provider notice details" }, "hint": { "zh": "联系人、邮寄地址和电子邮箱", "en": "Contact person, mailing address, and email" }, "example": "联系人：数据保护负责人李四；地址：上海市示例街2号；邮箱：dpo@example.cn" },
+    { "key": "服务内容", "section": "processing", "type": "text", "required": true, "label": { "zh": "服务内容", "en": "Services" }, "hint": { "zh": "技术服务内容、系统模块和交付范围", "en": "Technology services, system modules, and deliverables" }, "example": "患者互联网门户的部署、运维和故障支持服务" },
+    { "key": "处理目的", "section": "processing", "type": "text", "required": true, "label": { "zh": "处理目的", "en": "Processing purpose" }, "hint": { "zh": "医疗健康数据处理的具体、明确和合法目的", "en": "Specific, explicit, and lawful purpose for processing healthcare data" }, "example": "为患者提供检查报告查询、预约提醒和线上随访功能" },
+    { "key": "数据范围", "section": "processing", "type": "text", "required": true, "label": { "zh": "数据范围", "en": "Data scope" }, "hint": { "zh": "数据类别、字段、个人范围、规模及是否包含敏感个人信息", "en": "Categories, fields, individuals, scale, and sensitive-personal-information scope" }, "example": "患者姓名、就诊号、联系方式、检查报告；约20万名患者；均属医疗健康敏感个人信息" },
+    { "key": "处理期限", "section": "processing", "type": "string", "required": true, "label": { "zh": "处理期限", "en": "Processing period" }, "hint": { "zh": "允许处理医疗健康数据的起止日期或总期限", "en": "Start/end dates or total period for processing healthcare data" }, "example": "自生效日期起1年" },
+    { "key": "存储地点", "section": "processing", "type": "string", "required": true, "label": { "zh": "存储地点", "en": "Storage location" }, "hint": { "zh": "中国境内的数据中心、云区域或具体机房", "en": "PRC data centre, cloud region, or facility" }, "example": "中国上海市境内专有云区域" },
+    { "key": "安全措施", "section": "security", "type": "text", "required": true, "label": { "zh": "安全措施", "en": "Security measures" }, "hint": { "zh": "加密、访问控制、审计、备份、隔离、人员管理和应急措施", "en": "Encryption, access control, audit, backup, isolation, personnel, and incident measures" }, "example": "传输和存储加密；最小权限与双因素认证；操作日志留存3年；每日加密备份；生产与测试环境隔离" },
+    { "key": "等保级别", "section": "security", "type": "string", "required": true, "label": { "zh": "等保级别", "en": "MLPS level" }, "hint": { "zh": "承载系统完成定级、备案和测评整改的网络安全等级", "en": "Cybersecurity classified-protection level for the hosting system" }, "example": "网络安全等级保护第三级" },
+    { "key": "泄露报告时限", "section": "security", "type": "string", "required": true, "label": { "zh": "泄露报告时限", "en": "Incident reporting period" }, "hint": { "zh": "发现或可能发生安全事件后书面报告的最长期限", "en": "Maximum period for written notice after discovering a possible security incident" }, "example": "发现后4小时内" },
+    { "key": "数据删除与返还安排", "section": "security", "type": "text", "required": true, "label": { "zh": "数据删除与返还安排", "en": "Data return and deletion arrangement" }, "hint": { "zh": "期限届满或终止后的返还格式、删除期限、副本处置及证明", "en": "Return format, deletion deadline, copy disposition, and evidence after expiry or termination" }, "example": "终止后7个工作日内加密返还，并删除全部副本；10个工作日内提供书面删除证明" },
+    { "key": "生效日期", "section": "legal", "type": "date", "required": true, "label": { "zh": "生效日期", "en": "Effective date" }, "hint": { "zh": "ISO 格式（YYYY-MM-DD）", "en": "ISO format (YYYY-MM-DD)" }, "example": "2026-08-15" },
+    { "key": "责任上限", "section": "legal", "type": "string", "required": true, "label": { "zh": "责任上限", "en": "Liability cap" }, "hint": { "zh": "除正文例外情形外的累计赔偿责任上限", "en": "Aggregate liability cap excluding the standard exceptions" }, "example": "不超过相关技术服务合同项下过去12个月已支付服务费的两倍" },
+    { "key": "争议解决", "section": "legal", "type": "string", "required": true, "label": { "zh": "争议解决", "en": "Dispute resolution" }, "hint": { "zh": "选择有管辖权人民法院，或写明仲裁委员会", "en": "Choose a competent court or specify an arbitration commission" }, "example": "向医疗机构住所地有管辖权的人民法院提起诉讼" }
+  ]
+}

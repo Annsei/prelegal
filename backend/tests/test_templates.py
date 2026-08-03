@@ -78,7 +78,13 @@ def test_csa_template_includes_manifest(client):
     assert {f["section"] for f in manifest["fields"]} <= section_keys
 
 
-def test_docs_without_manifest_return_null_manifest(client):
-    res = client.get("/api/templates/design-partner-agreement")
-    assert res.status_code == 200
-    assert res.json()["manifest"] is None
+def test_final_batch_templates_include_manifests(client):
+    for doc_id in (
+        "design-partner-agreement",
+        "partnership-agreement",
+        "business-associate-agreement",
+        "ai-addendum",
+    ):
+        res = client.get(f"/api/templates/{doc_id}")
+        assert res.status_code == 200
+        assert res.json()["manifest"]["doc_id"] == doc_id

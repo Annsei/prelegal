@@ -6,7 +6,11 @@ type ManifestDoc = {
     | "data-processing-agreement"
     | "service-level-agreement"
     | "software-license-agreement"
-    | "pilot-agreement";
+    | "pilot-agreement"
+    | "design-partner-agreement"
+    | "partnership-agreement"
+    | "business-associate-agreement"
+    | "ai-addendum";
   title: string;
   firstField: { key: string; label: string; value: string };
   secondField: { key: string; label: string; value: string };
@@ -54,6 +58,30 @@ const MANIFEST_DOCS: ManifestDoc[] = [
     title: "Pilot Agreement",
     firstField: { key: "服务方", label: "Service provider", value: "Globex Pilot Co." },
     secondField: { key: "试点期限", label: "Pilot period", value: "2026-08-01 至 2026-10-31" },
+  },
+  {
+    docId: "design-partner-agreement",
+    title: "Design Partner Agreement",
+    firstField: { key: "甲方", label: "Product provider", value: "Globex Product Co." },
+    secondField: { key: "产品", label: "Product", value: "Customer insight platform" },
+  },
+  {
+    docId: "partnership-agreement",
+    title: "Channel Partnership Agreement",
+    firstField: { key: "供应商", label: "Supplier", value: "Globex Software Co." },
+    secondField: { key: "合作模式", label: "Partnership model", value: "转介绍" },
+  },
+  {
+    docId: "business-associate-agreement",
+    title: "Healthcare Data Cooperation Agreement",
+    firstField: { key: "医疗机构", label: "Healthcare institution", value: "Example Hospital" },
+    secondField: { key: "处理目的", label: "Processing purpose", value: "Patient portal support" },
+  },
+  {
+    docId: "ai-addendum",
+    title: "AI Services Addendum",
+    firstField: { key: "客户", label: "Customer", value: "Acme Technology Co." },
+    secondField: { key: "主协议", label: "Main agreement", value: "Cloud Services Agreement dated 2026-08-01" },
   },
 ];
 
@@ -232,9 +260,13 @@ for (const doc of MANIFEST_DOCS) {
     await expect(download).toBeDisabled();
 
     await page.getByRole("tab", { name: /edit fields/i }).click();
-    const first = page.getByLabel(doc.firstField.label).locator("xpath=..");
+    const first = page
+      .locator(`[id="docform-${doc.firstField.key}"]`)
+      .locator("xpath=..");
     await first.getByRole("button", { name: "Confirm" }).click();
-    const second = page.getByLabel(doc.secondField.label).locator("xpath=..");
+    const second = page
+      .locator(`[id="docform-${doc.secondField.key}"]`)
+      .locator("xpath=..");
     await second.getByRole("button", { name: "Confirm" }).click();
 
     await expect(download).toBeEnabled();

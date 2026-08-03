@@ -204,7 +204,7 @@ test.describe("Document chat", () => {
     await expect(input).toBeFocused();
   });
 
-  test("switches to a non-MNDA doc preview when the LLM picks one", async ({
+  test("uses generic preview when the LLM picks an unmanaged fixture", async ({
     page,
   }) => {
     await page.route("**/api/chat", (route) =>
@@ -212,8 +212,8 @@ test.describe("Document chat", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          assistant_message: "Got it — drafting a design partner agreement. Who's the customer?",
-          selected_doc_id: "design-partner-agreement",
+          assistant_message: "Got it — drafting a fallback test document. Who's the customer?",
+          selected_doc_id: "unmanaged-test-document",
           mnda_updates: {},
           field_updates: { Customer: "Acme" },
           done: false,
@@ -221,14 +221,14 @@ test.describe("Document chat", () => {
       }),
     );
     // Mock the template endpoint too — the dev server doesn't run the backend.
-    await page.route("**/api/templates/design-partner-agreement", (route) =>
+    await page.route("**/api/templates/unmanaged-test-document", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          doc_id: "design-partner-agreement",
-          title: "Design Partner Agreement",
-          standard_terms: "# Design Partner Agreement\n\nThis is a stub.",
+          doc_id: "unmanaged-test-document",
+          title: "Fallback Test Document",
+          standard_terms: "# Fallback Test Document\n\nThis is a stub.",
           cover_page: null,
         }),
       }),
@@ -242,13 +242,13 @@ test.describe("Document chat", () => {
 
     // Header now reflects the new doc.
     await expect(page.getByText(/Drafting:/)).toContainText(
-      "Design Partner Agreement",
+      "unmanaged-test-document",
     );
     // The generic preview rendered the fetched template title and the
     // AI-collected Cover Page Summary.
     await expect(
       page.getByRole("heading", {
-        name: "Design Partner Agreement",
+        name: "Fallback Test Document",
         level: 1,
       }).first(),
     ).toBeVisible();

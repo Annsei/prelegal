@@ -411,8 +411,8 @@ def test_field_patch_rejects_docs_without_manifest_but_crud_still_works(client):
         "/api/documents",
         headers=headers,
         json={
-            "doc_id": "design-partner-agreement",
-            "title": "Design partner draft",
+            "doc_id": "unmanaged-test-document",
+            "title": "Unmanaged test draft",
             "state": {"fields": {"合作目的": "合作评估"}},
         },
     ).json()
