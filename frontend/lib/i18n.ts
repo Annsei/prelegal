@@ -136,7 +136,7 @@ const zh: Dictionary = {
   downloadBlockedFields: "请先确认这些必填字段：",
   downloadHint: "默认下载可编辑的 DOCX，也可切换为 PDF。",
   drafting: "正在起草",
-  comingSoon: "该文档的完整生成与 DOCX/PDF 下载尚未开放。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
+  comingSoon: "该文档的完整生成与 DOCX/PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
   manifestNote:
     "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 DOCX 或 PDF。",
   coverPage: {
@@ -272,7 +272,7 @@ const en: Dictionary = {
   downloadBlockedFields: "Confirm these required fields before downloading:",
   downloadHint: "Downloads an editable DOCX by default; PDF is also available.",
   drafting: "Drafting",
-  comingSoon: "DOCX/PDF generation is not available for this document yet. The chat keeps collecting key terms; below is the underlying PRC-law template.",
+  comingSoon: "DOCX/PDF generation for this document is coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
   manifestNote:
     "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
   coverPage: {
