@@ -23,7 +23,10 @@ from markdown import markdown
 
 from app.draft_state import DraftStateSnapshot
 
-DISCLAIMER = "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。"
+DISCLAIMER = (
+    "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。"
+    "正式签署前请交由执业律师审核。"
+)
 OPTIONAL_DEFAULT = "／（适用标准条款默认约定）"
 TERM_CLASSES = {"coverpage_link", "orderform_link", "keyterms_link"}
 

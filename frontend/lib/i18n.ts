@@ -158,8 +158,8 @@ const zh: Dictionary = {
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
   disclaimer:
-    "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。",
-  disclaimerShort: "草稿，请律师审核后再签署。",
+    "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。正式签署前请交由执业律师审核。",
+  disclaimerShort: "AI 草稿，不构成法律意见；正式签署前请执业律师审核。",
   signOut: "退出登录",
   auth: {
     welcome: "Prelegal · 法律协议生成器",
@@ -294,8 +294,9 @@ const en: Dictionary = {
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
   disclaimer:
-    "AI-generated draft for discussion only. Have a lawyer review it before signing.",
-  disclaimerShort: "Draft only — review with counsel before signing.",
+    "This document is an AI-generated draft for reference only and does not constitute legal advice. Have a licensed lawyer review it before formal execution.",
+  disclaimerShort:
+    "AI draft, not legal advice. Have a licensed lawyer review it before signing.",
   signOut: "Sign out",
   auth: {
     welcome: "Prelegal · Legal Agreement Generator",
