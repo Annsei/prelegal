@@ -172,6 +172,67 @@ describe("GenericDocPreview with a manifest", () => {
     ).map((node) => node.textContent);
     expect(coverPageTerms).toContain("Customer");
   });
+
+  it.each([
+    ["confirmed", "Paid", true],
+    ["confirmed", "Free", false],
+    ["pending_confirmation", "Free", true],
+  ] as const)(
+    "renders conditional blocks for %s fields with value %s",
+    (status, value, paidTermsVisible) => {
+      const conditionalManifest: DocManifest = {
+        ...MANIFEST,
+        fields: [
+          ...MANIFEST.fields,
+          {
+            key: "Pilot Pricing",
+            section: "keyterms",
+            type: "string",
+            required: true,
+            label: { zh: "试点收费方式", en: "Pilot pricing" },
+          },
+        ],
+      };
+      const snapshot: DraftStateSnapshot = {
+        schema_version: "draft-state.v1",
+        manifest_version: 1,
+        doc_id: "cloud-service-agreement",
+        revision: 1,
+        applied_patches: {},
+        fields: {
+          "Pilot Pricing": {
+            key: "Pilot Pricing",
+            status,
+            value,
+            revision: 1,
+            provenance: [],
+            confirmed_at:
+              status === "confirmed" ? "2026-08-06T00:00:00+00:00" : null,
+            confirmed_by_user_id: status === "confirmed" ? 1 : null,
+          },
+        },
+      };
+      render(
+        <GenericDocPreview
+          load={readyLoad({
+            manifest: conditionalManifest,
+            standard_terms:
+              '<!-- when {"field":"Pilot Pricing","op":"equals","value":"Paid"} -->\n' +
+              "Paid-only payment and refund terms.\n" +
+              "<!-- endwhen -->\n\nAlways-visible terms.",
+          })}
+          fields={{}}
+          draftState={snapshot}
+          locale="en"
+        />,
+      );
+
+      expect(screen.getByText("Always-visible terms.")).toBeInTheDocument();
+      const paidTerms = screen.queryByText("Paid-only payment and refund terms.");
+      if (paidTermsVisible) expect(paidTerms).toBeInTheDocument();
+      else expect(paidTerms).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe("GenericDocPreview without a manifest", () => {

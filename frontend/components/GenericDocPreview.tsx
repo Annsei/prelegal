@@ -2,6 +2,7 @@
 
 import { marked } from "marked";
 import type { TemplateResponse } from "@/lib/api";
+import { applyConditionalBlocks } from "@/lib/conditionalBlocks";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
 import {
@@ -73,13 +74,20 @@ export function GenericDocPreview({
   const stableFields = manifest
     ? stableFieldValues(manifest, draftState, fields)
     : fields;
+  const conditionalTerms = manifest
+    ? applyConditionalBlocks(template.standard_terms, manifest, stableFields)
+    : template.standard_terms;
+  const conditionalCoverPage =
+    manifest && template.cover_page
+      ? applyConditionalBlocks(template.cover_page, manifest, stableFields)
+      : template.cover_page ?? "";
   const annotated = annotateTermRefs(
-    template.standard_terms,
+    conditionalTerms,
     manifest,
     stableFields,
   );
-  const annotatedCoverPage = template.cover_page
-    ? annotateTermRefs(template.cover_page, manifest, stableFields)
+  const annotatedCoverPage = conditionalCoverPage
+    ? annotateTermRefs(conditionalCoverPage, manifest, stableFields)
     : "";
   // marked is sync when called without async-only extensions; the result is
   // typed as `string | Promise<string>` so we narrow.

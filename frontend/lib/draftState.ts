@@ -138,7 +138,7 @@ function requiredWhenMatches(
   return conditions.every((item) => singleConditionMatches(item, stableValues));
 }
 
-function singleConditionMatches(
+export function singleConditionMatches(
   condition: RequiredWhenCondition,
   stableValues: Record<string, string>,
 ): boolean {

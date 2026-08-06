@@ -8,6 +8,8 @@ import pytest
 from docx import Document
 from pypdf import PdfReader
 
+from app.draft_state import DraftStateSnapshot, FieldState
+from app.export import ExportTemplateError, build_export_document, render_docx
 from app.manifests import load_manifest
 
 CATALOG_DOC_IDS = (
@@ -104,6 +106,27 @@ def _docx_text(payload: bytes) -> str:
             for cell in row.cells:
                 parts.extend(paragraph.text for paragraph in cell.paragraphs)
     return "\n".join(parts)
+
+
+def _pilot_snapshot(
+    pricing_status: str,
+    pricing_value: str | None,
+) -> DraftStateSnapshot:
+    confirmed_at = (
+        "2026-08-06T00:00:00+00:00" if pricing_status == "confirmed" else None
+    )
+    return DraftStateSnapshot(
+        doc_id="pilot-agreement",
+        fields={
+            "试点收费方式": FieldState(
+                key="试点收费方式",
+                status=pricing_status,
+                value=pricing_value,
+                confirmed_at=confirmed_at,
+                confirmed_by_user_id=1 if confirmed_at else None,
+            )
+        },
+    )
 
 
 @pytest.mark.parametrize("doc_id", CATALOG_DOC_IDS)
@@ -283,3 +306,107 @@ def test_download_blocks_active_conditional_required_fields(client):
         "试点费用",
         "付款安排",
     }
+
+
+@pytest.mark.parametrize(
+    ("status", "value", "paid_terms_visible"),
+    [
+        ("confirmed", "付费", True),
+        ("confirmed", "免费", False),
+        ("pending_confirmation", "免费", True),
+    ],
+)
+def test_pilot_docx_conditionally_renders_paid_terms(
+    status: str,
+    value: str,
+    paid_terms_visible: bool,
+):
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    model = build_export_document(
+        doc_id="pilot-agreement",
+        title="试点协议",
+        manifest=manifest,
+        snapshot=_pilot_snapshot(status, value),
+    )
+
+    text = _docx_text(render_docx(model))
+
+    assert ("逾期支付试点费用" in text) is paid_terms_visible
+    assert ("退还已预付的试点费用" in text) is paid_terms_visible
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        (
+            '<!-- when {"field":"试点收费方式","op":"equals","value":"付费"} -->\n'
+            "未闭合条款",
+            "not closed",
+        ),
+        (
+            '<!-- when {"field":"试点收费方式","op":"equals","value":"付费"} -->\n'
+            '<!-- when {"field":"试点收费方式","op":"equals","value":"免费"} -->\n'
+            "嵌套条款\n<!-- endwhen -->\n<!-- endwhen -->",
+            "nested",
+        ),
+        (
+            '<!-- when {"field":"不存在字段","op":"equals","value":"付费"} -->\n'
+            "未知字段条款\n<!-- endwhen -->",
+            "unknown manifest field",
+        ),
+        ("<!-- endwhen -->\n无起始标记", "no opening marker"),
+    ],
+)
+def test_export_rejects_invalid_conditional_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    message: str,
+):
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    monkeypatch.setattr(
+        "app.export._load_template_markdown",
+        lambda _doc_id: (None, source),
+    )
+
+    with pytest.raises(ExportTemplateError, match=message):
+        build_export_document(
+            doc_id="pilot-agreement",
+            title="试点协议",
+            manifest=manifest,
+            snapshot=_pilot_snapshot("confirmed", "付费"),
+        )
+
+
+def test_export_supports_multiple_blocks_and_required_when_operators(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source = """<!-- when {"field":"试点收费方式","op":"equals","value":"付费"} -->
+等于条件条款
+<!-- endwhen -->
+<!-- when {"field":"试点收费方式","op":"not_equals","value":"免费"} -->
+不等于条件条款
+<!-- endwhen -->
+<!-- when {"field":"试点收费方式","op":"in","values":["付费","内部试点"]} -->
+集合条件条款
+<!-- endwhen -->
+"""
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    monkeypatch.setattr(
+        "app.export._load_template_markdown",
+        lambda _doc_id: (None, source),
+    )
+
+    model = build_export_document(
+        doc_id="pilot-agreement",
+        title="试点协议",
+        manifest=manifest,
+        snapshot=_pilot_snapshot("confirmed", "付费"),
+    )
+
+    assert "等于条件条款" in model.html
+    assert "不等于条件条款" in model.html
+    assert "集合条件条款" in model.html
+    assert "<!-- when" not in model.html

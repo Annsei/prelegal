@@ -106,6 +106,9 @@ templates/       11 PRC-law Chinese markdown packages. Nine remain Prelegal
                  data-processing-agreement use 2025 official GF baselines with
                  immutable source captures in templates/sources/. templates.json
                  indexes source metadata; manifests/ holds kernel field manifests.
+                 Markdown may contain non-nested `<!-- when {...} -->` /
+                 `<!-- endwhen -->` blocks using manifest `required_when`
+                 conditions; an unconfirmed driver keeps its block visible.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
                  installs Pango + Noto CJK fonts for PDF export; catalog.json
                  and templates/ are COPYed into the runtime image at /app and

@@ -135,6 +135,9 @@ templates/       11 PRC-law Chinese markdown packages. Nine remain Prelegal
                  texts). All 11 catalog documents have manifests and use the
                  shared kernel pipeline; the generic renderer remains as an
                  unknown/unmanaged document fallback.
+                 Markdown may contain non-nested `<!-- when {...} -->` /
+                 `<!-- endwhen -->` blocks using manifest `required_when`
+                 conditions; an unconfirmed driver keeps its block visible.
 Dockerfile       multi-stage: Node builds frontend → Python runtime serves both;
                  deps installed with `uv sync --frozen` from the committed
                  backend/uv.lock (reproducible builds); runs as non-root user

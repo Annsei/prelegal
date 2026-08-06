@@ -1008,21 +1008,22 @@ def _required_when_matches(
         return False
     conditions = raw_condition if isinstance(raw_condition, list) else [raw_condition]
     return all(
-        _single_condition_matches(condition, snapshot)
+        single_condition_matches(condition, snapshot)
         for condition in conditions
     )
 
 
-def _single_condition_matches(
+def single_condition_matches(
     condition: Any,
     snapshot: DraftStateSnapshot,
 ) -> bool:
+    """Evaluate one declarative condition against confirmed stable values."""
     if not isinstance(condition, dict):
         return False
     key = condition.get("field")
     if not isinstance(key, str):
         return False
-    value = _confirmed_value(snapshot, key)
+    value = confirmed_field_value(snapshot, key)
     op = condition.get("op") or "equals"
     if op == "equals":
         return value == condition.get("value")
@@ -1036,7 +1037,11 @@ def _single_condition_matches(
     return False
 
 
-def _confirmed_value(snapshot: DraftStateSnapshot, key: str) -> str | None:
+def confirmed_field_value(
+    snapshot: DraftStateSnapshot,
+    key: str,
+) -> str | None:
+    """Return the stable confirmed value used by rules and renderers."""
     field = snapshot.fields.get(key)
     if field is None or field.value is None:
         return None
