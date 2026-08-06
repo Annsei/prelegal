@@ -178,6 +178,12 @@ describe("DocForm", () => {
     expect(screen.getByText("Current: Acme")).toBeInTheDocument();
     expect(screen.getByText("Candidate: Beta")).toBeInTheDocument();
     expect(screen.getByText("Pending confirmation")).toBeInTheDocument();
+    expect(screen.getByText("Missing")).toBeInTheDocument();
+    expect(document.querySelector('[data-field-status="conflict"]')).toBeTruthy();
+    expect(
+      document.querySelector('[data-field-status="pending_confirmation"]'),
+    ).toBeTruthy();
+    expect(document.querySelector('[data-field-status="missing"]')).toBeTruthy();
 
     await userEvent.click(screen.getAllByRole("button", { name: "Confirm" })[0]);
     expect(onConfirm).toHaveBeenCalledWith("Customer", "Beta");

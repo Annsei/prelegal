@@ -139,6 +139,9 @@ describe("GenericDocPreview with a manifest", () => {
     expect(container.querySelector(".term-defined")?.textContent).toBe(
       "Customer",
     );
+    expect(container.querySelector(".term-pending")?.textContent).toBe(
+      "Governing Law",
+    );
   });
 
   it("lists chat-collected terms the manifest doesn't declare", () => {

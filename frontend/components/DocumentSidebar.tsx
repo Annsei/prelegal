@@ -23,7 +23,7 @@ export function DocumentSidebar({
 }: Props) {
   const t = useDictionary(locale);
   return (
-    <aside className="no-print flex h-[calc(100vh-9.5rem)] flex-col">
+    <aside className="sidebar-panel no-print flex h-[calc(100vh-9.5rem)] flex-col">
       <button
         type="button"
         onClick={onCreate}
@@ -42,10 +42,7 @@ export function DocumentSidebar({
       </div>
       <ul className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 pb-2">
         {documents.length === 0 ? (
-          <li
-            className="px-2 py-3 text-xs leading-relaxed"
-            style={{ color: "var(--ink-3)" }}
-          >
+          <li className="sidebar-empty px-3 py-5 text-xs leading-relaxed">
             {t.sidebar.empty}
           </li>
         ) : (

@@ -682,14 +682,14 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <header
-        className="no-print sticky top-0 z-40 border-b backdrop-blur"
+        className="app-header no-print sticky top-0 z-40 border-b backdrop-blur"
         style={{
           borderColor: "var(--rule)",
           background: "rgba(245, 240, 228, 0.85)",
         }}
       >
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3">
-          <div className="flex items-baseline gap-3">
+        <div className="app-toolbar mx-auto flex max-w-[1480px] items-center justify-between px-6 py-3">
+          <div className="flex min-w-0 items-baseline gap-3">
             <span
               aria-hidden
               className="display self-center text-lg leading-none"
@@ -733,7 +733,7 @@ export default function Home() {
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
             />
-            <div className="flex items-stretch">
+            <div className="download-control flex items-stretch">
               <label className="sr-only" htmlFor="download-format">
                 {t.downloadFormat}
               </label>
@@ -743,7 +743,7 @@ export default function Home() {
                 onChange={(event) =>
                   setDownloadFormat(event.target.value as DownloadFormat)
                 }
-                className="rounded-l border border-r-0 px-2 text-xs"
+                className="download-format border border-r-0 px-2 text-xs"
                 style={{ borderColor: "var(--ink)", color: "var(--ink)" }}
                 title={t.downloadFormat}
               >
@@ -764,7 +764,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[230px_minmax(320px,440px)_1fr]">
+      <main className="workspace-grid mx-auto grid w-full max-w-[1480px] flex-1 grid-cols-1 gap-5 px-5 py-5 lg:grid-cols-[220px_minmax(320px,420px)_minmax(520px,1fr)]">
         <DocumentSidebar
           locale={locale}
           documents={documents}
@@ -775,7 +775,7 @@ export default function Home() {
         />
 
         <div className="no-print">
-          <div role="tablist" className="mb-3 flex gap-2">
+          <div role="tablist" className="mode-tabs mb-3 flex">
             <ModeTab
               active={mode === "chat"}
               onClick={() => setMode("chat")}
@@ -805,7 +805,7 @@ export default function Home() {
               onHistoryChange={setChatHistory}
             />
           ) : (
-            <div className="card p-5">
+            <div className="form-panel p-5">
               {manifest !== null ? (
                 <DocForm
                   locale={locale}
@@ -841,7 +841,7 @@ export default function Home() {
           )}
         </div>
 
-        <div>
+        <div className="preview-column">
           <Disclaimer locale={locale} variant="banner" />
           <GenericDocPreview
             load={templateLoad}

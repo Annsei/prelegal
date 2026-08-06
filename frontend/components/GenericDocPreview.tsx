@@ -85,9 +85,15 @@ export function GenericDocPreview({
     conditionalTerms,
     manifest,
     stableFields,
+    draftState?.fields,
   );
   const annotatedCoverPage = conditionalCoverPage
-    ? annotateTermRefs(conditionalCoverPage, manifest, stableFields)
+    ? annotateTermRefs(
+        conditionalCoverPage,
+        manifest,
+        stableFields,
+        draftState?.fields,
+      )
     : "";
   // marked is sync when called without async-only extensions; the result is
   // typed as `string | Promise<string>` so we narrow.
@@ -99,11 +105,10 @@ export function GenericDocPreview({
   return (
     <article
       data-print-root
-      className="card p-8 leading-relaxed lg:p-10"
-      style={{ borderTop: "3px solid var(--ink)" }}
+      className="document-paper leading-relaxed"
     >
-      <header className="mb-6">
-        <h1 className="display text-2xl" style={{ color: "var(--ink)" }}>
+      <header className="document-header">
+        <h1 className="display text-2xl">
           {template.title}
         </h1>
         <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
@@ -125,15 +130,13 @@ export function GenericDocPreview({
 
       {coverPageHtml && (
         <div
-          className="prose prose-sm mb-8 max-w-none border-b pb-6"
-          style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
+          className="document-prose document-cover-markdown mb-8"
           dangerouslySetInnerHTML={{ __html: coverPageHtml }}
         />
       )}
 
       <div
-        className="prose prose-sm max-w-none"
-        style={{ color: "var(--ink)" }}
+        className="document-prose"
         dangerouslySetInnerHTML={{ __html: standardTermsHtml }}
       />
     </article>
@@ -159,14 +162,9 @@ function CoverPage({
   return (
     <section
       aria-label={t.coverPage.title}
-      className="mb-8 rounded-md border p-5"
-      style={{
-        background: "rgba(236, 173, 10, 0.05)",
-        borderColor: "var(--rule)",
-        boxShadow: "inset 0 3px 0 var(--gold)",
-      }}
+      className="cover-page-sheet mb-8"
     >
-      <h2 className="display mb-1 text-xl" style={{ color: "var(--ink)" }}>
+      <h2 className="display mb-1 text-xl">
         {t.coverPage.title}
       </h2>
       <p className="mb-4 text-xs" style={{ color: "var(--ink-3)" }}>
@@ -179,23 +177,22 @@ function CoverPage({
         );
         if (sectionFields.length === 0) return null;
         return (
-          <div key={section.key} className="mb-4 last:mb-0">
+          <div key={section.key} className="cover-page-section">
             <h3
-              className="mb-2 text-xs font-semibold uppercase tracking-wide"
-              style={{ color: "var(--purple)" }}
+              className="cover-page-section-title"
             >
               {localized(section.label, locale)}
             </h3>
-            <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dl className="cover-page-grid">
               {sectionFields.map((field) => {
                 const fieldState = draftState?.fields[field.key];
                 const value = displayValue(fieldState, fields[field.key]);
                 return (
                   <div key={field.key} className="contents">
-                    <dt className="font-medium" style={{ color: "var(--ink)" }}>
+                    <dt>
                       {localized(field.label, locale)}
                     </dt>
-                    <dd style={{ color: "var(--ink)" }}>
+                    <dd>
                       <CoverPageValue
                         value={value}
                         required={field.required}
@@ -213,20 +210,17 @@ function CoverPage({
       })}
 
       {extras.length > 0 && (
-        <div className="mt-4 border-t border-neutral-200 pt-3">
+        <div className="cover-page-section mt-4">
           <h3
-            className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "var(--purple)" }}
+            className="cover-page-section-title"
           >
             {t.coverPage.otherTerms}
           </h3>
-          <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dl className="cover-page-grid">
             {extras.map(([key, value]) => (
               <div key={key} className="contents">
-                <dt className="font-medium" style={{ color: "var(--ink)" }}>
-                  {key}
-                </dt>
-                <dd style={{ color: "var(--ink)" }}>{value}</dd>
+                <dt>{key}</dt>
+                <dd>{value}</dd>
               </div>
             ))}
           </dl>
@@ -265,8 +259,8 @@ function CoverPageValue({
 }) {
   if (fieldState?.status === "conflict" && fieldState.conflict) {
     return (
-      <span className="space-y-0.5">
-        <span className="block text-xs font-semibold" style={{ color: "#8a1f1f" }}>
+      <span className="field-value space-y-0.5" data-state="conflict">
+        <span className="block text-xs font-semibold">
           {labels.conflict}
         </span>
         <span className="block">
@@ -279,24 +273,31 @@ function CoverPageValue({
     );
   }
   if (value) {
+    const state = fieldState?.status ?? "confirmed";
     return (
-      <span className="filled">
+      <span className="field-value" data-state={state}>
         {value}
         {fieldState?.status === "pending_confirmation" && (
-          <span className="ml-2 text-xs" style={{ color: "#8a1f1f" }}>
+          <span className="ml-2 text-xs">
             {labels.pending}
           </span>
         )}
         {fieldState?.status === "confirmed" && (
-          <span className="ml-2 text-xs" style={{ color: "var(--purple)" }}>
+          <span className="ml-2 text-xs">
             {labels.confirmed}
           </span>
         )}
       </span>
     );
   }
-  if (required) return <span className="missing">{missingLabel}</span>;
-  return <span style={{ color: "var(--ink-3)" }}>—</span>;
+  if (required) {
+    return (
+      <span className="field-value" data-state="missing">
+        {missingLabel}
+      </span>
+    );
+  }
+  return <span className="field-value" data-state="optional">—</span>;
 }
 
 /** Pre-manifest fallback: flat list of whatever the chat collected. */

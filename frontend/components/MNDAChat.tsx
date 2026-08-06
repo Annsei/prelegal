@@ -160,10 +160,10 @@ export function MNDAChat({
   };
 
   return (
-    <div className="card flex h-[calc(100vh-12.5rem)] flex-col overflow-hidden">
+    <div className="chat-panel flex h-[calc(100vh-12.5rem)] flex-col overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className="chat-scroll flex-1 space-y-4 overflow-y-auto px-4 py-5"
       >
         {history.length === 0 && (
           <Bubble role="assistant">{t.chat.welcome}</Bubble>
@@ -180,6 +180,7 @@ export function MNDAChat({
               <i />
               <i />
             </span>
+            <span className="sr-only">{t.chat.sending}</span>
           </Bubble>
         )}
       </div>
@@ -208,7 +209,7 @@ export function MNDAChat({
       )}
 
       <div
-        className="border-t p-3"
+        className="chat-composer border-t p-3"
         style={{
           borderColor: "var(--rule-soft)",
           background: "rgba(3, 33, 71, 0.025)",
@@ -250,24 +251,9 @@ function Bubble({
   return (
     <div className={`bubble flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] whitespace-pre-wrap px-3.5 py-2 text-sm leading-relaxed ${
-          isUser
-            ? "rounded-xl rounded-br-sm"
-            : "rounded-xl rounded-bl-sm border"
+        className={`chat-bubble max-w-[85%] whitespace-pre-wrap px-3.5 py-2.5 text-sm leading-relaxed ${
+          isUser ? "chat-bubble-user" : "chat-bubble-assistant"
         }`}
-        style={
-          isUser
-            ? {
-                background: "var(--ink)",
-                color: "#f6efdd",
-                boxShadow: "0 4px 12px -6px rgba(3, 33, 71, 0.5)",
-              }
-            : {
-                background: "var(--card)",
-                color: "var(--ink)",
-                borderColor: "var(--rule-soft)",
-              }
-        }
       >
         {children}
       </div>

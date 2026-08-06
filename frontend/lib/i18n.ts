@@ -27,6 +27,7 @@ type Dictionary = {
     pending: string;
     confirmed: string;
     conflict: string;
+    missing: string;
     current: string;
     candidate: string;
     emptyMissingConfirmDisabled: string;
@@ -151,6 +152,7 @@ const zh: Dictionary = {
     pending: "待确认",
     confirmed: "已确认",
     conflict: "冲突",
+    missing: "缺失",
     current: "当前",
     candidate: "候选",
     emptyMissingConfirmDisabled: "请先输入内容，再确认一个缺失字段。",
@@ -287,6 +289,7 @@ const en: Dictionary = {
     pending: "Pending confirmation",
     confirmed: "Confirmed",
     conflict: "Conflict",
+    missing: "Missing",
     current: "Current",
     candidate: "Candidate",
     emptyMissingConfirmDisabled: "Enter a value before confirming a missing field.",

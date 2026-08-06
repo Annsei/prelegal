@@ -4,6 +4,7 @@
 // term references in the standard-terms body.
 
 import type { Locale } from "@/lib/i18n";
+import type { DraftFieldState } from "@/lib/draftState";
 
 export type LocalizedText = { zh: string; en: string };
 
@@ -115,6 +116,7 @@ export function annotateTermRefs(
   markdown: string,
   manifest: DocManifest | null | undefined,
   fields: Record<string, string>,
+  fieldStates: Record<string, DraftFieldState> = {},
 ): string {
   if (!manifest) return markdown;
   const lookup = buildTermLookup(manifest);
@@ -123,13 +125,24 @@ export function annotateTermRefs(
     const field = lookup.get(text);
     if (!field) return match;
     const value = filledValue(fields, field.key);
+    const fieldState = fieldStates[field.key];
+    const visualState = value
+      ? "term-defined"
+      : fieldState?.status === "pending_confirmation"
+        ? "term-pending"
+        : "term-missing";
     const nextAttrs = addTermStateClass(
       attrs.replace(TITLE_ATTR_RE, ""),
-      value ? "term-defined" : "term-missing",
+      visualState,
     );
     if (value) {
       return `<span${nextAttrs} title="${escapeAttr(
         `${field.key}: ${value}`,
+      )}">${text}</span>`;
+    }
+    if (visualState === "term-pending" && fieldState?.value) {
+      return `<span${nextAttrs} title="${escapeAttr(
+        `${field.key}: ${fieldState.value}`,
       )}">${text}</span>`;
     }
     return `<span${nextAttrs}>${text}</span>`;

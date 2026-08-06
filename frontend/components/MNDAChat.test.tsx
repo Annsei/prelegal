@@ -83,6 +83,7 @@ describe("MNDAChat", () => {
 
     const bubble = screen.getByText(/First line/);
     expect(bubble).toHaveClass("whitespace-pre-wrap");
+    expect(bubble).toHaveClass("chat-bubble-assistant");
     expect(bubble.textContent).toBe("First line\nSecond line");
   });
 
@@ -125,6 +126,9 @@ describe("MNDAChat", () => {
     expect(
       screen.getByText("We're evaluating a partnership."),
     ).toBeInTheDocument();
+    expect(screen.getByText("We're evaluating a partnership.")).toHaveClass(
+      "chat-bubble-user",
+    );
 
     // The request payload should carry both history and current state.
     expect(fetchMock).toHaveBeenCalledTimes(1);

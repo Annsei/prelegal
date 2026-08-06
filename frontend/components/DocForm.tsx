@@ -54,17 +54,16 @@ export function DocForm({
   }, [fieldStates, manifest.fields, values]);
 
   return (
-    <div className="space-y-6">
+    <div className="doc-form space-y-6">
       {manifest.sections.map((section) => {
         const sectionFields = manifest.fields.filter(
           (field) => field.section === section.key,
         );
         if (sectionFields.length === 0) return null;
         return (
-          <fieldset key={section.key}>
+          <fieldset key={section.key} className="doc-form-section">
             <legend
-              className="mb-2 flex w-full items-center gap-2 text-sm font-semibold"
-              style={{ color: "var(--ink)" }}
+              className="doc-form-section-title"
             >
               {localized(section.label, locale)}
             </legend>
@@ -119,6 +118,7 @@ function Field({
     pending: string;
     confirmed: string;
     conflict: string;
+    missing: string;
     current: string;
     candidate: string;
     emptyMissingConfirmDisabled: string;
@@ -139,7 +139,8 @@ function Field({
         ? labels.confirmed
         : fieldState?.status === "conflict"
           ? labels.conflict
-          : "";
+          : labels.missing;
+  const status = fieldState?.status ?? "missing";
   const common = {
     id: inputId,
     value,
@@ -151,7 +152,7 @@ function Field({
   } as const;
 
   return (
-    <div>
+    <div className="doc-field" data-field-state={status}>
       <label
         htmlFor={inputId}
         className="mb-1 block text-xs font-medium"
@@ -159,24 +160,16 @@ function Field({
       >
         {localized(field.label, locale)}
         {field.required && (
-          <span className="ml-1" style={{ color: "#8a1f1f" }}>
+          <span className="required-mark ml-1">
             {requiredLabel}
           </span>
         )}
-        {statusLabel && (
-          <span
-            className="ml-2 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-            style={{
-              borderColor: "var(--rule)",
-              color:
-                fieldState?.status === "conflict"
-                  ? "#8a1f1f"
-                  : "var(--purple)",
-            }}
-          >
-            {statusLabel}
-          </span>
-        )}
+        <span
+          className="field-status ml-2"
+          data-field-status={status}
+        >
+          {statusLabel}
+        </span>
       </label>
       {field.type === "text" ? (
         <textarea rows={2} {...common} />
@@ -184,7 +177,7 @@ function Field({
         <input type={field.type === "date" ? "date" : "text"} {...common} />
       )}
       {fieldState?.status === "conflict" && fieldState.conflict && (
-        <div className="mt-1 space-y-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
+        <div className="field-conflict mt-2 space-y-0.5 text-xs">
           <p>
             {labels.current}: {fieldState.conflict.base_value ?? fieldState.value}
           </p>
@@ -194,7 +187,7 @@ function Field({
         </div>
       )}
       {hint && (
-        <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+        <p className="field-hint mt-1 text-xs">
           {hint}
         </p>
       )}
