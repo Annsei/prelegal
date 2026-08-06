@@ -119,7 +119,7 @@ function requiredFieldKeys(
   snapshot: DraftStateSnapshot | null,
 ): string[] {
   // Mirrors backend `required_field_keys` for responsive UI; the
-  // `/download-readiness` endpoint remains authoritative before printing.
+  // The server download endpoint remains authoritative before file export.
   const stableValues = stableFieldValues(manifest, snapshot, {});
   return manifest.fields
     .filter(

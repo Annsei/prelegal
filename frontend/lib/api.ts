@@ -168,6 +168,64 @@ export type DownloadReadinessResponse = {
   unresolved_required_fields: string[];
 };
 
+export type DownloadFormat = "docx" | "pdf";
+
+export type DocumentDownload = {
+  blob: Blob;
+  filename: string;
+};
+
+function downloadFilename(
+  contentDisposition: string | null,
+  format: DownloadFormat,
+): string {
+  const encoded = contentDisposition?.match(
+    /filename\*=UTF-8''([^;]+)/i,
+  )?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      // Fall through to the ASCII filename or a stable local fallback.
+    }
+  }
+  const ascii = contentDisposition?.match(
+    /filename=(?:"([^"]+)"|([^;]+))/i,
+  );
+  return ascii?.[1] ?? ascii?.[2]?.trim() ?? `agreement.${format}`;
+}
+
+async function downloadDocument(
+  token: string,
+  id: number,
+  format: DownloadFormat,
+): Promise<DocumentDownload> {
+  const res = await fetch(
+    `${API_BASE}/api/documents/${id}/download?format=${format}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) {
+    let detail: unknown;
+    try {
+      detail = await res.json();
+    } catch {
+      detail = await res.text();
+    }
+    const message =
+      typeof detail === "object" &&
+      detail !== null &&
+      "detail" in detail &&
+      typeof (detail as { detail: unknown }).detail === "string"
+        ? (detail as { detail: string }).detail
+        : `Request failed with status ${res.status}`;
+    throw new ApiError(res.status, message, detail);
+  }
+  return {
+    blob: await res.blob(),
+    filename: downloadFilename(res.headers.get("Content-Disposition"), format),
+  };
+}
+
 export const documentsApi = {
   list: (token: string) =>
     apiFetch<DocumentSummary[]>("/api/documents", { token }),
@@ -203,6 +261,8 @@ export const documentsApi = {
       `/api/documents/${id}/download-readiness`,
       { token },
     ),
+  download: (token: string, id: number, format: DownloadFormat) =>
+    downloadDocument(token, id, format),
   delete: (token: string, id: number) =>
     apiFetch<void>(`/api/documents/${id}`, { method: "DELETE", token }),
 };

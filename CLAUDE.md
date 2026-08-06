@@ -2,11 +2,11 @@
 
 ## Overview
 
-This is a SaaS product to allow users to draft **PRC-law (中国法) Chinese legal agreements** based on templates in the templates directory. The template library is first-party (Prelegal 范本 v1.0, AI-drafted, not lawyer-reviewed — the product ships a three-place lawyer-review disclaimer); it replaced the original Common Paper (US-law, English) library. The user uses AI chat in order to establish what document they want and how to fill in the fields. The available documents are covered in the catalog.json file in the project root, included here:
+This is a SaaS product to allow users to draft **PRC-law (中国法) Chinese legal agreements** based on templates in the templates directory. The template library includes official baselines and first-party Prelegal 范本 v1.0 documents; none are represented as lawyer-reviewed, and the product ships a four-place lawyer-review disclaimer. The user uses AI chat in order to establish what document they want and how to fill in the fields. The available documents are covered in the catalog.json file in the project root, included here:
 
 @catalog.json
 
-Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). **All 11 catalog documents are manifest-driven and kernel-managed** (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → server-owned pending/confirmed/conflict/missing states → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → download gated on required fields). The generic renderer remains only as a fallback for unknown or unmanaged document ids. Official source captures and adaptation limits for the two official-baseline documents live in `templates/sources/` and ADR 0002; every remaining Prelegal v1.0 document uses its existing text as the product-selected final baseline without an external-source dependency. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata; manifest-managed fields are written through field patches and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in three places (preview banner, page footer, login marketing column).
+Status: v1 foundation, AI chat, multi-document UI, and multi-user persistence are live. The chat is catalog-aware and the preview pane switches per document — picking any of the 11 catalog docs renders its underlying PRC-law Chinese template with AI-collected key terms (field values are Simplified Chinese; contract text stays Chinese regardless of UI locale). **All 11 catalog documents are manifest-driven and kernel-managed** (cover-page field manifest in `templates/manifests/<doc_id>.json` → LLM field checklist + constrained schema → server-owned pending/confirmed/conflict/missing states → structured Cover Page render + body term-reference highlighting → manifest-driven edit form → required-field download gate → authenticated server-side DOCX/PDF export). Both formats share one confirmed-value-only semantic render model; DOCX is the default editable download. The generic renderer remains only as a fallback for unknown or unmanaged document ids. Official source captures and adaptation limits for the two official-baseline documents live in `templates/sources/` and ADR 0002; every remaining Prelegal v1.0 document uses its existing text as the product-selected final baseline without an external-source dependency. Requests outside the catalog get routed to the closest available item. Real password auth (bcrypt + bearer-token sessions) gates per-user document CRUD **and the AI chat** (each turn costs LLM credits); login/register/chat are rate-limited and sessions expire after 30 days (configurable). Drafts auto-save (debounced, 800ms) including the conversation log and non-field metadata; manifest-managed fields are written through field patches and survive container restarts via a host-mounted SQLite volume. The frontend remembers the user's last open draft and restores it (with chat history replayed) on refresh / re-login. Upstream LLM errors are classified into one-line user-facing messages instead of dumping raw exception traces. A "draft, have a lawyer review" disclaimer ships in four places (preview banner, page footer, login marketing column, exported files).
 
 ## Development process
 
@@ -74,6 +74,8 @@ backend/         FastAPI service (uv project)
                    enforces "always ask a follow-up" (one retry + localized
                    fallback append); classifies upstream exceptions into
                    one-line user-facing messages
+  app/export.py    Shared confirmed-value semantic model; python-docx renderer
+                   for editable Word files and WeasyPrint PDF renderer
   app/manifests.py loads templates/manifests/<doc_id>.json (cover-page field
                    manifests) — shared by templates route + llm prompt/schema
   app/routes/      auth.py (register/login/logout/me), chat.py (POST /api/chat),
@@ -85,7 +87,8 @@ frontend/        Next.js 15 (static export, output: "export")
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
                    state (chat log + non-field metadata) under the current
                    bearer token; manifest fields are written through
-                   field-patches and rendered via DocForm + GenericDocPreview.
+                   field-patches and rendered via DocForm + GenericDocPreview;
+                   downloads authenticated server-rendered DOCX/PDF files.
                    On mount, rehydrates the last-active draft pointer from
                    localStorage so refresh / re-login lands the user back
                    in the same conversation. Redirects to /login if no
@@ -136,7 +139,8 @@ Dockerfile       multi-stage: Node builds frontend → Python runtime serves bot
                  deps installed with `uv sync --frozen` from the committed
                  backend/uv.lock (reproducible builds); runs as non-root user
                  `prelegal` (entrypoint chowns /data then drops privileges via
-                 setpriv — scripts/docker-entrypoint.sh); HEALTHCHECK hits
+                 setpriv — scripts/docker-entrypoint.sh); installs Pango and
+                 Noto CJK fonts for PDF export; HEALTHCHECK hits
                  /api/health; catalog.json and templates/ are COPYed into the
                  runtime image at /app and /app/templates respectively
 scripts/         start/stop per OS; start scripts forward .env into the
@@ -157,6 +161,7 @@ scripts/         start/stop per OS; start scripts forward .env into the
 - `POST /api/chat` → `{messages:[{role,content}], mnda_state, doc_id, document_state}` ⇒ `{assistant_message, selected_doc_id, mnda_updates, field_updates, done}`. **Requires `Authorization: Bearer <token>`** (each turn spends LLM credits) and is rate-limited 20/min per user (429 beyond). Stateless (frontend keeps history). `doc_id` is the doc the frontend has open — when it has a manifest, the LLM prompt gains that doc's field checklist and `field_updates` keys are schema-constrained to it; `done: true` becomes reachable once required fields are filled. `selected_doc_id` is the catalog id the LLM picked (empty until intent is clear); `field_updates` is a `{label: value}` map for manifest docs and a free-form fallback for docs without a manifest. `mnda_updates` is retained as an empty compatibility field; typed MNDA writes are retired. `mnda_state`/`document_state` are capped at 64KB serialized (422 beyond). Returns 502 if `OPENROUTER_API_KEY` missing, the LLM call fails, or the LLM returns malformed structured output (all classified into one-line messages).
 - `GET /api/templates/{doc_id}` → `{doc_id, title, standard_terms, cover_page?, manifest?}`. Reads from `templates/templates.json` and the markdown files alongside it; `manifest` is the cover-page field manifest from `templates/manifests/` (null for docs without one). 404 on unknown id.
 - `GET/POST/PUT/DELETE /api/documents[/{id}]` → per-user draft CRUD. **All require `Authorization: Bearer <token>`.** A user can only see and modify their own rows; cross-user access returns 404 to avoid leaking existence. The `state` field is a wrapped envelope: `{chat: ChatTurn[], mnda?: MndaState, fields?: Record<string,string>, draft_state?: DraftStateSnapshot}`. `chat` is the conversation log; `mnda` is legacy compatibility data for old MNDA drafts; `fields` carries legacy flat cover-page values; manifest-managed fields live in `draft_state` and are protected from public PUT replacement/rollback. Missing keys decode to fresh-draft defaults on the frontend.
+- `GET /api/documents/{id}/download?format=docx|pdf` → authenticated server-rendered file from the template, manifest, and confirmed kernel values. Required fields are gated with 409 plus `unresolved_required_fields`; cross-user access remains 404. DOCX uses python-docx; PDF uses WeasyPrint and Noto CJK fonts.
 - `GET /` and unknown paths → SPA fallback to the Next.js static export (path-traversal refused, falls back to `index.html`)
 
 `users` schema: `id`, `email UNIQUE`, `name`, `password_hash` (bcrypt), `created_at`.

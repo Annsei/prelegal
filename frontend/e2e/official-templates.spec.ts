@@ -256,7 +256,7 @@ for (const doc of MANIFEST_DOCS) {
     await page.getByRole("button", { name: /^send$/i }).click();
 
     await expect(page.getByText("Pending confirmation").first()).toBeVisible();
-    const download = page.getByRole("button", { name: /download pdf/i });
+    const download = page.getByRole("button", { name: /download docx/i });
     await expect(download).toBeDisabled();
 
     await page.getByRole("tab", { name: /edit fields/i }).click();

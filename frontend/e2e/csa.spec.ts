@@ -370,52 +370,57 @@ async function installMockBackend(
     });
   });
 
-  await page.route(/\/api\/documents\/1\/download-readiness$/, async (route) => {
-    if (downloadBlockOnce) {
-      const unresolved = downloadBlockOnce;
-      downloadBlockOnce = null;
+  await page.route(
+    /\/api\/documents\/1\/download\?format=(docx|pdf)$/,
+    async (route) => {
+      if (downloadBlockOnce) {
+        const unresolved = downloadBlockOnce;
+        downloadBlockOnce = null;
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              validation_errors: [{ kind: "download_blocked" }],
+              unresolved_required_fields: unresolved,
+            },
+          }),
+        });
+        return;
+      }
+      const stable = stableValues(snapshot);
+      const unresolved = CSA_MANIFEST.fields
+        .filter(
+          (field) =>
+            field.required || requiredWhenMatches(field.required_when, stable),
+        )
+        .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
+        .map((field) => field.key);
+      if (unresolved.length > 0) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              validation_errors: [{ kind: "download_blocked" }],
+              unresolved_required_fields: unresolved,
+            },
+          }),
+        });
+        return;
+      }
       await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          detail: {
-            validation_errors: [{ kind: "download_blocked" }],
-            unresolved_required_fields: unresolved,
-          },
-        }),
+        status: 200,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers: {
+          "Content-Disposition":
+            "attachment; filename=agreement.docx; filename*=UTF-8''CSA-20260803.docx",
+        },
+        body: "PK-mocked-docx",
       });
-      return;
-    }
-    const stable = stableValues(snapshot);
-    const unresolved = CSA_MANIFEST.fields
-      .filter(
-        (field) =>
-          field.required || requiredWhenMatches(field.required_when, stable),
-      )
-      .filter((field) => snapshot?.fields[field.key]?.status !== "confirmed")
-      .map((field) => field.key);
-    if (unresolved.length > 0) {
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          detail: {
-            validation_errors: [{ kind: "download_blocked" }],
-            unresolved_required_fields: unresolved,
-          },
-        }),
-      });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        can_download: true,
-        unresolved_required_fields: [],
-      }),
-    });
-  });
+    },
+  );
 
   await page.route(/\/api\/documents\/1$/, async (route) => {
     if (route.request().method() === "PUT") {
@@ -527,7 +532,7 @@ test.describe("CSA document-state kernel adoption", () => {
     await expect(page.getByText("Acme, Inc.")).toBeVisible();
     await expect(page.getByText("Pending confirmation")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /download pdf/i }),
+      page.getByRole("button", { name: /download docx/i }),
     ).toBeDisabled();
 
     await expect
@@ -596,7 +601,7 @@ test.describe("CSA document-state kernel adoption", () => {
   }) => {
     await installMockBackend(page);
     await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
-    const download = page.getByRole("button", { name: /download pdf/i });
+    const download = page.getByRole("button", { name: /download docx/i });
     await expect(download).toBeDisabled();
 
     await page.getByRole("tab", { name: /edit fields/i }).click();
@@ -613,11 +618,6 @@ test.describe("CSA document-state kernel adoption", () => {
   test("download 409 lists unresolved fields by manifest label", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      window.print = () => {
-        window.dispatchEvent(new Event("prelegal-print"));
-      };
-    });
     await installMockBackend(page, {
       downloadBlockOnce: ["Non-Renewal Notice Period"],
     });
@@ -631,7 +631,7 @@ test.describe("CSA document-state kernel adoption", () => {
     await page.getByLabel(/Governing Law/).fill("PRC law");
     await page.getByRole("button", { name: "Confirm" }).nth(2).click();
 
-    const download = page.getByRole("button", { name: /download pdf/i });
+    const download = page.getByRole("button", { name: /download docx/i });
     await expect(download).toBeEnabled();
     await download.click();
 
@@ -647,7 +647,10 @@ test.describe("CSA document-state kernel adoption", () => {
 
     await page.getByLabel(/Non-renewal Notice Period/).fill("30 days");
     await page.getByRole("button", { name: "Confirm" }).nth(4).click();
+    const downloadEvent = page.waitForEvent("download");
     await download.click();
+    const savedFile = await downloadEvent;
+    expect(savedFile.suggestedFilename()).toBe("CSA-20260803.docx");
     await expect(alert).toHaveCount(0);
   });
 
