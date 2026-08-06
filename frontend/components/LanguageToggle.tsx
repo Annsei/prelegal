@@ -11,8 +11,14 @@ type Props = {
 export function LanguageToggle({ locale, onToggle }: Props) {
   const t = useDictionary(locale);
   return (
-    <button type="button" onClick={onToggle} className="btn btn-ghost">
-      {t.langToggle}
+    <button
+      type="button"
+      onClick={onToggle}
+      className="lang-toggle"
+      aria-label={t.langToggle}
+      title={t.langToggle}
+    >
+      <span aria-hidden="true">中 / EN</span>
     </button>
   );
 }

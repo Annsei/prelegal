@@ -105,6 +105,7 @@ test.describe("Login flow", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await page.waitForURL(/\/$/);
+    await page.getByRole("button", { name: /账户菜单|Account menu/ }).click();
     await expect(page.getByText("smoke@example.com")).toBeVisible();
   });
 
@@ -121,7 +122,8 @@ test.describe("Login flow", () => {
     await page.goto("/login");
     await seedSession(page);
     await page.goto("/");
-    await page.getByRole("button", { name: /退出登录|Sign out/ }).click();
+    await page.getByRole("button", { name: /账户菜单|Account menu/ }).click();
+    await page.getByRole("menuitem", { name: /退出登录|Sign out/ }).click();
     await page.waitForURL(/\/login$/);
 
     const stored = await page.evaluate(

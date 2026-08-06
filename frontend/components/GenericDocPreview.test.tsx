@@ -68,7 +68,7 @@ describe("GenericDocPreview with a manifest", () => {
     expect(screen.getByText("Parties")).toBeInTheDocument();
     // Filled value shown; required-missing flagged; optional shows a dash.
     expect(screen.getByText("Acme, Inc.")).toBeInTheDocument();
-    expect(screen.getByText("[Not provided]")).toBeInTheDocument();
+    expect(screen.getByText("＿＿＿＿")).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { marked } from "marked";
-import type { TemplateResponse } from "@/lib/api";
 import { applyConditionalBlocks } from "@/lib/conditionalBlocks";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
@@ -111,9 +110,11 @@ export function GenericDocPreview({
         <h1 className="display text-2xl">
           {template.title}
         </h1>
-        <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
-          {manifest ? t.manifestNote : t.comingSoon}
-        </p>
+        {!manifest && (
+          <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
+            {t.comingSoon}
+          </p>
+        )}
       </header>
 
       {manifest ? (
@@ -122,7 +123,6 @@ export function GenericDocPreview({
           fields={fields}
           draftState={draftState}
           locale={locale}
-          template={template}
         />
       ) : (
         <SummaryCard fields={fields} />
@@ -148,13 +148,11 @@ function CoverPage({
   fields,
   draftState,
   locale,
-  template,
 }: {
   manifest: DocManifest;
   fields: Record<string, string>;
   draftState: DraftStateSnapshot | null;
   locale: Locale;
-  template: TemplateResponse;
 }) {
   const t = useDictionary(locale);
   const extras = extraFields(manifest, fields);
@@ -164,12 +162,9 @@ function CoverPage({
       aria-label={t.coverPage.title}
       className="cover-page-sheet mb-8"
     >
-      <h2 className="display mb-1 text-xl">
+      <h2 className="display mb-4 text-xl">
         {t.coverPage.title}
       </h2>
-      <p className="mb-4 text-xs" style={{ color: "var(--ink-3)" }}>
-        {template.title}
-      </p>
 
       {manifest.sections.map((section) => {
         const sectionFields = manifest.fields.filter(

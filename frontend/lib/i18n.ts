@@ -12,9 +12,11 @@ type Dictionary = {
   downloadIncomplete: string;
   downloadBlockedFields: string;
   downloadHint: string;
+  previewToolbarHint: string;
   drafting: string;
   comingSoon: string;
   manifestNote: string;
+  accountMenu: string;
   coverPage: {
     title: string;
     missing: string;
@@ -136,13 +138,15 @@ const zh: Dictionary = {
     "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
   downloadBlockedFields: "请先确认这些必填字段：",
   downloadHint: "默认下载可编辑的 DOCX，也可切换为 PDF。",
+  previewToolbarHint: "用对话或表单填写关键条款，必填齐全后可下载",
   drafting: "正在起草",
   comingSoon: "该文档的完整生成与 DOCX/PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
   manifestNote:
     "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 DOCX 或 PDF。",
+  accountMenu: "账户菜单",
   coverPage: {
-    title: "封面页（Cover Page）",
-    missing: "[未填写]",
+    title: "封面页",
+    missing: "＿＿＿＿",
     otherTerms: "其他条款",
   },
   docForm: {
@@ -273,13 +277,16 @@ const en: Dictionary = {
     "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
   downloadBlockedFields: "Confirm these required fields before downloading:",
   downloadHint: "Downloads an editable DOCX by default; PDF is also available.",
+  previewToolbarHint:
+    "Fill key terms via chat or form; download once required fields are complete.",
   drafting: "Drafting",
   comingSoon: "DOCX/PDF generation for this document is coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
   manifestNote:
     "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
+  accountMenu: "Account menu",
   coverPage: {
     title: "Cover Page",
-    missing: "[Not provided]",
+    missing: "＿＿＿＿",
     otherTerms: "Other terms",
   },
   docForm: {

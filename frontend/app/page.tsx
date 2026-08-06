@@ -181,6 +181,7 @@ export default function Home() {
   const [downloadBlockedKeys, setDownloadBlockedKeys] = useState<string[]>([]);
   const [downloadFormat, setDownloadFormat] =
     useState<DownloadFormat>("docx");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -681,54 +682,27 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header
-        className="app-header no-print sticky top-0 z-40 border-b backdrop-blur"
-        style={{
-          borderColor: "var(--rule)",
-          background: "rgba(245, 240, 228, 0.85)",
-        }}
-      >
-        <div className="app-toolbar mx-auto flex max-w-[1480px] items-center justify-between px-6 py-3">
-          <div className="flex min-w-0 items-baseline gap-3">
-            <span
-              aria-hidden
-              className="display self-center text-lg leading-none"
-              style={{ color: "var(--gold)" }}
-            >
+      <header className="app-header no-print sticky top-0 z-40 border-b backdrop-blur">
+        <div className="app-toolbar mx-auto grid max-w-[1480px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-6 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span aria-hidden className="brand-mark">
               契
             </span>
-            <h1
-              className="display text-lg tracking-wide"
-              style={{ color: "var(--ink)" }}
-            >
+            <h1 className="display text-lg tracking-wide" style={{ color: "var(--ink)" }}>
               {t.appTitle}
             </h1>
-            <span
-              className="hidden items-baseline gap-1 rounded-full border px-3 py-0.5 text-xs md:inline-flex"
-              style={{ borderColor: "var(--rule)", color: "var(--ink-3)" }}
+          </div>
+          <div className="hidden min-w-0 flex-col items-center text-center md:flex">
+            <div
+              className="max-w-[28rem] truncate text-sm font-semibold"
+              style={{ color: "var(--ink)" }}
+              title={`${t.drafting}: ${docTitle}`}
             >
-              {t.drafting}:{" "}
-              <span className="font-medium" style={{ color: "var(--purple)" }}>
-                {docTitle}
-              </span>
-            </span>
+              {docTitle}
+            </div>
             <SaveStatus locale={locale} state={saveState} />
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="hidden text-xs sm:inline"
-              style={{ color: "var(--ink-3)" }}
-              title={user.email}
-            >
-              {user.email}
-            </span>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="btn btn-ghost"
-            >
-              {t.signOut}
-            </button>
+          <div className="flex items-center justify-end gap-2">
             <LanguageToggle
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
@@ -744,7 +718,6 @@ export default function Home() {
                   setDownloadFormat(event.target.value as DownloadFormat)
                 }
                 className="download-format border border-r-0 px-2 text-xs"
-                style={{ borderColor: "var(--ink)", color: "var(--ink)" }}
                 title={t.downloadFormat}
               >
                 <option value="docx">DOCX</option>
@@ -754,11 +727,41 @@ export default function Home() {
                 type="button"
                 onClick={() => void handleDownload()}
                 disabled={!canDownload}
-                className="btn btn-ink rounded-l-none"
+                className="btn btn-primary rounded-l-none"
                 title={downloadTitle}
               >
                 {t.download} {downloadFormat.toUpperCase()}
               </button>
+            </div>
+            <div className="account-menu">
+              <button
+                type="button"
+                className="account-avatar"
+                aria-label={t.accountMenu}
+                aria-haspopup="menu"
+                aria-expanded={accountMenuOpen}
+                title={user.email}
+                onClick={() => setAccountMenuOpen((open) => !open)}
+              >
+                <span aria-hidden="true">
+                  {(user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase()}
+                </span>
+              </button>
+              {accountMenuOpen && (
+                <div className="account-menu-panel" role="menu">
+                  <div className="account-email" title={user.email}>
+                    {user.email}
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={onSignOut}
+                    className="btn btn-ghost w-full justify-start"
+                  >
+                    {t.signOut}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -818,9 +821,6 @@ export default function Home() {
               ) : null}
             </div>
           )}
-          <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
-            {t.downloadHint}
-          </p>
           {downloadBlockedLabels.length > 0 && (
             <div
               role="alert"
@@ -842,13 +842,20 @@ export default function Home() {
         </div>
 
         <div className="preview-column">
-          <Disclaimer locale={locale} variant="banner" />
-          <GenericDocPreview
-            load={templateLoad}
-            fields={genericFields}
-            draftState={draftState}
-            locale={locale}
-          />
+          <div className="preview-toolbar no-print">
+            <p className="preview-toolbar-hint">
+              {manifest ? t.previewToolbarHint : t.comingSoon}
+            </p>
+            <Disclaimer locale={locale} variant="banner" />
+          </div>
+          <div className="preview-stage">
+            <GenericDocPreview
+              load={templateLoad}
+              fields={genericFields}
+              draftState={draftState}
+              locale={locale}
+            />
+          </div>
         </div>
       </main>
 

@@ -13,6 +13,21 @@ type Props = {
   onCreate: () => void;
 };
 
+function relativeTime(iso: string, locale: Locale): string {
+  const stamp = Date.parse(iso);
+  if (!Number.isFinite(stamp)) return "";
+  const deltaSec = Math.round((stamp - Date.now()) / 1000);
+  const abs = Math.abs(deltaSec);
+  const rtf = new Intl.RelativeTimeFormat(locale === "zh" ? "zh-CN" : "en", {
+    numeric: "auto",
+  });
+  if (abs < 60) return rtf.format(Math.round(deltaSec / 1), "second");
+  if (abs < 3600) return rtf.format(Math.round(deltaSec / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.round(deltaSec / 3600), "hour");
+  if (abs < 86400 * 30) return rtf.format(Math.round(deltaSec / 86400), "day");
+  return rtf.format(Math.round(deltaSec / (86400 * 30)), "month");
+}
+
 export function DocumentSidebar({
   locale,
   documents,
@@ -48,6 +63,8 @@ export function DocumentSidebar({
         ) : (
           documents.map((doc) => {
             const isActive = doc.id === activeId;
+            const when = relativeTime(doc.updated_at, locale);
+            const catalogTitle = catalogTitleFor(doc.doc_id);
             return (
               <li key={doc.id}>
                 <button
@@ -64,7 +81,7 @@ export function DocumentSidebar({
                     className="truncate text-xs"
                     style={{ color: "var(--ink-3)" }}
                   >
-                    {catalogTitleFor(doc.doc_id)}
+                    {when ? `${catalogTitle} · ${when}` : catalogTitle}
                   </div>
                 </button>
               </li>
