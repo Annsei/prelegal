@@ -182,6 +182,7 @@ export default function Home() {
   const [downloadFormat, setDownloadFormat] =
     useState<DownloadFormat>("docx");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -674,6 +675,32 @@ export default function Home() {
     }
   }, [activeDocId, downloadFormat, handleAuthError, manifest]);
 
+  // Header popovers dismiss on Escape or on a click outside their own root,
+  // which is what users expect from a menu and what keeps two open menus
+  // from stacking on top of each other.
+  const anyMenuOpen = accountMenuOpen || formatMenuOpen;
+  useEffect(() => {
+    if (!anyMenuOpen) return;
+    const closeAll = () => {
+      setAccountMenuOpen(false);
+      setFormatMenuOpen(false);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-menu-root]")) return;
+      closeAll();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeAll();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [anyMenuOpen]);
+
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
     // The effect above will redirect to /login if not.
@@ -707,33 +734,57 @@ export default function Home() {
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
             />
-            <div className="download-control flex items-stretch">
-              <label className="sr-only" htmlFor="download-format">
-                {t.downloadFormat}
-              </label>
-              <select
-                id="download-format"
-                value={downloadFormat}
-                onChange={(event) =>
-                  setDownloadFormat(event.target.value as DownloadFormat)
-                }
-                className="download-format border border-r-0 px-2 text-xs"
-                title={t.downloadFormat}
-              >
-                <option value="docx">DOCX</option>
-                <option value="pdf">PDF</option>
-              </select>
+            <div className="download-control" data-menu-root>
               <button
                 type="button"
                 onClick={() => void handleDownload()}
                 disabled={!canDownload}
-                className="btn btn-primary rounded-l-none"
+                className="download-main"
                 title={downloadTitle}
               >
                 {t.download} {downloadFormat.toUpperCase()}
               </button>
+              <button
+                type="button"
+                className="download-caret"
+                aria-label={t.downloadFormat}
+                aria-haspopup="menu"
+                aria-expanded={formatMenuOpen}
+                onClick={() => setFormatMenuOpen((open) => !open)}
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20" className="caret-icon">
+                  <path
+                    fill="currentColor"
+                    d="M5.5 7.5 10 12l4.5-4.5H5.5z"
+                  />
+                </svg>
+              </button>
+              {formatMenuOpen && (
+                <div className="download-menu" role="menu">
+                  {(["docx", "pdf"] as const).map((format) => (
+                    <button
+                      key={format}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={downloadFormat === format}
+                      className="download-menu-item"
+                      onClick={() => {
+                        setDownloadFormat(format);
+                        setFormatMenuOpen(false);
+                      }}
+                    >
+                      <span>{t.downloadFormatOptions[format]}</span>
+                      {downloadFormat === format && (
+                        <span aria-hidden="true" className="download-menu-tick">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="account-menu">
+            <div className="account-menu" data-menu-root>
               <button
                 type="button"
                 className="account-avatar"

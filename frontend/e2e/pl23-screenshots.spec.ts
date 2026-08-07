@@ -202,6 +202,15 @@ test("capture PL-23 visual evidence", async ({ page }) => {
     path: path.join(SCREENSHOT_DIR, "pl23-workspace-three-column.png"),
   });
 
+  await page.getByRole("button", { name: "下载格式" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.screenshot({
+    path: path.join(SCREENSHOT_DIR, "pl23-download-menu.png"),
+    clip: { x: 940, y: 0, width: 500, height: 180 },
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
   const firstChapter = page
     .locator('span.header_2[id="1"]')
     .locator("xpath=../..");

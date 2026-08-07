@@ -8,6 +8,10 @@ type Dictionary = {
   langToggle: string;
   download: string;
   downloadFormat: string;
+  downloadFormatOptions: {
+    docx: string;
+    pdf: string;
+  };
   downloadUnavailable: string;
   downloadIncomplete: string;
   downloadBlockedFields: string;
@@ -132,6 +136,10 @@ const zh: Dictionary = {
   langToggle: "English",
   download: "下载",
   downloadFormat: "下载格式",
+  downloadFormatOptions: {
+    docx: "DOCX · 可编辑",
+    pdf: "PDF · 便于分发",
+  },
   downloadUnavailable:
     "该文档尚无封面页字段清单，暂不支持下载，以免输出未填充的误导性文件。",
   downloadIncomplete:
@@ -271,6 +279,10 @@ const en: Dictionary = {
   langToggle: "中文",
   download: "Download",
   downloadFormat: "Download format",
+  downloadFormatOptions: {
+    docx: "DOCX · editable",
+    pdf: "PDF · easy to share",
+  },
   downloadUnavailable:
     "Download is disabled for this document — it has no cover-page field manifest yet, so the output would be an unpopulated template.",
   downloadIncomplete:

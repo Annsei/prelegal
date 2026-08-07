@@ -38,7 +38,7 @@ export function DocumentSidebar({
 }: Props) {
   const t = useDictionary(locale);
   return (
-    <aside className="sidebar-panel no-print flex h-[calc(100vh-9.5rem)] flex-col">
+    <aside className="sidebar-panel no-print flex flex-col">
       <button
         type="button"
         onClick={onCreate}

@@ -162,7 +162,7 @@ export function MNDAChat({
   const sendLabel = sending ? t.chat.sending : t.chat.send;
 
   return (
-    <div className="chat-panel flex h-[calc(100vh-12.5rem)] flex-col overflow-hidden">
+    <div className="chat-panel flex flex-col overflow-hidden">
       <div
         ref={scrollRef}
         className="chat-scroll flex-1 space-y-4 overflow-y-auto px-4 py-5"
