@@ -713,10 +713,19 @@ def _evaluate_semantic_rendering(
     document: CorpusDocument,
     manifest: dict[str, Any],
 ) -> None:
-    snapshot = _confirm_fields(
-        _fresh_snapshot(document.doc_id, manifest), manifest["fields"]
-    )
     anchor = document.anchor_field
+    pending_field = next(
+        field
+        for field in manifest["fields"]
+        if field["key"] != anchor
+        and field.get("type") != "date"
+        and not (field.get("enum") or field.get("options"))
+    )
+    pending_key = pending_field["key"]
+    snapshot = _confirm_fields(
+        _fresh_snapshot(document.doc_id, manifest),
+        [field for field in manifest["fields"] if field["key"] != pending_key],
+    )
     stable_value = snapshot.fields[anchor].value or ""
     candidate = f"{stable_value}-不得泄漏的候选"
     snapshot = _apply(
@@ -725,6 +734,20 @@ def _evaluate_semantic_rendering(
         patch_id=f"{document.doc_id}-render-conflict",
         source="llm",
         operations=[FieldPatchOperation(op="propose", key=anchor, value=candidate)],
+    )
+    pending_candidate = f"{pending_key}-不得泄漏的待确认值"
+    snapshot = _apply(
+        snapshot,
+        manifest,
+        patch_id=f"{document.doc_id}-render-pending",
+        source="llm",
+        operations=[
+            FieldPatchOperation(
+                op="propose",
+                key=pending_key,
+                value=pending_candidate,
+            )
+        ],
     )
     title = f"{document.doc_id} 确定性评测"
     model = build_export_document(
@@ -737,6 +760,11 @@ def _evaluate_semantic_rendering(
     semantic_anchor = next(field for field in model.fields if field.key == anchor)
     if semantic_anchor.value != stable_value:
         issues.append("canonical model lost stable conflict base")
+    semantic_pending = next(
+        field for field in model.fields if field.key == pending_key
+    )
+    if semantic_pending.value is not None:
+        issues.append("canonical model treated pending value as stable")
     expected_conditions = {
         field["key"]: field["key"] in required_field_keys(manifest, snapshot)
         for field in manifest["fields"]
@@ -786,47 +814,10 @@ def _evaluate_semantic_rendering(
         issues.append("DOCX leaked conflict proposal")
     if _normalize_output_text(candidate) in pdf_text:
         issues.append("PDF leaked conflict proposal")
-
-    pending_candidate = f"{stable_value}-不得泄漏的待确认值"
-    pending_snapshot = _apply(
-        _fresh_snapshot(document.doc_id, manifest),
-        manifest,
-        patch_id=f"{document.doc_id}-render-pending",
-        source="llm",
-        operations=[
-            FieldPatchOperation(
-                op="propose",
-                key=anchor,
-                value=pending_candidate,
-            )
-        ],
-    )
-    pending_model = build_export_document(
-        doc_id=document.doc_id,
-        title=title,
-        manifest=manifest,
-        snapshot=pending_snapshot,
-    )
-    pending_anchor = next(
-        field for field in pending_model.fields if field.key == anchor
-    )
-    if pending_anchor.value is not None:
-        issues.append("canonical model treated pending value as stable")
-    try:
-        pending_docx_text = _normalize_output_text(
-            _docx_text(render_docx(pending_model))
-        )
-        pending_pdf_text = _normalize_output_text(
-            _pdf_text(render_pdf(pending_model))
-        )
-    except Exception as exc:  # pragma: no cover - failure is reported with context
-        issues.append(f"pending renderer raised {type(exc).__name__}: {exc}")
-        pending_docx_text = ""
-        pending_pdf_text = ""
     normalized_pending = _normalize_output_text(pending_candidate)
-    if normalized_pending in pending_docx_text:
+    if normalized_pending in docx_text:
         issues.append("DOCX leaked pending proposal")
-    if normalized_pending in pending_pdf_text:
+    if normalized_pending in pdf_text:
         issues.append("PDF leaked pending proposal")
 
     _record(

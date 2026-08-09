@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sys
 
 import pytest
@@ -26,6 +27,10 @@ def test_quality_corpus_discovers_every_catalog_manifest():
     assert len(validated.documents) == 11
     assert validated.catalog_doc_ids == validated.manifest_doc_ids
     assert validated.catalog_doc_ids == validated.corpus_doc_ids
+
+
+def test_quality_harness_forces_litellm_offline_cost_data():
+    assert os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] == "True"
 
 
 def test_quality_corpus_rejects_catalog_manifest_or_corpus_drift():
