@@ -6,6 +6,8 @@ import copy
 import json
 import sys
 
+import pytest
+
 import quality_evals.__main__ as quality_cli
 from quality_evals.corpus import (
     CorpusValidationError,
@@ -85,6 +87,7 @@ def test_quality_command_returns_nonzero_when_a_hard_gate_triggers(monkeypatch):
     assert quality_cli.main() == 1
 
 
+@pytest.mark.contract_quality_gate
 def test_contract_quality_hard_gate_is_zero_and_report_is_serializable():
     report = run_contract_quality_evaluation()
 

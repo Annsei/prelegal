@@ -27,7 +27,7 @@ jobs:
       - name: Lint
         run: uv run ruff check .
       - name: Tests
-        run: uv run pytest
+        run: uv run pytest -m "not contract_quality_gate"
       - name: Deterministic contract-quality hard gate
         run: uv run python -m quality_evals
 
