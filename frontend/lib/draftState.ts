@@ -102,7 +102,11 @@ export function unresolvedRequiredKeys(
     .filter((field) => requiredKeys.includes(field.key))
     .filter((field) => {
       const state = snapshot.fields[field.key];
-      return state?.status !== "confirmed" || !state.value;
+      return (
+        state?.status !== "confirmed" ||
+        typeof state.value !== "string" ||
+        state.value.trim() === ""
+      );
     })
     .map((field) => field.key);
 }
@@ -118,8 +122,8 @@ function requiredFieldKeys(
   manifest: DocManifest,
   snapshot: DraftStateSnapshot | null,
 ): string[] {
-  // Mirrors backend `required_field_keys` for responsive UI; the
-  // The server download endpoint remains authoritative before file export.
+  // Mirrors backend `required_field_keys` for responsive UI. The server
+  // download endpoint remains authoritative before file export.
   const stableValues = stableFieldValues(manifest, snapshot, {});
   return manifest.fields
     .filter(

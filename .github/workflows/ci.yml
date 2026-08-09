@@ -28,6 +28,8 @@ jobs:
         run: uv run ruff check .
       - name: Tests
         run: uv run pytest
+      - name: Deterministic contract-quality hard gate
+        run: uv run python -m quality_evals
 
   frontend:
     name: Frontend (eslint + tsc + vitest)

@@ -32,4 +32,8 @@ non-API routes will return 404 — that's expected.
 ```bash
 cd backend
 uv run pytest
+uv run python -m quality_evals
 ```
+
+The second command runs the deterministic 11-document kernel, download-gate,
+and DOCX/PDF semantic evaluation used as a CI hard gate.

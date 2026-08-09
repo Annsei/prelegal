@@ -21,7 +21,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from markdown import markdown
 
-from app.draft_state import DraftStateSnapshot
+from app.draft_state import DraftStateSnapshot, required_field_keys
 
 DISCLAIMER = "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。"
 OPTIONAL_DEFAULT = "／（适用标准条款默认约定）"
@@ -37,11 +37,45 @@ class ExportTemplateError(ValueError):
 
 
 @dataclass(frozen=True)
+class ExportField:
+    """One manifest field as represented in the canonical export model."""
+
+    key: str
+    label: str
+    value: str | None
+    rendered_value: str
+    status: str
+    required: bool
+
+
+@dataclass(frozen=True)
+class ExportConditionResult:
+    """The backend-authoritative result of one manifest required_when rule."""
+
+    field_key: str
+    active: bool
+
+
+@dataclass(frozen=True)
+class ExportBlock:
+    """An ordered, normalized text block shared by both renderers."""
+
+    section: str
+    order: int
+    kind: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ExportDocument:
-    """One normalized HTML model consumed by every file renderer."""
+    """One canonical semantic model consumed by every file renderer."""
 
     doc_id: str
     title: str
+    fields: tuple[ExportField, ...]
+    condition_results: tuple[ExportConditionResult, ...]
+    blocks: tuple[ExportBlock, ...]
+    disclaimer: str
     html: str
 
 
@@ -69,13 +103,8 @@ def build_export_document(
     cover_markdown, terms_markdown = _load_template_markdown(doc_id)
     if not cover_markdown:
         cover_markdown = _manifest_cover_markdown(title, manifest)
-    confirmed = {
-        key: field.value.strip()
-        for key, field in snapshot.fields.items()
-        if field.status == "confirmed"
-        and isinstance(field.value, str)
-        and field.value.strip()
-    }
+    confirmed = _stable_confirmed_values(snapshot)
+    active_required = set(required_field_keys(manifest, snapshot))
     lookup = _field_lookup(manifest)
     cover_html = _render_markdown_section(
         cover_markdown,
@@ -107,7 +136,92 @@ def build_export_document(
 </main>
 </body>
 </html>"""
-    return ExportDocument(doc_id=doc_id, title=title, html=full_html)
+    fields = tuple(
+        _canonical_field(field, snapshot, confirmed, active_required)
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict) and isinstance(field.get("key"), str)
+    )
+    condition_results = tuple(
+        ExportConditionResult(
+            field_key=field["key"],
+            active=field["key"] in active_required,
+        )
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict)
+        and isinstance(field.get("key"), str)
+        and field.get("required_when") is not None
+    )
+    return ExportDocument(
+        doc_id=doc_id,
+        title=title,
+        fields=fields,
+        condition_results=condition_results,
+        blocks=_canonical_blocks(full_html),
+        disclaimer=DISCLAIMER,
+        html=full_html,
+    )
+
+
+def _stable_confirmed_values(snapshot: DraftStateSnapshot) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for key, field in snapshot.fields.items():
+        stable = field.status == "confirmed" or (
+            field.status == "conflict" and field.confirmed_at is not None
+        )
+        if stable and isinstance(field.value, str) and field.value.strip():
+            values[key] = field.value.strip()
+    return values
+
+
+def _canonical_field(
+    field_def: dict[str, Any],
+    snapshot: DraftStateSnapshot,
+    confirmed: dict[str, str],
+    active_required: set[str],
+) -> ExportField:
+    key = field_def["key"]
+    label = field_def.get("label")
+    display_label = label.get("zh") if isinstance(label, dict) else key
+    state = snapshot.fields.get(key)
+    value = confirmed.get(key)
+    return ExportField(
+        key=key,
+        label=display_label or key,
+        value=value,
+        rendered_value=value or OPTIONAL_DEFAULT,
+        status=state.status if state is not None else "missing",
+        required=key in active_required,
+    )
+
+
+def _canonical_blocks(source_html: str) -> tuple[ExportBlock, ...]:
+    soup = BeautifulSoup(source_html, "html.parser")
+    blocks: list[ExportBlock] = []
+    order = 0
+    for section_name, class_name in (
+        ("cover_page", "cover-page"),
+        ("standard_terms", "standard-terms"),
+        ("disclaimer", "export-disclaimer"),
+    ):
+        section = soup.find("section", class_=class_name)
+        if section is None:
+            continue
+        for node in section.find_all(recursive=False):
+            if not isinstance(node, Tag):
+                continue
+            text = " ".join(node.stripped_strings)
+            if not text:
+                continue
+            blocks.append(
+                ExportBlock(
+                    section=section_name,
+                    order=order,
+                    kind=node.name,
+                    text=text,
+                )
+            )
+            order += 1
+    return tuple(blocks)
 
 
 def render_docx(model: ExportDocument) -> bytes:

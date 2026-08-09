@@ -549,7 +549,8 @@ def unresolved_required_field_keys(
         for key in required_field_keys(manifest, snapshot)
         if snapshot.fields.get(key) is None
         or snapshot.fields[key].status != "confirmed"
-        or not snapshot.fields[key].value
+        or not isinstance(snapshot.fields[key].value, str)
+        or not snapshot.fields[key].value.strip()
     ]
 
 
@@ -678,7 +679,6 @@ def _validate_patch(
         if (
             operation.op in {"propose", "confirm"}
             and operation.value is not None
-            and normalized_value
         ):
             errors.extend(_validate_value(operation.key, operation.value, field_def))
         elif operation.op == "propose" and operation.value is None:

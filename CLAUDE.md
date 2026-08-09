@@ -82,6 +82,8 @@ backend/         FastAPI service (uv project)
                    templates.py (GET /api/templates/{doc_id}),
                    documents.py (per-user CRUD), health.py
   tests/           pytest
+  quality_evals/   deterministic corpus and report for all 11 manifests;
+                   enforces kernel, download, and DOCX/PDF semantic gates
 frontend/        Next.js 15 (static export, output: "export")
   app/page.tsx     Legal-agreement generator with sidebar / editor / preview
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
@@ -193,6 +195,7 @@ cd frontend && NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ### Tests & lint
 
 - Backend: `cd backend && uv run pytest`; lint: `uv run ruff check .`
+- Contract quality hard gate: `cd backend && uv run python -m quality_evals`
 - Frontend unit: `cd frontend && npm test -- --run`
 - Frontend lint / types: `cd frontend && npm run lint && npx tsc --noEmit`
 - Frontend e2e: `cd frontend && npx playwright test` (CI runs `npm run test:e2e:ci` against the production build)
