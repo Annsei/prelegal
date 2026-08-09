@@ -9,10 +9,16 @@ import os
 import re
 import tempfile
 from contextlib import contextmanager
+from datetime import date
 from io import BytesIO
 from typing import Any
 
 from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
 
@@ -26,9 +32,14 @@ from app.draft_state import (
     snapshot_from_document_state,
     unresolved_required_field_keys,
 )
-from app.export import DISCLAIMER, build_export_document, render_docx, render_pdf
+from app.export import ExportDocument, build_export_document
 from app.manifests import load_manifest
-from quality_evals.corpus import CorpusDocument, load_corpus, validate_corpus
+from quality_evals.corpus import (
+    CorpusDocument,
+    CorpusValidationError,
+    load_corpus,
+    validate_corpus,
+)
 from quality_evals.report import QualityCaseResult, QualityReport
 
 _FIXED_AT = "2026-01-15T00:00:00+00:00"
@@ -43,24 +54,33 @@ _SEMANTIC_METRIC = "cross_format_semantic_mismatch_count"
 
 def run_contract_quality_evaluation() -> QualityReport:
     validated = validate_corpus(load_corpus())
-    report = QualityReport.empty()
+    report = QualityReport.empty(expected_doc_ids=validated.corpus_doc_ids)
 
     for document in validated.documents:
         manifest = _manifest(document.doc_id)
         _evaluate_kernel(report, document, manifest)
-        _evaluate_semantic_rendering(report, document, manifest)
 
     with _evaluation_client() as (client, get_conn):
         headers = _register(client)
         for document in validated.documents:
-            _evaluate_routes(
-                report,
-                client,
-                get_conn,
-                headers,
-                document,
-                _manifest(document.doc_id),
-            )
+            try:
+                _evaluate_routes(
+                    report,
+                    client,
+                    get_conn,
+                    headers,
+                    document,
+                    _manifest(document.doc_id),
+                )
+            except Exception as exc:  # one bad setup must fail, not abort, the gate
+                _record(
+                    report,
+                    document.doc_id,
+                    "route-evaluation:setup",
+                    False,
+                    expected="route evaluation completed",
+                    actual=f"{type(exc).__name__}: {exc}",
+                )
 
     return report
 
@@ -124,6 +144,7 @@ def _evaluate_kernel(
     _evaluate_unknown_field(report, document, manifest)
     _evaluate_conflicts(report, document, manifest)
     _evaluate_idempotency(report, document, manifest)
+    _evaluate_semantic_projection(report, document, manifest)
 
 
 def _evaluate_conditions(
@@ -139,76 +160,103 @@ def _evaluate_conditions(
         conditions = (
             raw_condition if isinstance(raw_condition, list) else [raw_condition]
         )
+        case_prefix = f"required-when:{dependent['key']}"
+        matching_values = _condition_witness_values(manifest, conditions)
+
+        unconfirmed = _fresh_snapshot(document.doc_id, manifest)
+        active_unconfirmed = dependent["key"] in required_field_keys(
+            manifest, unconfirmed
+        )
+        _record(
+            report,
+            document.doc_id,
+            f"{case_prefix}:drivers-unconfirmed",
+            not active_unconfirmed,
+            field_key=dependent["key"],
+            expected="inactive until every driver is confirmed",
+            actual=f"active={active_unconfirmed}",
+            metric=_FALSE_POSITIVE_METRIC,
+        )
+
+        matched = _confirm_values(
+            _fresh_snapshot(document.doc_id, manifest),
+            manifest,
+            matching_values,
+        )
+        matched_unresolved = unresolved_required_field_keys(manifest, matched)
+        _record(
+            report,
+            document.doc_id,
+            f"{case_prefix}:all-matched-missing",
+            dependent["key"] in matched_unresolved,
+            field_key=dependent["key"],
+            expected="dependent unresolved when all conditions match",
+            actual=repr(matched_unresolved),
+            metric=_FALSE_NEGATIVE_METRIC,
+        )
+
+        resolved = _confirm_values(
+            matched,
+            manifest,
+            {dependent["key"]: _valid_value(fields[dependent["key"]])},
+        )
+        resolved_keys = unresolved_required_field_keys(manifest, resolved)
+        _record(
+            report,
+            document.doc_id,
+            f"{case_prefix}:all-matched-confirmed",
+            dependent["key"] not in resolved_keys,
+            field_key=dependent["key"],
+            expected="dependent resolved",
+            actual=repr(resolved_keys),
+            metric=_FALSE_POSITIVE_METRIC,
+        )
+
         for index, condition in enumerate(conditions):
             driver_key = condition["field"]
-            case_prefix = f"required-when:{dependent['key']}:{index}"
-
-            unconfirmed = _fresh_snapshot(document.doc_id, manifest)
-            active_unconfirmed = dependent["key"] in required_field_keys(
-                manifest, unconfirmed
-            )
-            _record(
-                report,
-                document.doc_id,
-                f"{case_prefix}:driver-unconfirmed",
-                not active_unconfirmed,
-                field_key=dependent["key"],
-                expected="inactive until driver is confirmed",
-                actual=f"active={active_unconfirmed}",
-                metric=_FALSE_POSITIVE_METRIC,
-            )
-
-            matched = _confirm_values(
+            unconfirmed_values = {
+                key: value
+                for key, value in matching_values.items()
+                if key != driver_key
+            }
+            one_unconfirmed = _confirm_values(
                 _fresh_snapshot(document.doc_id, manifest),
                 manifest,
-                {driver_key: _matching_value(condition)},
+                unconfirmed_values,
             )
-            matched_unresolved = unresolved_required_field_keys(manifest, matched)
+            unconfirmed_keys = required_field_keys(manifest, one_unconfirmed)
             _record(
                 report,
                 document.doc_id,
-                f"{case_prefix}:matched-missing",
-                dependent["key"] in matched_unresolved,
+                f"{case_prefix}:{index}:driver-unconfirmed",
+                dependent["key"] not in unconfirmed_keys,
                 field_key=dependent["key"],
-                expected="dependent unresolved",
-                actual=repr(matched_unresolved),
-                metric=_FALSE_NEGATIVE_METRIC,
-            )
-
-            resolved = _confirm_values(
-                matched,
-                manifest,
-                {dependent["key"]: _valid_value(fields[dependent["key"]])},
-            )
-            resolved_keys = unresolved_required_field_keys(manifest, resolved)
-            _record(
-                report,
-                document.doc_id,
-                f"{case_prefix}:matched-confirmed",
-                dependent["key"] not in resolved_keys,
-                field_key=dependent["key"],
-                expected="dependent resolved",
-                actual=repr(resolved_keys),
+                expected="dependent not required",
+                actual=repr(unconfirmed_keys),
                 metric=_FALSE_POSITIVE_METRIC,
             )
 
-            nonmatching = _fresh_snapshot(document.doc_id, manifest)
-            nonmatch_value = _nonmatching_value(condition)
-            if nonmatch_value is not None:
-                nonmatching = _confirm_values(
-                    nonmatching,
-                    manifest,
-                    {driver_key: nonmatch_value},
-                )
-            nonmatching_keys = required_field_keys(manifest, nonmatching)
+            if (condition.get("op") or "equals") == "exists":
+                continue
+            negative_values = _condition_witness_values(
+                manifest,
+                conditions,
+                failing_index=index,
+            )
+            one_mismatch = _confirm_values(
+                _fresh_snapshot(document.doc_id, manifest),
+                manifest,
+                negative_values,
+            )
+            mismatch_keys = required_field_keys(manifest, one_mismatch)
             _record(
                 report,
                 document.doc_id,
-                f"{case_prefix}:driver-nonmatching",
-                dependent["key"] not in nonmatching_keys,
+                f"{case_prefix}:{index}:driver-mismatched",
+                dependent["key"] not in mismatch_keys,
                 field_key=dependent["key"],
                 expected="dependent not required",
-                actual=repr(nonmatching_keys),
+                actual=repr(mismatch_keys),
                 metric=_FALSE_POSITIVE_METRIC,
             )
 
@@ -327,8 +375,7 @@ def _evaluate_conflicts(
 ) -> None:
     anchor = document.anchor_field
     field_def = _field_def(manifest, anchor)
-    value_a = _valid_value(field_def)
-    value_b = f"{value_a}-候选变更"
+    value_a, value_b = _distinct_valid_values(field_def)
     confirmed = _confirm_values(
         _fresh_snapshot(document.doc_id, manifest), manifest, {anchor: value_a}
     )
@@ -478,6 +525,72 @@ def _evaluate_idempotency(
     )
 
 
+def _evaluate_semantic_projection(
+    report: QualityReport,
+    document: CorpusDocument,
+    manifest: dict[str, Any],
+) -> None:
+    field = _conflict_field(manifest)
+    key = field["key"]
+    base_value, candidate = _distinct_valid_values(field)
+
+    confirmed = _confirm_values(
+        _fresh_snapshot(document.doc_id, manifest),
+        manifest,
+        {key: base_value},
+    )
+    conflict = _apply(
+        confirmed,
+        manifest,
+        patch_id=f"{document.doc_id}-semantic-conflict",
+        source="llm",
+        operations=[FieldPatchOperation(op="propose", key=key, value=candidate)],
+    )
+    conflict_model = build_export_document(
+        doc_id=document.doc_id,
+        title=f"{document.doc_id}-conflict-projection",
+        manifest=manifest,
+        snapshot=conflict,
+    )
+    normalized_conflict_html = _normalize_output_text(conflict_model.html)
+    _record(
+        report,
+        document.doc_id,
+        "cross-format-semantics:conflict-projection",
+        _normalize_output_text(base_value) in normalized_conflict_html
+        and _normalize_output_text(candidate) not in normalized_conflict_html,
+        field_key=key,
+        expected="stable base present and conflict candidate absent",
+        actual=f"base={base_value!r}, candidate={candidate!r}",
+        metric=_SEMANTIC_METRIC,
+    )
+
+    pending = _apply(
+        _fresh_snapshot(document.doc_id, manifest),
+        manifest,
+        patch_id=f"{document.doc_id}-semantic-pending",
+        source="llm",
+        operations=[FieldPatchOperation(op="propose", key=key, value=candidate)],
+    )
+    pending_model = build_export_document(
+        doc_id=document.doc_id,
+        title=f"{document.doc_id}-pending-projection",
+        manifest=manifest,
+        snapshot=pending,
+    )
+    _record(
+        report,
+        document.doc_id,
+        "cross-format-semantics:pending-projection",
+        _normalize_output_text(candidate)
+        not in _normalize_output_text(pending_model.html),
+        field_key=key,
+        expected="pending candidate absent",
+        actual=f"candidate={candidate!r}",
+        metric=_SEMANTIC_METRIC,
+    )
+
+
 def _evaluate_routes(
     report: QualityReport,
     client: TestClient,
@@ -487,8 +600,15 @@ def _evaluate_routes(
     manifest: dict[str, Any],
 ) -> None:
     complete = _create_document(client, headers, document.doc_id, "complete")
-    _api_confirm_fields(
+    complete_snapshot = _api_confirm_fields(
         client, headers, complete["id"], manifest, manifest["fields"], 0
+    )
+    complete_snapshot, forbidden_values = _add_nonblocking_candidates(
+        client,
+        headers,
+        complete["id"],
+        manifest,
+        complete_snapshot,
     )
     readiness = client.get(
         f"/api/documents/{complete['id']}/download-readiness",
@@ -506,6 +626,33 @@ def _evaluate_routes(
         actual=f"HTTP {readiness.status_code}, body={readiness_body!r}",
         metric=_FALSE_POSITIVE_METRIC,
     )
+    model = build_export_document(
+        doc_id=document.doc_id,
+        title=complete["title"],
+        manifest=manifest,
+        snapshot=DraftStateSnapshot.model_validate(complete_snapshot),
+    )
+    for renderer in ("docx", "pdf"):
+        response = client.get(
+            f"/api/documents/{complete['id']}/download?format={renderer}",
+            headers=headers,
+        )
+        issues = _semantic_response_issues(
+            renderer,
+            response,
+            model,
+            forbidden_values=forbidden_values,
+        )
+        _record(
+            report,
+            document.doc_id,
+            f"cross-format-semantics:{renderer}",
+            not issues,
+            field_key=document.anchor_field,
+            expected="actual download matches the authoritative export model",
+            actual="; ".join(issues) if issues else "matched",
+            metric=_SEMANTIC_METRIC,
+        )
     _evaluate_invalid_downloads(
         report, client, get_conn, headers, document, manifest
     )
@@ -565,57 +712,100 @@ def _evaluate_invalid_downloads(
         )
 
     conflict = _create_document(client, headers, document.doc_id, "conflict")
-    confirmed = _api_confirm_fields(
-        client, headers, conflict["id"], manifest, manifest["fields"], 0
-    )
-    conflict_response = _api_patch(
-        client,
-        headers,
-        conflict["id"],
-        patch_id=f"{document.doc_id}-download-conflict",
-        base_revision=confirmed["revision"],
-        source="llm",
-        operations=[
-            {
-                "op": "propose",
-                "key": anchor,
-                "value": f"{_valid_value(_field_def(manifest, anchor))}-冲突候选",
-            }
-        ],
-    )
-    if conflict_response.status_code == 200:
+    try:
+        confirmed = _api_confirm_fields(
+            client, headers, conflict["id"], manifest, manifest["fields"], 0
+        )
+    except RuntimeError as exc:
+        _record(
+            report,
+            document.doc_id,
+            "invalid-downloads:conflict-setup",
+            False,
+            field_key=anchor,
+            expected="confirmation patch 200",
+            actual=str(exc),
+        )
+        confirmed = None
+    if confirmed is not None:
+        base_value, conflict_value = _distinct_valid_values(
+            _field_def(manifest, anchor)
+        )
+        current_value = confirmed["fields"][anchor].get("value")
+        conflict_value = conflict_value if current_value == base_value else base_value
+        conflict_response = _api_patch(
+            client,
+            headers,
+            conflict["id"],
+            patch_id=f"{document.doc_id}-download-conflict",
+            base_revision=confirmed["revision"],
+            source="llm",
+            operations=[
+                {
+                    "op": "propose",
+                    "key": anchor,
+                    "value": conflict_value,
+                }
+            ],
+        )
+        if conflict_response.status_code == 200:
+            _assert_blocked_formats(
+                report,
+                client,
+                headers,
+                document.doc_id,
+                conflict["id"],
+                "required-conflict",
+                anchor,
+            )
+        else:
+            _record(
+                report,
+                document.doc_id,
+                "invalid-downloads:conflict-setup",
+                False,
+                field_key=anchor,
+                expected="patch 200",
+                actual=f"HTTP {conflict_response.status_code}",
+            )
+
+    whitespace = _create_document(client, headers, document.doc_id, "whitespace")
+    try:
+        whitespace_snapshot = _api_confirm_fields(
+            client, headers, whitespace["id"], manifest, manifest["fields"], 0
+        )
+    except RuntimeError as exc:
+        _record(
+            report,
+            document.doc_id,
+            "invalid-downloads:whitespace-setup",
+            False,
+            field_key=anchor,
+            expected="confirmation patch 200",
+            actual=str(exc),
+        )
+    else:
+        whitespace_snapshot["fields"][anchor]["value"] = "   "
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE documents SET state_json = ? WHERE id = ?",
+                (
+                    json.dumps(
+                        {"draft_state": whitespace_snapshot},
+                        ensure_ascii=False,
+                    ),
+                    whitespace["id"],
+                ),
+            )
         _assert_blocked_formats(
             report,
             client,
             headers,
             document.doc_id,
-            conflict["id"],
-            "required-conflict",
+            whitespace["id"],
+            "whitespace",
             anchor,
         )
-
-    whitespace = _create_document(client, headers, document.doc_id, "whitespace")
-    whitespace_snapshot = _api_confirm_fields(
-        client, headers, whitespace["id"], manifest, manifest["fields"], 0
-    )
-    whitespace_snapshot["fields"][anchor]["value"] = "   "
-    with get_conn() as conn:
-        conn.execute(
-            "UPDATE documents SET state_json = ? WHERE id = ?",
-            (
-                json.dumps({"draft_state": whitespace_snapshot}, ensure_ascii=False),
-                whitespace["id"],
-            ),
-        )
-    _assert_blocked_formats(
-        report,
-        client,
-        headers,
-        document.doc_id,
-        whitespace["id"],
-        "whitespace",
-        anchor,
-    )
 
     for dependent in manifest["fields"]:
         raw_condition = dependent.get("required_when")
@@ -624,19 +814,19 @@ def _evaluate_invalid_downloads(
         conditions = (
             raw_condition if isinstance(raw_condition, list) else [raw_condition]
         )
-        for index, condition in enumerate(conditions):
-            conditional = _create_document(
-                client,
-                headers,
-                document.doc_id,
-                f"conditional-{dependent['key']}-{index}",
-            )
-            overrides = {condition["field"]: _matching_value(condition)}
-            fields = [
-                field
-                for field in manifest["fields"]
-                if field["key"] != dependent["key"]
-            ]
+        conditional = _create_document(
+            client,
+            headers,
+            document.doc_id,
+            f"conditional-{dependent['key']}",
+        )
+        overrides = _condition_witness_values(manifest, conditions)
+        fields = [
+            field
+            for field in manifest["fields"]
+            if field["key"] != dependent["key"]
+        ]
+        try:
             _api_confirm_fields(
                 client,
                 headers,
@@ -646,13 +836,24 @@ def _evaluate_invalid_downloads(
                 0,
                 overrides=overrides,
             )
+        except RuntimeError as exc:
+            _record(
+                report,
+                document.doc_id,
+                f"invalid-downloads:required-when-{dependent['key']}-setup",
+                False,
+                field_key=dependent["key"],
+                expected="confirmation patch 200",
+                actual=str(exc),
+            )
+        else:
             _assert_blocked_formats(
                 report,
                 client,
                 headers,
                 document.doc_id,
                 conditional["id"],
-                f"required-when-{dependent['key']}-{index}",
+                f"required-when-{dependent['key']}",
                 dependent["key"],
             )
 
@@ -708,128 +909,161 @@ def _evaluate_public_put(
     )
 
 
-def _evaluate_semantic_rendering(
-    report: QualityReport,
-    document: CorpusDocument,
+def _add_nonblocking_candidates(
+    client: TestClient,
+    headers: dict[str, str],
+    document_id: int,
     manifest: dict[str, Any],
-) -> None:
-    anchor = document.anchor_field
-    pending_field = next(
-        field
-        for field in manifest["fields"]
-        if field["key"] != anchor
-        and field.get("type") != "date"
-        and not (field.get("enum") or field.get("options"))
-    )
-    pending_key = pending_field["key"]
-    snapshot = _confirm_fields(
-        _fresh_snapshot(document.doc_id, manifest),
-        [field for field in manifest["fields"] if field["key"] != pending_key],
-    )
-    stable_value = snapshot.fields[anchor].value or ""
-    candidate = f"{stable_value}-不得泄漏的候选"
-    snapshot = _apply(
-        snapshot,
-        manifest,
-        patch_id=f"{document.doc_id}-render-conflict",
-        source="llm",
-        operations=[FieldPatchOperation(op="propose", key=anchor, value=candidate)],
-    )
-    pending_candidate = f"{pending_key}-不得泄漏的待确认值"
-    snapshot = _apply(
-        snapshot,
-        manifest,
-        patch_id=f"{document.doc_id}-render-pending",
-        source="llm",
-        operations=[
-            FieldPatchOperation(
-                op="propose",
-                key=pending_key,
-                value=pending_candidate,
+    snapshot: dict[str, Any],
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    eligible: list[tuple[dict[str, Any], tuple[str, str]]] = []
+    for field in manifest["fields"]:
+        if field.get("required") or field.get("required_when") is not None:
+            continue
+        try:
+            values = _distinct_valid_values(field)
+        except CorpusValidationError:
+            continue
+        eligible.append((field, values))
+
+    forbidden: list[str] = []
+    if eligible:
+        field, values = eligible[0]
+        current = snapshot["fields"][field["key"]].get("value")
+        candidate = values[1] if current == values[0] else values[0]
+        response = _api_patch(
+            client,
+            headers,
+            document_id,
+            patch_id=f"semantic-conflict-{document_id}",
+            base_revision=snapshot["revision"],
+            source="llm",
+            operations=[
+                {"op": "propose", "key": field["key"], "value": candidate}
+            ],
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Semantic conflict setup failed: HTTP {response.status_code}"
             )
-        ],
-    )
-    title = f"{document.doc_id} 确定性评测"
-    model = build_export_document(
-        doc_id=document.doc_id,
-        title=title,
-        manifest=manifest,
-        snapshot=snapshot,
-    )
+        snapshot = response.json()["snapshot"]
+        forbidden.append(candidate)
+
+    if len(eligible) > 1:
+        field, values = eligible[1]
+        clear_response = _api_patch(
+            client,
+            headers,
+            document_id,
+            patch_id=f"semantic-clear-{document_id}",
+            base_revision=snapshot["revision"],
+            source="form",
+            operations=[{"op": "confirm", "key": field["key"], "value": ""}],
+        )
+        if clear_response.status_code != 200:
+            raise RuntimeError(
+                f"Semantic pending clear failed: HTTP {clear_response.status_code}"
+            )
+        snapshot = clear_response.json()["snapshot"]
+        candidate = values[0]
+        pending_response = _api_patch(
+            client,
+            headers,
+            document_id,
+            patch_id=f"semantic-pending-{document_id}",
+            base_revision=snapshot["revision"],
+            source="llm",
+            operations=[
+                {"op": "propose", "key": field["key"], "value": candidate}
+            ],
+        )
+        if pending_response.status_code != 200:
+            raise RuntimeError(
+                f"Semantic pending setup failed: HTTP {pending_response.status_code}"
+            )
+        snapshot = pending_response.json()["snapshot"]
+        forbidden.append(candidate)
+
+    return snapshot, tuple(forbidden)
+
+
+def _semantic_response_issues(
+    renderer: str,
+    response: Any,
+    model: ExportDocument,
+    *,
+    forbidden_values: tuple[str, ...],
+) -> list[str]:
     issues: list[str] = []
-    semantic_anchor = next(field for field in model.fields if field.key == anchor)
-    if semantic_anchor.value != stable_value:
-        issues.append("canonical model lost stable conflict base")
-    semantic_pending = next(
-        field for field in model.fields if field.key == pending_key
+    status_code = getattr(response, "status_code", None)
+    if status_code != 200:
+        return [f"download returned HTTP {status_code}"]
+
+    payload = getattr(response, "content", b"")
+    headers = getattr(response, "headers", {})
+    content_type = str(headers.get("content-type", "")).lower()
+    disposition = str(headers.get("content-disposition", ""))
+    expected_type = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if renderer == "docx"
+        else "application/pdf"
     )
-    if semantic_pending.value is not None:
-        issues.append("canonical model treated pending value as stable")
-    expected_conditions = {
-        field["key"]: field["key"] in required_field_keys(manifest, snapshot)
-        for field in manifest["fields"]
-        if field.get("required_when") is not None
-    }
-    actual_conditions = {
-        result.field_key: result.active for result in model.condition_results
-    }
-    if actual_conditions != expected_conditions:
-        issues.append("required_when condition results differ")
-    if [block.order for block in model.blocks] != list(range(len(model.blocks))):
-        issues.append("canonical block order is not contiguous")
-    if not any(block.section == "standard_terms" for block in model.blocks):
-        issues.append("standard terms absent from canonical blocks")
-    if model.disclaimer != DISCLAIMER:
-        issues.append("canonical disclaimer differs")
+    if not content_type.startswith(expected_type):
+        issues.append(f"wrong content type {content_type!r}")
+    if (
+        "attachment" not in disposition.lower()
+        or "filename*=UTF-8''" not in disposition
+        or f".{renderer}" not in disposition.lower()
+    ):
+        issues.append("invalid Content-Disposition")
+
+    signature = b"PK" if renderer == "docx" else b"%PDF"
+    if not isinstance(payload, bytes) or not payload.startswith(signature):
+        issues.append(f"{renderer.upper()} signature missing")
+        return issues
 
     try:
-        docx_payload = render_docx(model)
-        pdf_payload = render_pdf(model)
-    except Exception as exc:  # pragma: no cover - failure is reported with context
-        issues.append(f"renderer raised {type(exc).__name__}: {exc}")
-        docx_payload = b""
-        pdf_payload = b""
+        text = _docx_text(payload) if renderer == "docx" else _pdf_text(payload)
+    except Exception as exc:
+        issues.append(f"{renderer.upper()} parse failed: {type(exc).__name__}")
+        return issues
 
-    if not docx_payload.startswith(b"PK"):
-        issues.append("DOCX signature missing")
-    if not pdf_payload.startswith(b"%PDF"):
-        issues.append("PDF signature missing")
-
-    docx_text = _normalize_output_text(_docx_text(docx_payload)) if docx_payload else ""
-    pdf_text = _normalize_output_text(_pdf_text(pdf_payload)) if pdf_payload else ""
+    normalized_text = _normalize_output_text(text)
+    if _normalize_output_text(model.title) not in normalized_text:
+        issues.append("rendered title missing")
     for field in model.fields:
-        if field.value is None:
-            continue
-        normalized = _normalize_output_text(field.value)
-        if normalized not in docx_text:
-            issues.append(f"DOCX missing field {field.key}")
-        if normalized not in pdf_text:
-            issues.append(f"PDF missing field {field.key}")
-    normalized_disclaimer = _normalize_output_text(DISCLAIMER)
-    if normalized_disclaimer not in docx_text:
-        issues.append("DOCX disclaimer missing")
-    if normalized_disclaimer not in pdf_text:
-        issues.append("PDF disclaimer missing")
-    if _normalize_output_text(candidate) in docx_text:
-        issues.append("DOCX leaked conflict proposal")
-    if _normalize_output_text(candidate) in pdf_text:
-        issues.append("PDF leaked conflict proposal")
-    normalized_pending = _normalize_output_text(pending_candidate)
-    if normalized_pending in docx_text:
-        issues.append("DOCX leaked pending proposal")
-    if normalized_pending in pdf_text:
-        issues.append("PDF leaked pending proposal")
+        if field.value and _normalize_output_text(field.value) not in normalized_text:
+            issues.append(f"rendered field missing: {field.key}")
+    if _normalize_output_text(model.disclaimer) not in normalized_text:
+        issues.append("rendered disclaimer missing")
 
-    _record(
-        report,
-        document.doc_id,
-        "cross-format-semantics",
-        not issues,
-        field_key=anchor,
-        expected="one canonical model with no renderer mismatch",
-        actual="; ".join(issues) if issues else "matched",
-        metric=_SEMANTIC_METRIC,
-    )
+    standard_blocks = [
+        block for block in model.blocks if block.section == "standard_terms"
+    ]
+    if not standard_blocks:
+        issues.append("standard terms absent from semantic projection")
+    elif not any(
+        _normalize_output_text(block.text) in normalized_text
+        for block in standard_blocks
+        if _normalize_output_text(block.text)
+    ):
+        issues.append("standard terms content missing")
+    cursor = 0
+    for block in model.blocks:
+        expected = _normalize_output_text(block.text)
+        if not expected:
+            continue
+        position = normalized_text.find(expected, cursor)
+        if position < 0:
+            issues.append(
+                f"rendered block missing or out of order: {block.section}:{block.order}"
+            )
+            continue
+        cursor = position + len(expected)
+    for value in forbidden_values:
+        if _normalize_output_text(value) in normalized_text:
+            issues.append(f"unconfirmed candidate leaked: {value}")
+    return issues
 
 
 def _assert_blocked_formats(
@@ -894,6 +1128,8 @@ def _confirm_values(
     manifest: dict[str, Any],
     values: dict[str, str],
 ) -> DraftStateSnapshot:
+    if not values:
+        return snapshot
     return _apply(
         snapshot,
         manifest,
@@ -953,44 +1189,155 @@ def _rejected_patch(
 
 
 def _valid_value(field: dict[str, Any]) -> str:
+    candidates = _valid_value_candidates(field, [])
+    if not candidates:
+        raise CorpusValidationError(
+            "field_witness_unavailable",
+            f"No valid deterministic value exists for {field.get('key')!r}.",
+        )
+    return candidates[0]
+
+
+def _distinct_valid_values(field: dict[str, Any]) -> tuple[str, str]:
+    candidates = _valid_value_candidates(field, [])
+    if len(candidates) < 2:
+        raise CorpusValidationError(
+            "field_witness_unavailable",
+            f"Two distinct valid values are required for {field.get('key')!r}.",
+        )
+    return candidates[0], candidates[1]
+
+
+def _condition_witness_values(
+    manifest: dict[str, Any],
+    conditions: list[dict[str, Any]],
+    *,
+    failing_index: int | None = None,
+) -> dict[str, str]:
+    fields = {
+        field["key"]: field
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict) and isinstance(field.get("key"), str)
+    }
+    grouped: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for index, condition in enumerate(conditions):
+        key = condition.get("field")
+        if not isinstance(key, str) or key not in fields:
+            raise CorpusValidationError(
+                "unknown_condition_field",
+                f"Condition references unknown field {key!r}.",
+            )
+        grouped.setdefault(key, []).append((index, condition))
+
+    assignments: dict[str, str] = {}
+    for key, entries in grouped.items():
+        field = fields[key]
+        candidates = _valid_value_candidates(
+            field,
+            [condition for _index, condition in entries],
+        )
+        selected = next(
+            (
+                candidate
+                for candidate in candidates
+                if all(
+                    _condition_matches_value(condition, candidate)
+                    != (index == failing_index)
+                    for index, condition in entries
+                )
+            ),
+            None,
+        )
+        if selected is None:
+            mode = "negative" if failing_index is not None else "positive"
+            raise CorpusValidationError(
+                "condition_witness_unavailable",
+                "No "
+                f"{mode} condition witness exists for "
+                f"{manifest.get('doc_id')}:{key}.",
+            )
+        assignments[key] = selected
+    return assignments
+
+
+def _valid_value_candidates(
+    field: dict[str, Any],
+    conditions: list[dict[str, Any]],
+) -> list[str]:
     choices = field.get("enum") or field.get("options")
-    if isinstance(choices, list) and choices:
-        return str(choices[0])
+    constrained = isinstance(choices, list) and bool(choices)
+    operands: list[str] = []
+    for condition in conditions:
+        value = condition.get("value")
+        if isinstance(value, str):
+            operands.append(value)
+        values = condition.get("values")
+        if isinstance(values, list):
+            operands.extend(value for value in values if isinstance(value, str))
+
+    raw_candidates: list[str] = []
+    if constrained:
+        raw_candidates.extend(value for value in choices if isinstance(value, str))
+    raw_candidates.extend(operands)
     example = field.get("example")
-    if isinstance(example, str) and example.strip():
-        return example.strip()
+    if isinstance(example, str):
+        raw_candidates.append(example)
     if field.get("type") == "date":
-        return "2026-01-15"
-    return f"{field['key']}确定性测试值"
+        raw_candidates.extend(("2026-01-15", "2026-01-16", "2026-01-17"))
+    else:
+        key = field.get("key") or "字段"
+        raw_candidates.extend((f"{key}确定性测试值", f"{key}确定性候选值"))
+
+    candidates: list[str] = []
+    for raw in raw_candidates:
+        value = raw.strip()
+        if not value or value in candidates:
+            continue
+        if constrained and value not in choices:
+            continue
+        if field.get("type") == "date":
+            try:
+                date.fromisoformat(value)
+            except ValueError:
+                continue
+        candidates.append(value)
+    return candidates
 
 
-def _matching_value(condition: dict[str, Any]) -> str:
-    op = condition.get("op") or "equals"
-    if op in {"equals", "not_equals"}:
-        if op == "equals":
-            return str(condition.get("value", ""))
-        return "确定性非匹配基值"
-    if op == "in":
-        values = condition.get("values") or []
-        return str(values[0])
-    return "已存在"
-
-
-def _nonmatching_value(condition: dict[str, Any]) -> str | None:
+def _condition_matches_value(condition: dict[str, Any], value: str) -> bool:
     op = condition.get("op") or "equals"
     if op == "equals":
-        return "确定性不命中值"
+        return value == condition.get("value")
     if op == "not_equals":
-        return str(condition.get("value", ""))
+        return value != condition.get("value")
     if op == "in":
-        return "确定性不命中值"
+        values = condition.get("values")
+        return isinstance(values, list) and value in values
     if op == "exists":
-        return None
-    return "确定性不命中值"
+        return bool(value)
+    return False
 
 
 def _field_def(manifest: dict[str, Any], key: str) -> dict[str, Any]:
-    return next(field for field in manifest["fields"] if field["key"] == key)
+    for field in manifest.get("fields", []):
+        if isinstance(field, dict) and field.get("key") == key:
+            return field
+    raise CorpusValidationError(
+        "unknown_corpus_field",
+        f"Manifest {manifest.get('doc_id')!r} has no field {key!r}.",
+    )
+
+
+def _conflict_field(manifest: dict[str, Any]) -> dict[str, Any]:
+    for field in manifest.get("fields", []):
+        if not isinstance(field, dict):
+            continue
+        if len(_valid_value_candidates(field, [])) >= 2:
+            return field
+    raise CorpusValidationError(
+        "field_witness_unavailable",
+        f"Manifest {manifest.get('doc_id')!r} has no conflict-testable field.",
+    )
 
 
 def _manifest(doc_id: str) -> dict[str, Any]:
@@ -1038,13 +1385,17 @@ def _evaluation_client():
                 temp_dir, "quality.sqlite"
             )
             os.environ["PRELEGAL_RATELIMIT_DISABLED"] = "1"
-            from app import db, main, ratelimit
+            from app import db, ratelimit
+            from app.routes import auth, documents
 
             importlib.reload(db)
-            importlib.reload(main)
+            db.init_database()
             for limiter in ratelimit.ALL_LIMITERS:
                 limiter.reset()
-            with TestClient(main.app) as client:
+            app = FastAPI(title="Prelegal deterministic quality evaluator")
+            app.include_router(auth.router, prefix="/api")
+            app.include_router(documents.router, prefix="/api")
+            with TestClient(app) as client:
                 yield client, db.get_conn
     finally:
         if previous_db is None:
@@ -1140,18 +1491,32 @@ def _api_confirm_fields(
 
 def _docx_text(payload: bytes) -> str:
     document = Document(BytesIO(payload))
-    parts = [paragraph.text for paragraph in document.paragraphs]
-    for table in document.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                parts.extend(paragraph.text for paragraph in cell.paragraphs)
+    parts: list[str] = []
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            parts.append(Paragraph(child, document).text)
+        elif isinstance(child, CT_Tbl):
+            table = Table(child, document)
+            for row in table.rows:
+                for cell in row.cells:
+                    parts.extend(paragraph.text for paragraph in cell.paragraphs)
     return "\n".join(parts)
 
 
 def _pdf_text(payload: bytes) -> str:
     reader = PdfReader(BytesIO(payload))
+    if not reader.pages:
+        raise ValueError("PDF has no pages")
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
 def _normalize_output_text(value: str) -> str:
-    return re.sub(r"\s+", "", value).replace("\u200b", "")
+    # PDF text extraction may emit CSS list counters as standalone lines and
+    # place them mid-sentence. They are presentation markers, not contract
+    # semantics, so remove only whole-line counters before whitespace folding.
+    without_list_counters = re.sub(
+        r"(?m)^\s*(?:\d+|[A-Za-z])\.\s*$",
+        "",
+        value,
+    )
+    return re.sub(r"\s+", "", without_list_counters).replace("\u200b", "")

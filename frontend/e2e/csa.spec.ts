@@ -500,6 +500,20 @@ async function switchToCsaViaChat(
   await expect(page.getByText("Noted. What else?")).toBeVisible();
 }
 
+async function fillAndConfirmField(
+  page: Page,
+  label: RegExp,
+  value: string,
+) {
+  const input = page.getByLabel(label);
+  const field = input.locator("xpath=ancestor::div[1]");
+  await input.fill(value);
+  const confirm = field.getByRole("button", { name: "Confirm" });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(field.getByText("Confirmed", { exact: true })).toBeVisible();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
@@ -605,12 +619,13 @@ test.describe("CSA document-state kernel adoption", () => {
     await expect(download).toBeDisabled();
 
     await page.getByRole("tab", { name: /edit fields/i }).click();
-    await page.getByLabel(/Provider \(company\)/).fill("Globex Cloud, Inc.");
-    await page.getByRole("button", { name: "Confirm" }).nth(0).click();
-    await page.getByLabel(/Customer \(company\)/).fill("Acme, Inc.");
-    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
-    await page.getByLabel(/Governing Law/).fill("PRC law");
-    await page.getByRole("button", { name: "Confirm" }).nth(2).click();
+    await fillAndConfirmField(
+      page,
+      /Provider \(company\)/,
+      "Globex Cloud, Inc.",
+    );
+    await fillAndConfirmField(page, /Customer \(company\)/, "Acme, Inc.");
+    await fillAndConfirmField(page, /Governing Law/, "PRC law");
 
     await expect(download).toBeEnabled();
   });
@@ -624,12 +639,13 @@ test.describe("CSA document-state kernel adoption", () => {
     await switchToCsaViaChat(page, { Customer: "Acme, Inc." });
 
     await page.getByRole("tab", { name: /edit fields/i }).click();
-    await page.getByLabel(/Provider \(company\)/).fill("Globex Cloud, Inc.");
-    await page.getByRole("button", { name: "Confirm" }).nth(0).click();
-    await page.getByLabel(/Customer \(company\)/).fill("Acme, Inc.");
-    await page.getByRole("button", { name: "Confirm" }).nth(1).click();
-    await page.getByLabel(/Governing Law/).fill("PRC law");
-    await page.getByRole("button", { name: "Confirm" }).nth(2).click();
+    await fillAndConfirmField(
+      page,
+      /Provider \(company\)/,
+      "Globex Cloud, Inc.",
+    );
+    await fillAndConfirmField(page, /Customer \(company\)/, "Acme, Inc.");
+    await fillAndConfirmField(page, /Governing Law/, "PRC law");
 
     const download = page.getByRole("button", { name: /download docx/i });
     await expect(download).toBeEnabled();

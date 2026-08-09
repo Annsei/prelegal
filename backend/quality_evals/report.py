@@ -38,6 +38,7 @@ class QualityCaseResult:
 @dataclass
 class QualityReport:
     schema_version: int = 1
+    expected_doc_ids: set[str] | None = None
     results: list[QualityCaseResult] = field(default_factory=list)
     metrics: dict[str, int] = field(
         default_factory=lambda: {name: 0 for name in METRIC_NAMES}
@@ -47,8 +48,12 @@ class QualityReport:
     )
 
     @classmethod
-    def empty(cls) -> QualityReport:
-        return cls()
+    def empty(
+        cls,
+        *,
+        expected_doc_ids: set[str] | None = None,
+    ) -> QualityReport:
+        return cls(expected_doc_ids=expected_doc_ids)
 
     def add(self, result: QualityCaseResult) -> None:
         self.results.append(result)
@@ -71,9 +76,29 @@ class QualityReport:
 
     @property
     def exit_code(self) -> int:
-        if self.failed_cases:
+        if self.failed_cases or self.invariant_errors:
             return 1
         return int(any(self.metrics[name] for name in HARD_GATE_METRICS))
+
+    @property
+    def invariant_errors(self) -> list[str]:
+        errors: list[str] = []
+        if type(self.schema_version) is not int or self.schema_version != 1:
+            errors.append("unsupported_report_schema")
+        if set(self.metrics) != set(METRIC_NAMES) or set(
+            self.metric_denominators
+        ) != set(METRIC_NAMES):
+            errors.append("metric_shape_mismatch")
+        elif any(
+            type(value) is not int or value <= 0
+            for value in self.metric_denominators.values()
+        ):
+            errors.append("zero_metric_denominator")
+        if self.expected_doc_ids is not None:
+            actual_doc_ids = {result.doc_id for result in self.results}
+            if actual_doc_ids != self.expected_doc_ids:
+                errors.append("document_coverage_incomplete")
+        return errors
 
     def failure_summary(self) -> str:
         failures = [result for result in self.results if not result.passed]
@@ -100,6 +125,7 @@ class QualityReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,
+            "invariant_errors": self.invariant_errors,
             "total_cases": self.total_cases,
             "passed_cases": self.passed_cases,
             "failed_cases": self.failed_cases,

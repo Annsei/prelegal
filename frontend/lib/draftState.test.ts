@@ -181,6 +181,94 @@ describe("draftState helpers", () => {
     ]);
   });
 
+  it("treats required_when arrays as one AND expression", () => {
+    const manifest: DocManifest = {
+      doc_id: "synthetic-conjunction",
+      version: 1,
+      sections: [{ key: "terms", label: { zh: "条款", en: "Terms" } }],
+      fields: [
+        {
+          key: "模式",
+          section: "terms",
+          type: "string",
+          required: false,
+          label: { zh: "模式", en: "Mode" },
+        },
+        {
+          key: "地区",
+          section: "terms",
+          type: "string",
+          required: false,
+          label: { zh: "地区", en: "Region" },
+        },
+        {
+          key: "付款安排",
+          section: "terms",
+          type: "string",
+          required: false,
+          required_when: [
+            { field: "模式", op: "equals", value: "付费" },
+            { field: "地区", op: "in", values: ["境内"] },
+          ],
+          label: { zh: "付款安排", en: "Payment" },
+        },
+      ],
+    };
+    const base: DraftStateSnapshot = {
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: manifest.doc_id,
+      revision: 0,
+      fields: Object.fromEntries(
+        manifest.fields.map((field) => [
+          field.key,
+          {
+            key: field.key,
+            status: "missing",
+            value: null,
+            revision: 0,
+            provenance: [],
+          },
+        ]),
+      ),
+    };
+    const withValues = (
+      mode: DraftStateSnapshot["fields"][string],
+      region: DraftStateSnapshot["fields"][string],
+    ): DraftStateSnapshot => ({
+      ...base,
+      fields: { ...base.fields, 模式: mode, 地区: region },
+    });
+    const paid = {
+      ...base.fields.模式,
+      status: "confirmed" as const,
+      value: "付费",
+      confirmed_at: "2026-01-15T00:00:00+00:00",
+    };
+    const domestic = {
+      ...base.fields.地区,
+      status: "confirmed" as const,
+      value: "境内",
+      confirmed_at: "2026-01-15T00:00:00+00:00",
+    };
+
+    expect(unresolvedRequiredKeys(manifest, withValues(paid, domestic))).toContain(
+      "付款安排",
+    );
+    expect(
+      unresolvedRequiredKeys(
+        manifest,
+        withValues(paid, { ...domestic, value: "境外" }),
+      ),
+    ).not.toContain("付款安排");
+    expect(
+      unresolvedRequiredKeys(
+        manifest,
+        withValues(paid, { ...domestic, status: "pending_confirmation" }),
+      ),
+    ).not.toContain("付款安排");
+  });
+
   it("treats confirmed empty strings as present for not_equals and in conditions", () => {
     const manifest: DocManifest = {
       ...MANIFEST,

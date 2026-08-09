@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
+from app.draft_state import DraftPatchRejected
+from quality_evals.corpus import CorpusValidationError
 from quality_evals.runner import run_contract_quality_evaluation
 
 
@@ -18,9 +21,25 @@ def main() -> int:
         help="Print the stable JSON report instead of the compact text summary.",
     )
     args = parser.parse_args()
-    report = run_contract_quality_evaluation()
+    try:
+        report = run_contract_quality_evaluation()
+    except CorpusValidationError as exc:
+        print(f"corpus_validation_failed:{exc.kind}: {exc}", file=sys.stderr)
+        return 1
+    except DraftPatchRejected as exc:
+        kinds = ",".join(error.kind for error in exc.errors)
+        print(f"evaluation_patch_failed:{kinds}", file=sys.stderr)
+        return 1
     if args.json:
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        try:
+            encoded = json.dumps(report.to_dict(), ensure_ascii=False, indent=2)
+        except (TypeError, ValueError) as exc:
+            print(
+                f"report_serialization_failed: {type(exc).__name__}",
+                file=sys.stderr,
+            )
+            return 1
+        print(encoded)
     else:
         print(
             "contract-quality: "
@@ -34,6 +53,8 @@ def main() -> int:
             )
         if report.failed_cases:
             print(report.failure_summary())
+        for error in report.invariant_errors:
+            print(f"report_invariant={error}")
     return report.exit_code
 
 

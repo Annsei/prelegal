@@ -38,7 +38,7 @@ class ExportTemplateError(ValueError):
 
 @dataclass(frozen=True)
 class ExportField:
-    """One manifest field as represented in the canonical export model."""
+    """One field in the semantic verification projection for an export."""
 
     key: str
     label: str
@@ -58,7 +58,7 @@ class ExportConditionResult:
 
 @dataclass(frozen=True)
 class ExportBlock:
-    """An ordered, normalized text block shared by both renderers."""
+    """An ordered text projection used to verify rendered output."""
 
     section: str
     order: int
@@ -68,7 +68,7 @@ class ExportBlock:
 
 @dataclass(frozen=True)
 class ExportDocument:
-    """One canonical semantic model consumed by every file renderer."""
+    """Authoritative HTML renderer input plus its verification projection."""
 
     doc_id: str
     title: str
@@ -127,7 +127,10 @@ def build_export_document(
 </head>
 <body>
 <main class="export-document">
-<section class="cover-page">{cover_html}</section>
+<section class="cover-page">
+<h1 class="document-title">{html.escape(title)}</h1>
+{cover_html}
+</section>
 <section class="standard-terms">{terms_html}</section>
 <section class="export-disclaimer">
 <h1>免责声明</h1>
@@ -209,19 +212,36 @@ def _canonical_blocks(source_html: str) -> tuple[ExportBlock, ...]:
         for node in section.find_all(recursive=False):
             if not isinstance(node, Tag):
                 continue
-            text = " ".join(node.stripped_strings)
-            if not text:
-                continue
-            blocks.append(
-                ExportBlock(
-                    section=section_name,
-                    order=order,
-                    kind=node.name,
-                    text=text,
+            projection_nodes = _projection_nodes(node)
+            for projection_node in projection_nodes:
+                text = " ".join(projection_node.stripped_strings)
+                if not text:
+                    continue
+                blocks.append(
+                    ExportBlock(
+                        section=section_name,
+                        order=order,
+                        kind=projection_node.name,
+                        text=text,
+                    )
                 )
-            )
-            order += 1
+                order += 1
     return tuple(blocks)
+
+
+def _projection_nodes(node: Tag) -> list[Tag]:
+    atomic = {"h1", "h2", "h3", "h4", "h5", "h6", "p"}
+    if node.name in atomic:
+        return [node]
+    if node.name == "table":
+        return node.find_all(["th", "td"])
+    if node.name not in {"ol", "ul", "li", "div", "section", "blockquote"}:
+        return []
+    projected: list[Tag] = []
+    for child in node.children:
+        if isinstance(child, Tag):
+            projected.extend(_projection_nodes(child))
+    return projected or [node]
 
 
 def render_docx(model: ExportDocument) -> bytes:

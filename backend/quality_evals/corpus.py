@@ -77,7 +77,7 @@ def load_corpus(path: Path = _CORPUS_PATH) -> ContractQualityCorpus:
 
 
 def validate_corpus(
-    corpus: ContractQualityCorpus | dict[str, Any],
+    corpus: ContractQualityCorpus | Any,
     *,
     catalog_doc_ids: set[str] | None = None,
     manifest_doc_ids: set[str] | None = None,
@@ -87,10 +87,14 @@ def validate_corpus(
         if isinstance(corpus, ContractQualityCorpus)
         else _parse_corpus(corpus)
     )
-    catalog_ids = catalog_doc_ids or _load_catalog_doc_ids()
-    manifest_ids = manifest_doc_ids or {
-        path.stem for path in _MANIFESTS_DIR.glob("*.json")
-    }
+    catalog_ids = (
+        _load_catalog_doc_ids() if catalog_doc_ids is None else catalog_doc_ids
+    )
+    manifest_ids = (
+        {path.stem for path in _MANIFESTS_DIR.glob("*.json")}
+        if manifest_doc_ids is None
+        else manifest_doc_ids
+    )
 
     if set(parsed.renderers) != _RENDERERS:
         raise CorpusValidationError(
@@ -155,6 +159,15 @@ def validate_corpus(
                 f"{document.anchor_field}",
             )
         _validate_manifest_conditions(document.doc_id, manifest, keys)
+        if not any(
+            _supports_distinct_values(field)
+            for field in manifest.get("fields", [])
+            if isinstance(field, dict)
+        ):
+            raise CorpusValidationError(
+                "field_witness_unavailable",
+                f"{document.doc_id} has no field with two valid witness values.",
+            )
 
     return ValidatedCorpus(
         corpus=parsed,
@@ -164,37 +177,84 @@ def validate_corpus(
     )
 
 
-def _parse_corpus(raw: dict[str, Any]) -> ContractQualityCorpus:
-    if raw.get("schema_version") != 1:
+def _parse_corpus(raw: Any) -> ContractQualityCorpus:
+    if not isinstance(raw, dict):
+        raise CorpusValidationError(
+            "invalid_corpus",
+            "Quality corpus root must be a JSON object.",
+        )
+    schema_version = raw.get("schema_version")
+    if type(schema_version) is not int or schema_version != 1:
         raise CorpusValidationError(
             "unsupported_corpus_schema",
             "Only contract quality corpus schema version 1 is supported.",
         )
-    try:
-        cases = tuple(
-            CorpusCase(id=item["id"], kind=item["kind"])
-            for item in raw["cases"]
+    cases_raw = raw.get("cases")
+    documents_raw = raw.get("documents")
+    renderers_raw = raw.get("renderers")
+    if not all(
+        isinstance(value, list)
+        for value in (cases_raw, documents_raw, renderers_raw)
+    ):
+        raise CorpusValidationError(
+            "invalid_corpus",
+            "Quality corpus cases, documents, and renderers must be arrays.",
         )
-        documents = tuple(
+
+    cases: list[CorpusCase] = []
+    for item in cases_raw:
+        if (
+            not isinstance(item, dict)
+            or not _nonempty_string(item.get("id"))
+            or not _nonempty_string(item.get("kind"))
+        ):
+            raise CorpusValidationError(
+                "invalid_corpus",
+                "Each quality case requires non-empty string id and kind values.",
+            )
+        cases.append(CorpusCase(id=item["id"], kind=item["kind"]))
+
+    documents: list[CorpusDocument] = []
+    for item in documents_raw:
+        if (
+            not isinstance(item, dict)
+            or not _nonempty_string(item.get("doc_id"))
+            or not _nonempty_string(item.get("anchor_field"))
+        ):
+            raise CorpusValidationError(
+                "invalid_corpus",
+                "Each quality document requires string doc_id and anchor_field values.",
+            )
+        documents.append(
             CorpusDocument(
                 doc_id=item["doc_id"],
                 anchor_field=item["anchor_field"],
             )
-            for item in raw["documents"]
         )
-        renderers = tuple(raw["renderers"])
-    except (KeyError, TypeError) as exc:
+
+    if not all(_nonempty_string(renderer) for renderer in renderers_raw):
         raise CorpusValidationError(
             "invalid_corpus",
-            "Quality corpus is missing a required property.",
-        ) from exc
+            "Each renderer must be a non-empty string.",
+        )
     return ContractQualityCorpus(
         schema_version=1,
-        renderers=renderers,
-        cases=cases,
-        documents=documents,
+        renderers=tuple(renderers_raw),
+        cases=tuple(cases),
+        documents=tuple(documents),
         raw=raw,
     )
+
+
+def _nonempty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _supports_distinct_values(field: dict[str, Any]) -> bool:
+    choices = field.get("enum") or field.get("options")
+    if isinstance(choices, list) and choices:
+        return len({value for value in choices if _nonempty_string(value)}) >= 2
+    return field.get("type") in {"string", "text", "date"}
 
 
 def _load_catalog_doc_ids() -> set[str]:

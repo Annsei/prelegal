@@ -715,8 +715,14 @@ def _validate_value(
             ),
         ]
 
+    # An explicit user confirmation of a normalized blank is the kernel's
+    # clear operation. Type validation still applies, but enum/date membership
+    # does not: the transition will turn the field back into `missing`.
+    if value.strip() == "":
+        return []
+
     field_type = field_def.get("type")
-    if field_type == "date" and value.strip():
+    if field_type == "date":
         try:
             date.fromisoformat(value.strip())
         except ValueError:
