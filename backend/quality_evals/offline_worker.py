@@ -9,12 +9,18 @@ import os
 import socket
 import subprocess
 import sys
+from contextvars import ContextVar
 from typing import Any
 
 _ORIGINAL_SOCKET_CONSTRUCTOR = socket.socket
 _ORIGINAL_LOW_LEVEL_SOCKET_CONSTRUCTOR = _socket.socket
 _ORIGINAL_GETADDRINFO = socket.getaddrinfo
 _ORIGINAL_POPEN = subprocess.Popen
+_ALLOWED_LOCAL_PROCESS_COMMAND = ("/sbin/ldconfig", "-p")
+_ALLOWED_LOCAL_PROCESS_ENV = {"LC_ALL": "C", "LANG": "C"}
+_LOCAL_PROCESS_AUDIT_ALLOWED: ContextVar[bool] = ContextVar(
+    "offline_guard_local_process_allowed", default=False
+)
 _GUARDS_INSTALLED = False
 _DNS_ENTRY_POINTS = (
     "getaddrinfo",
@@ -33,7 +39,6 @@ _PROCESS_AUDIT_EVENTS = {
     "os.spawn",
     "os.system",
     "pty.spawn",
-    "subprocess.Popen",
 }
 _OS_PROCESS_ENTRY_POINTS = (
     "execl",
@@ -99,6 +104,12 @@ def _offline_audit_hook(event: str, args: tuple[Any, ...]) -> None:
         _require_local_socket_family(args[1])
     if event in _DNS_AUDIT_EVENTS:
         _blocked_dns()
+    if event == "subprocess.Popen":
+        if _LOCAL_PROCESS_AUDIT_ALLOWED.get() and _is_allowed_local_process_audit(
+            args
+        ):
+            return
+        _blocked_subprocess()
     if event in _PROCESS_AUDIT_EVENTS:
         _blocked_subprocess()
 
@@ -113,6 +124,43 @@ def _blocked_dns(*_args: Any, **_kwargs: Any) -> None:
 
 def _blocked_subprocess(*_args: Any, **_kwargs: Any) -> None:
     raise RuntimeError("offline_guard_blocked_subprocess")
+
+
+def _is_allowed_local_process(
+    args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> bool:
+    if len(args) != 1 or not isinstance(args[0], (list, tuple)):
+        return False
+    expected_kwargs = {
+        "stdin": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "env": _ALLOWED_LOCAL_PROCESS_ENV,
+    }
+    return (
+        tuple(args[0]) == _ALLOWED_LOCAL_PROCESS_COMMAND
+        and kwargs == expected_kwargs
+    )
+
+
+def _is_allowed_local_process_audit(args: tuple[Any, ...]) -> bool:
+    return (
+        len(args) >= 4
+        and args[0] == _ALLOWED_LOCAL_PROCESS_COMMAND[0]
+        and tuple(args[1]) == _ALLOWED_LOCAL_PROCESS_COMMAND
+        and args[2] is None
+        and args[3] == _ALLOWED_LOCAL_PROCESS_ENV
+    )
+
+
+def _guarded_popen(*args: Any, **kwargs: Any):
+    if not _is_allowed_local_process(args, kwargs):
+        _blocked_subprocess()
+    token = _LOCAL_PROCESS_AUDIT_ALLOWED.set(True)
+    try:
+        return _ORIGINAL_POPEN(*args, **kwargs)
+    finally:
+        _LOCAL_PROCESS_AUDIT_ALLOWED.reset(token)
 
 
 def _install_guards() -> None:
@@ -143,7 +191,10 @@ def _install_guards() -> None:
             if hasattr(module, name):
                 setattr(module, name, _blocked_dns)
 
-    subprocess.Popen = _blocked_subprocess
+    # ctypes.util uses this fixed local cache query to find Pango on Linux.
+    # A context-scoped audit capability prevents captured Popen references from
+    # borrowing the exception or adding shell/pre-exec behavior.
+    subprocess.Popen = _guarded_popen
     subprocess.run = _blocked_subprocess
     subprocess.call = _blocked_subprocess
     subprocess.check_call = _blocked_subprocess
@@ -169,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
             "ipv6",
             "dns",
             "subprocess",
+            "ldconfig_args",
             "unix_socket",
             "app_llm",
             "litellm",
@@ -198,6 +250,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.probe == "subprocess":
         process = _ORIGINAL_POPEN([sys.executable, "-c", "pass"])
         process.wait()
+        return 0
+    if args.probe == "ldconfig_args":
+        subprocess.Popen(["/sbin/ldconfig", "-p", "--extra"])
         return 0
     if args.probe == "unix_socket":
         sock = _ORIGINAL_SOCKET_CONSTRUCTOR(socket.AF_UNIX, socket.SOCK_STREAM)

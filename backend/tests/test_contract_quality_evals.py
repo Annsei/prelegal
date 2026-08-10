@@ -18,6 +18,7 @@ from docx import Document
 
 import quality_evals.__main__ as quality_cli
 import quality_evals.offline_gate as offline_gate
+import quality_evals.offline_worker as offline_worker
 import quality_evals.runner as quality_runner
 from app.draft_state import required_field_keys, snapshot_from_document_state
 from app.export import build_export_document, render_docx, render_pdf
@@ -553,6 +554,7 @@ def test_quality_command_returns_stable_corpus_failure(monkeypatch, capsys):
         ("ipv6", "offline_guard_blocked_socket_family:AF_INET6"),
         ("dns", "offline_guard_blocked_dns"),
         ("subprocess", "offline_guard_blocked_subprocess"),
+        ("ldconfig_args", "offline_guard_blocked_subprocess"),
         ("app_llm", "offline_guard_blocked_import:app.llm"),
         ("litellm", "offline_guard_blocked_import:litellm"),
     ],
@@ -575,6 +577,27 @@ def test_fresh_process_offline_guard_rejects_network_and_llm_imports(
 
     assert completed.returncode != 0
     assert marker in completed.stderr
+
+
+def test_offline_guard_local_subprocess_allowlist_is_exact():
+    args = (["/sbin/ldconfig", "-p"],)
+    kwargs = {
+        "stdin": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "env": {"LC_ALL": "C", "LANG": "C"},
+    }
+
+    assert offline_worker._is_allowed_local_process(args, kwargs)
+    assert not offline_worker._is_allowed_local_process(
+        (["/sbin/ldconfig", "-p", "--extra"],), kwargs
+    )
+    assert not offline_worker._is_allowed_local_process(
+        args, {**kwargs, "shell": True}
+    )
+    assert not offline_worker._is_allowed_local_process(
+        args, {**kwargs, "env": {**kwargs["env"], "EXTRA": "1"}}
+    )
 
 
 @pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="AF_UNIX unavailable")
