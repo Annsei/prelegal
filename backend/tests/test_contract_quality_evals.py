@@ -5,31 +5,49 @@ from __future__ import annotations
 import copy
 import json
 import socket
+import subprocess
 import sys
+from dataclasses import replace
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from bs4 import BeautifulSoup
 from docx import Document
 
 import quality_evals.__main__ as quality_cli
+import quality_evals.offline_gate as offline_gate
 import quality_evals.runner as quality_runner
-from app.draft_state import snapshot_from_document_state
+from app.draft_state import required_field_keys, snapshot_from_document_state
 from app.export import build_export_document, render_docx, render_pdf
 from app.manifests import load_manifest
 from quality_evals.corpus import (
     CorpusDocument,
     CorpusValidationError,
+    ValidatedCorpus,
     load_corpus,
     validate_corpus,
 )
 from quality_evals.report import (
     HARD_GATE_METRICS,
     METRIC_NAMES,
+    CoverageExpectation,
     QualityCaseResult,
     QualityReport,
 )
 from quality_evals.runner import run_contract_quality_evaluation
+
+EXPECTED_METRIC_NAMES = {
+    "unknown_field_acceptance_count",
+    "invalid_type_acceptance_count",
+    "required_field_false_negative_count",
+    "required_field_false_positive_count",
+    "conflict_transition_failure_count",
+    "successful_invalid_downloads",
+    "cross_format_semantic_mismatch_count",
+}
+EXPECTED_HARD_GATE_METRICS = set(EXPECTED_METRIC_NAMES)
 
 
 def test_quality_corpus_discovers_every_catalog_manifest():
@@ -74,6 +92,18 @@ def test_quality_corpus_rejects_missing_case_suite():
 
     with _raises_corpus_error("case_coverage_mismatch"):
         validate_corpus(incomplete)
+
+
+def test_quality_corpus_rejects_unregistered_case_kind():
+    corpus = load_corpus()
+    changed = copy.deepcopy(corpus.raw)
+    changed["cases"][0]["kind"] = "not_registered"
+
+    with _raises_corpus_error("unregistered_case_kind"):
+        validate_corpus(
+            changed,
+            registered_case_kinds=set(quality_runner.CASE_REGISTRY),
+        )
 
 
 def test_quality_corpus_requires_both_renderers():
@@ -233,9 +263,175 @@ def test_condition_evaluator_rejects_impossible_conjunction_witnesses():
         )
 
 
+@pytest.mark.parametrize(
+    "conditions",
+    [
+        [
+            {"field": "模式", "op": "equals", "value": "甲"},
+            {"field": "模式", "op": "in", "values": ["甲", "乙"]},
+        ],
+        [
+            {"field": "模式", "op": "equals", "value": "甲"},
+            {"field": "模式", "op": "equals", "value": "甲"},
+        ],
+    ],
+)
+def test_condition_evaluator_accepts_feasible_same_driver_conjunctions(conditions):
+    manifest = {
+        "doc_id": "same-driver-conjunction",
+        "version": 1,
+        "fields": [
+            {
+                "key": "模式",
+                "type": "string",
+                "enum": ["甲", "乙"],
+                "required": False,
+            },
+            {
+                "key": "结果",
+                "type": "string",
+                "required": False,
+                "required_when": conditions,
+            },
+        ],
+    }
+    report = QualityReport.empty(expected_doc_ids={manifest["doc_id"]})
+
+    quality_runner._evaluate_conditions(
+        report,
+        CorpusDocument(doc_id=manifest["doc_id"], anchor_field="模式"),
+        manifest,
+    )
+
+    assert report.failed_cases == 0, report.failure_summary()
+
+
+def test_shared_condition_conformance_vectors_match_backend_semantics():
+    raw = json.loads(
+        Path(quality_runner.__file__)
+        .with_name("condition_conformance.json")
+        .read_text()
+    )
+    assert raw["schema_version"] == 1
+    for vector in raw["vectors"]:
+        manifest = vector.get("manifest") or load_manifest(
+            vector["manifest_doc_id"]
+        )
+        assert manifest is not None
+        conditional_keys = {
+            field["key"]
+            for field in manifest["fields"]
+            if field.get("required_when") is not None
+        }
+        if vector["positive_witness"] == "impossible":
+            dependent = next(
+                field
+                for field in manifest["fields"]
+                if field.get("required_when") is not None
+            )
+            conditions = dependent["required_when"]
+            conditions = conditions if isinstance(conditions, list) else [conditions]
+            with _raises_corpus_error("condition_witness_unavailable"):
+                quality_runner._condition_group_witnesses(manifest, conditions)
+            continue
+        for assignment in vector["assignments"]:
+            snapshot = snapshot_from_document_state(
+                doc_id=manifest["doc_id"], state={}, manifest=manifest
+            )
+            for key, value in assignment["values"].items():
+                snapshot.fields[key].status = "confirmed"
+                snapshot.fields[key].value = value
+                snapshot.fields[key].confirmed_at = "2026-01-15T00:00:00+00:00"
+                snapshot.fields[key].confirmed_by_user_id = 1
+            for key in assignment.get("unconfirmed", []):
+                snapshot.fields[key].status = "pending_confirmation"
+                snapshot.fields[key].confirmed_at = None
+                snapshot.fields[key].confirmed_by_user_id = None
+            actual = set(required_field_keys(manifest, snapshot)) & conditional_keys
+            assert actual == set(assignment["expected_active"]), vector["id"]
+
+
+def test_nonisolatable_group_negative_is_not_a_corpus_failure():
+    raw = json.loads(
+        Path(quality_runner.__file__)
+        .with_name("condition_conformance.json")
+        .read_text()
+    )
+    vector = next(
+        item for item in raw["vectors"] if item["id"] == "nonisolatable-negative"
+    )
+    manifest = vector["manifest"]
+    dependent = manifest["fields"][1]
+
+    positive, negatives = quality_runner._condition_group_witnesses(
+        manifest, [dependent["required_when"]]
+    )
+
+    assert positive == {"x": "A"}
+    assert negatives == {}
+
+
+def test_condition_oracle_detects_collateral_activation(monkeypatch):
+    manifest = {
+        "doc_id": "synthetic-collateral",
+        "version": 1,
+        "fields": [
+            {
+                "key": "模式",
+                "type": "string",
+                "enum": ["启用", "停用"],
+                "required": False,
+            },
+            {
+                "key": "目标",
+                "type": "string",
+                "required": False,
+                "required_when": {
+                    "field": "模式",
+                    "op": "equals",
+                    "value": "启用",
+                },
+            },
+            {
+                "key": "旁路字段",
+                "type": "string",
+                "required": False,
+                "required_when": {
+                    "field": "模式",
+                    "op": "equals",
+                    "value": "停用",
+                },
+            },
+        ],
+    }
+    original = quality_runner.required_field_keys
+
+    def activate_collateral(manifest, snapshot):
+        return [*original(manifest, snapshot), "旁路字段"]
+
+    monkeypatch.setattr(quality_runner, "required_field_keys", activate_collateral)
+    report = QualityReport.empty(expected_doc_ids={manifest["doc_id"]})
+    document = CorpusDocument(manifest["doc_id"], "模式")
+
+    quality_runner._record_condition_assignment(
+        report,
+        document,
+        manifest,
+        "required-when:目标:mutation",
+        {"模式": "启用"},
+        metric="required_field_false_positive_count",
+    )
+
+    assert report.failed_cases == 1
+    assert "旁路字段" in report.failure_summary()
+
+
 def test_hard_gate_report_exits_nonzero_for_any_gated_metric():
-    for metric in HARD_GATE_METRICS:
-        report = QualityReport.empty()
+    assert set(METRIC_NAMES) == EXPECTED_METRIC_NAMES
+    assert set(HARD_GATE_METRICS) == EXPECTED_HARD_GATE_METRICS
+    for metric in EXPECTED_HARD_GATE_METRICS:
+        report = _valid_report()
+        assert report.exit_code == 0
         report.metrics[metric] = 1
         assert report.exit_code == 1
 
@@ -267,9 +463,56 @@ def test_report_hard_gate_enforces_denominators_schema_coverage_and_metric_shape
     assert "metric_shape_mismatch" in report.invariant_errors
 
 
+def test_report_serializes_expected_actual_missing_and_duplicate_coverage():
+    expectation = CoverageExpectation(
+        doc_id="expected-doc",
+        case_kind="complete_state",
+        scenario="complete-state",
+    )
+    report = _valid_report()
+    report.expected_coverage = (expectation,)
+    report.add(
+        QualityCaseResult(
+            doc_id="expected-doc",
+            case_id="coverage-one",
+            passed=True,
+            coverage_key=expectation.key,
+        )
+    )
+    report.add(
+        QualityCaseResult(
+            doc_id="expected-doc",
+            case_id="coverage-duplicate",
+            passed=True,
+            coverage_key=expectation.key,
+        )
+    )
+
+    coverage = report.to_dict()["coverage"]
+    assert coverage["expected_count"] == 1
+    assert coverage["actual_count"] == 2
+    assert coverage["missing_coverage_keys"] == []
+    assert coverage["unexpected_duplicate_coverage_keys"] == [expectation.key]
+    assert "coverage_duplicate" in report.invariant_errors
+
+
+def test_report_fails_when_expected_coverage_is_missing():
+    expectation = CoverageExpectation(
+        doc_id="expected-doc",
+        case_kind="complete_state",
+        scenario="complete-state",
+    )
+    report = _valid_report()
+    report.expected_coverage = (expectation,)
+
+    assert report.to_dict()["coverage"]["missing_coverage_keys"] == [expectation.key]
+    assert "coverage_missing" in report.invariant_errors
+
+
 def test_quality_command_returns_nonzero_when_a_hard_gate_triggers(monkeypatch):
-    report = QualityReport.empty()
-    report.metrics[HARD_GATE_METRICS[0]] = 1
+    report = _valid_report()
+    assert report.exit_code == 0
+    report.metrics[next(iter(EXPECTED_HARD_GATE_METRICS))] = 1
     monkeypatch.setattr(quality_cli, "run_contract_quality_evaluation", lambda: report)
     monkeypatch.setattr(sys, "argv", ["quality-evals"])
 
@@ -299,6 +542,46 @@ def test_quality_command_returns_stable_corpus_failure(monkeypatch, capsys):
     assert quality_cli.main() == 1
     stderr = capsys.readouterr().err
     assert "corpus_validation_failed:synthetic_corpus_failure" in stderr
+
+
+@pytest.mark.parametrize(
+    ("probe", "marker"),
+    [
+        ("socket", "offline_guard_blocked_socket"),
+        ("app_llm", "offline_guard_blocked_import:app.llm"),
+        ("litellm", "offline_guard_blocked_import:litellm"),
+    ],
+)
+def test_fresh_process_offline_guard_rejects_network_and_llm_imports(
+    probe: str, marker: str
+):
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "quality_evals.offline_gate",
+            "--probe",
+            probe,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    assert marker in completed.stderr
+
+
+def test_offline_gate_parses_json_and_preserves_evaluator_exit(monkeypatch):
+    monkeypatch.setattr(
+        offline_gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            stdout='{"schema_version": 1}', stderr="", returncode=7
+        ),
+    )
+
+    assert offline_gate.main() == 7
 
 
 @pytest.mark.parametrize("status_code", [422, 500])
@@ -457,6 +740,185 @@ def test_semantic_verifier_rejects_payload_from_the_wrong_snapshot():
     assert any("field" in issue for issue in issues)
 
 
+@pytest.mark.parametrize(
+    ("renderer", "state_name"),
+    [("docx", "conflict"), ("pdf", "conflict"), ("docx", "pending")],
+)
+def test_semantic_verifier_detects_adapter_candidate_leakage(
+    renderer: str, state_name: str
+):
+    model, _docx_payload, _pdf_payload = _semantic_fixture()
+    candidate = f"PL24-{state_name}-adapter-leak"
+    leaked = replace(
+        model,
+        html=model.html.replace(
+            "</section>\n</main>", f"<p>{candidate}</p></section>\n</main>"
+        ),
+    )
+    payload = render_docx(leaked) if renderer == "docx" else render_pdf(leaked)
+    content_type = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if renderer == "docx"
+        else "application/pdf"
+    )
+    issues = quality_runner._semantic_response_issues(
+        renderer,
+        _download_response(
+            payload,
+            {
+                "content-type": content_type,
+                "content-disposition": (
+                    f"attachment; filename*=UTF-8''quality.{renderer}"
+                ),
+            },
+        ),
+        model,
+        forbidden_values=(candidate,),
+    )
+
+    assert any("candidate leaked" in issue for issue in issues)
+
+
+def test_semantic_verifier_does_not_flag_authoritative_value_substrings():
+    model, docx_payload, _pdf_payload = _semantic_fixture()
+    stable_value = next(field.value for field in model.fields if field.value)
+
+    issues = quality_runner._semantic_response_issues(
+        "docx",
+        _download_response(
+            docx_payload,
+            {
+                "content-type": (
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document"
+                ),
+                "content-disposition": "attachment; filename*=UTF-8''quality.docx",
+            },
+        ),
+        model,
+        forbidden_values=(stable_value,),
+    )
+
+    assert not any("candidate leaked" in issue for issue in issues)
+
+
+def test_export_cover_uses_one_legal_h1_and_a_draft_title_subtitle():
+    model, _docx_payload, _pdf_payload = _semantic_fixture()
+    soup = BeautifulSoup(model.html, "html.parser")
+    cover = soup.select_one("section.cover-page")
+
+    assert cover is not None
+    assert len(cover.find_all("h1")) == 1
+    subtitle = cover.select_one("h2.draft-title")
+    assert subtitle is not None
+    assert subtitle.get_text(strip=True) == model.title
+
+
+@pytest.mark.parametrize(
+    "document", load_corpus().documents, ids=lambda item: item.doc_id
+)
+def test_every_export_cover_has_one_legal_h1(document: CorpusDocument):
+    manifest = load_manifest(document.doc_id)
+    assert manifest is not None
+    snapshot = quality_runner._confirm_fields(
+        snapshot_from_document_state(
+            doc_id=document.doc_id, state={}, manifest=manifest
+        ),
+        manifest["fields"],
+    )
+    model = build_export_document(
+        doc_id=document.doc_id,
+        title=f"{document.doc_id}-saved-draft-title",
+        manifest=manifest,
+        snapshot=snapshot,
+    )
+    soup = BeautifulSoup(model.html, "html.parser")
+    cover = soup.select_one("section.cover-page")
+
+    assert cover is not None
+    assert len(cover.find_all("h1")) == 1
+    assert cover.select_one("h2.draft-title") is not None
+
+
+def test_coverage_detects_noop_public_put_suite(monkeypatch):
+    monkeypatch.setattr(quality_runner, "_evaluate_public_put", lambda *_args: None)
+
+    report = run_contract_quality_evaluation(_single_document_validated())
+
+    assert "coverage_missing" in report.invariant_errors
+    assert any(
+        "public_put_protection" in key
+        for key in report.coverage_summary()["missing_coverage_keys"]
+    )
+
+
+@pytest.mark.parametrize(
+    "omitted_case",
+    [
+        "cross-format-semantics:complete:pdf",
+        "invalid-downloads:pending:pdf",
+    ],
+)
+def test_coverage_detects_skipped_renderer_or_invalid_state(
+    monkeypatch, omitted_case: str
+):
+    original_record = quality_runner._record
+
+    def skip_one(report, doc_id, case_id, passed, **kwargs):
+        if case_id == omitted_case:
+            return None
+        return original_record(report, doc_id, case_id, passed, **kwargs)
+
+    monkeypatch.setattr(quality_runner, "_record", skip_one)
+
+    report = run_contract_quality_evaluation(_single_document_validated())
+
+    assert "coverage_missing" in report.invariant_errors
+    assert any(
+        omitted_case.rsplit(":", 1)[0] in key
+        for key in report.coverage_summary()["missing_coverage_keys"]
+    )
+
+
+def test_coverage_detects_partial_route_suite(monkeypatch):
+    def partial_suite(report, client, _get_conn, headers, document, _manifest):
+        created = quality_runner._create_document(
+            client, headers, document.doc_id, "partial-invalid-downloads"
+        )
+        quality_runner._assert_blocked_formats(
+            report,
+            client,
+            headers,
+            document.doc_id,
+            created["id"],
+            "missing",
+            document.anchor_field,
+        )
+
+    monkeypatch.setattr(quality_runner, "_evaluate_invalid_downloads", partial_suite)
+
+    report = run_contract_quality_evaluation(_single_document_validated())
+
+    assert "coverage_missing" in report.invariant_errors
+    assert any(
+        "invalid_downloads" in key
+        for key in report.coverage_summary()["missing_coverage_keys"]
+    )
+    assert any(
+        "invalid-downloads:missing" in record.key
+        for record in report.coverage_records
+    )
+
+
+def test_deleted_metric_family_fails_closed(monkeypatch):
+    monkeypatch.setattr(quality_runner, "_evaluate_unknown_field", lambda *_args: None)
+
+    report = run_contract_quality_evaluation(_single_document_validated())
+
+    assert report.metric_denominators["unknown_field_acceptance_count"] == 0
+    assert "zero_metric_denominator" in report.invariant_errors
+
+
 @pytest.mark.contract_quality_gate
 def test_contract_quality_hard_gate_is_zero_and_report_is_serializable(monkeypatch):
     def reject_network(*_args, **_kwargs):
@@ -479,6 +941,23 @@ def test_contract_quality_hard_gate_is_zero_and_report_is_serializable(monkeypat
     assert decoded["schema_version"] == 1
     assert len(decoded["documents"]) == 11
     assert all(value > 0 for value in decoded["metric_denominators"].values())
+    coverage = decoded["coverage"]
+    assert coverage["expected_count"] == coverage["actual_count"]
+    assert coverage["missing_coverage_keys"] == []
+    assert coverage["unexpected_duplicate_coverage_keys"] == []
+    assert all(
+        "cross-format-semantics:pending" in item["key"]
+        or "cross-format-semantics:conflict" in item["key"]
+        for item in coverage["not_applicable"]
+    )
+    assert {
+        item["key"].split("::", 1)[0]
+        for item in coverage["not_applicable"]
+    } == {
+        "design-partner-agreement",
+        "software-license-agreement",
+        "business-associate-agreement",
+    }
     assert "app.llm" not in sys.modules
     assert "litellm" not in sys.modules
 
@@ -533,3 +1012,30 @@ def _docx_with_lines(lines: list[str]) -> bytes:
     output = BytesIO()
     document.save(output)
     return output.getvalue()
+
+
+def _valid_report() -> QualityReport:
+    report = QualityReport.empty(expected_doc_ids={"expected-doc"})
+    for metric in EXPECTED_METRIC_NAMES:
+        report.add(
+            QualityCaseResult(
+                doc_id="expected-doc",
+                case_id=f"baseline-{metric}",
+                passed=True,
+                metric=metric,
+            )
+        )
+    assert report.exit_code == 0
+    return report
+
+
+def _single_document_validated() -> ValidatedCorpus:
+    validated = validate_corpus(load_corpus())
+    document = validated.documents[0]
+    corpus = replace(validated.corpus, documents=(document,))
+    return ValidatedCorpus(
+        corpus=corpus,
+        catalog_doc_ids={document.doc_id},
+        manifest_doc_ids={document.doc_id},
+        corpus_doc_ids={document.doc_id},
+    )

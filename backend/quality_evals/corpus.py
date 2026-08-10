@@ -81,6 +81,7 @@ def validate_corpus(
     *,
     catalog_doc_ids: set[str] | None = None,
     manifest_doc_ids: set[str] | None = None,
+    registered_case_kinds: set[str] | None = None,
 ) -> ValidatedCorpus:
     parsed = (
         corpus
@@ -114,6 +115,20 @@ def validate_corpus(
             "duplicate_case_kind",
             "Quality corpus case kinds must be unique.",
         )
+    if registered_case_kinds is not None:
+        unregistered = set(case_kinds) - registered_case_kinds
+        if unregistered:
+            raise CorpusValidationError(
+                "unregistered_case_kind",
+                f"No evaluator is registered for: {sorted(unregistered)}.",
+            )
+        undispatched = registered_case_kinds - set(case_kinds)
+        if undispatched:
+            raise CorpusValidationError(
+                "undispatched_case_kind",
+                "Registered evaluators are absent from the corpus: "
+                f"{sorted(undispatched)}.",
+            )
     if set(case_kinds) != _REQUIRED_CASE_KINDS:
         raise CorpusValidationError(
             "case_coverage_mismatch",

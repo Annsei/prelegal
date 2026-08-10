@@ -32,8 +32,10 @@ non-API routes will return 404 — that's expected.
 ```bash
 cd backend
 uv run pytest
-uv run python -m quality_evals
+uv run python -m quality_evals.offline_gate
 ```
 
 The second command runs the deterministic 11-document kernel, download-gate,
-and DOCX/PDF semantic evaluation used as a CI hard gate.
+and DOCX/PDF semantic evaluation in a fresh process with socket and LLM imports
+blocked. Its report compares the manifest-expanded expected coverage plan with
+the executed/N/A coverage records before returning the evaluator exit code.

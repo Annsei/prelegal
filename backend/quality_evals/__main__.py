@@ -11,7 +11,7 @@ from quality_evals.corpus import CorpusValidationError
 from quality_evals.runner import run_contract_quality_evaluation
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run deterministic Prelegal contract-quality evaluations."
     )
@@ -20,7 +20,7 @@ def main() -> int:
         action="store_true",
         help="Print the stable JSON report instead of the compact text summary.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         report = run_contract_quality_evaluation()
     except CorpusValidationError as exc:

@@ -112,6 +112,7 @@ def build_export_document(
         confirmed=confirmed,
         cover_page=True,
     )
+    cover_html = _add_draft_title_subtitle(cover_html, title)
     terms_html = _render_markdown_section(
         terms_markdown,
         lookup=lookup,
@@ -128,7 +129,6 @@ def build_export_document(
 <body>
 <main class="export-document">
 <section class="cover-page">
-<h1 class="document-title">{html.escape(title)}</h1>
 {cover_html}
 </section>
 <section class="standard-terms">{terms_html}</section>
@@ -163,6 +163,18 @@ def build_export_document(
         disclaimer=DISCLAIMER,
         html=full_html,
     )
+
+
+def _add_draft_title_subtitle(cover_html: str, title: str) -> str:
+    """Keep the legal template title as H1 and show the user's draft as metadata."""
+    soup = BeautifulSoup(cover_html, "html.parser")
+    legal_titles = soup.find_all("h1")
+    if len(legal_titles) != 1:
+        raise ExportTemplateError("Cover page must contain exactly one legal H1 title.")
+    subtitle = soup.new_tag("h2", attrs={"class": "draft-title"})
+    subtitle.string = title
+    legal_titles[0].insert_after(subtitle)
+    return str(soup)
 
 
 def _stable_confirmed_values(snapshot: DraftStateSnapshot) -> dict[str, str]:
@@ -553,6 +565,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 18pt; text-align: center; margin: 0 0 18pt; }
 h2 { font-size: 14pt; margin: 16pt 0 8pt; }
+.draft-title {
+  color: #444;
+  font-size: 10.5pt;
+  font-weight: 400;
+  margin: -10pt 0 18pt;
+  text-align: center;
+}
 h3 { font-size: 12pt; margin: 12pt 0 6pt; }
 p { margin: 0 0 7pt; }
 ol, ul { margin: 5pt 0 8pt 20pt; padding-left: 12pt; }

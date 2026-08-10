@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib
 import json
 import os
 import re
 import tempfile
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date
 from io import BytesIO
 from typing import Any
@@ -40,7 +42,11 @@ from quality_evals.corpus import (
     load_corpus,
     validate_corpus,
 )
-from quality_evals.report import QualityCaseResult, QualityReport
+from quality_evals.report import (
+    CoverageExpectation,
+    QualityCaseResult,
+    QualityReport,
+)
 
 _FIXED_AT = "2026-01-15T00:00:00+00:00"
 _INVALID_TYPE_METRIC = "invalid_type_acceptance_count"
@@ -51,68 +57,285 @@ _CONFLICT_METRIC = "conflict_transition_failure_count"
 _INVALID_DOWNLOAD_METRIC = "successful_invalid_downloads"
 _SEMANTIC_METRIC = "cross_format_semantic_mismatch_count"
 
+CASE_REGISTRY = {
+    "complete_state": "_evaluate_complete_state_case",
+    "missing_required": "_evaluate_missing_required_case",
+    "required_when": "_evaluate_conditions_case",
+    "field_constraints": "_evaluate_constraints_case",
+    "unknown_field": "_evaluate_unknown_field_case",
+    "conflict_transitions": "_evaluate_conflicts_case",
+    "idempotency_concurrency": "_evaluate_idempotency_case",
+    "public_put_protection": "_evaluate_public_put_case",
+    "invalid_downloads": "_evaluate_invalid_downloads_case",
+    "cross_format_semantics": "_evaluate_cross_format_case",
+}
+_ACTIVE_CASE_KIND: ContextVar[str | None] = ContextVar(
+    "quality_eval_case_kind", default=None
+)
 
-def run_contract_quality_evaluation() -> QualityReport:
-    validated = validate_corpus(load_corpus())
-    report = QualityReport.empty(expected_doc_ids=validated.corpus_doc_ids)
 
-    for document in validated.documents:
-        manifest = _manifest(document.doc_id)
-        _evaluate_kernel(report, document, manifest)
+def run_contract_quality_evaluation(validated=None) -> QualityReport:
+    if validated is None:
+        validated = validate_corpus(
+            load_corpus(), registered_case_kinds=set(CASE_REGISTRY)
+        )
+    expected_coverage = _build_coverage_plan(validated)
+    report = QualityReport.empty(
+        expected_doc_ids=validated.corpus_doc_ids,
+        expected_coverage=expected_coverage,
+    )
+    for expectation in expected_coverage:
+        if not expectation.applicable:
+            report.mark_not_applicable(expectation)
 
     with _evaluation_client() as (client, get_conn):
         headers = _register(client)
-        for document in validated.documents:
+        for case in validated.corpus.cases:
+            evaluator_name = CASE_REGISTRY[case.kind]
+            evaluator = globals()[evaluator_name]
+            token = _ACTIVE_CASE_KIND.set(case.kind)
             try:
-                _evaluate_routes(
-                    report,
-                    client,
-                    get_conn,
-                    headers,
-                    document,
-                    _manifest(document.doc_id),
-                )
-            except Exception as exc:  # one bad setup must fail, not abort, the gate
-                _record(
-                    report,
-                    document.doc_id,
-                    "route-evaluation:setup",
-                    False,
-                    expected="route evaluation completed",
-                    actual=f"{type(exc).__name__}: {exc}",
-                )
+                for document in validated.documents:
+                    try:
+                        evaluator(
+                            report,
+                            client,
+                            get_conn,
+                            headers,
+                            document,
+                            _manifest(document.doc_id),
+                        )
+                    except Exception as exc:
+                        _record(
+                            report,
+                            document.doc_id,
+                            f"{case.id}:setup",
+                            False,
+                            expected="case evaluation completed",
+                            actual=f"{type(exc).__name__}: {exc}",
+                        )
+            finally:
+                _ACTIVE_CASE_KIND.reset(token)
 
     return report
 
 
-def _evaluate_kernel(
-    report: QualityReport,
+def _build_coverage_plan(validated) -> tuple[CoverageExpectation, ...]:
+    expectations: list[CoverageExpectation] = []
+    for case in validated.corpus.cases:
+        for document in validated.documents:
+            manifest = _manifest(document.doc_id)
+            expectations.extend(
+                _case_coverage_expectations(
+                    case.kind,
+                    document,
+                    manifest,
+                    validated.corpus.renderers,
+                )
+            )
+    return tuple(expectations)
+
+
+def _case_coverage_expectations(
+    case_kind: str,
     document: CorpusDocument,
     manifest: dict[str, Any],
-) -> None:
+    renderers: tuple[str, ...],
+) -> list[CoverageExpectation]:
     doc_id = document.doc_id
-    anchor = document.anchor_field
+    case_ids: list[tuple[str, bool, str | None]] = []
+    if case_kind == "complete_state":
+        case_ids.extend(
+            (case_id, True, None)
+            for case_id in ("complete-state", "complete-state:download-readiness")
+        )
+    elif case_kind == "missing_required":
+        case_ids.append(("missing-required", True, None))
+        case_ids.extend(
+            (f"required-field:{field['key']}:whitespace", True, None)
+            for field in manifest["fields"]
+            if field.get("required") is True
+        )
+    elif case_kind == "required_when":
+        for dependent in manifest["fields"]:
+            raw = dependent.get("required_when")
+            if raw is None:
+                continue
+            conditions = raw if isinstance(raw, list) else [raw]
+            positive, negatives = _condition_group_witnesses(manifest, conditions)
+            prefix = f"required-when:{dependent['key']}"
+            case_ids.extend(
+                (case_id, True, None)
+                for case_id in (
+                    f"{prefix}:drivers-unconfirmed",
+                    f"{prefix}:all-matched-missing",
+                    f"{prefix}:all-matched-confirmed",
+                )
+            )
+            for driver_key in sorted(positive):
+                case_ids.append(
+                    (f"{prefix}:driver-{driver_key}:unconfirmed", True, None)
+                )
+                if driver_key in negatives:
+                    case_ids.append(
+                        (f"{prefix}:driver-{driver_key}:mismatched", True, None)
+                    )
+    elif case_kind == "field_constraints":
+        for field in manifest["fields"]:
+            key = field["key"]
+            case_ids.append((f"field-constraints:{key}:invalid-type", True, None))
+            if field.get("type") == "date":
+                case_ids.extend(
+                    (case_id, True, None)
+                    for case_id in (
+                        f"field-constraints:{key}:valid-date",
+                        f"field-constraints:{key}:invalid-date",
+                    )
+                )
+    elif case_kind == "unknown_field":
+        case_ids.append(("unknown-field", True, None))
+    elif case_kind == "conflict_transitions":
+        case_ids.extend(
+            (f"conflict-transitions:{scenario}", True, None)
+            for scenario in ("created", "keep-base", "accept-candidate")
+        )
+    elif case_kind == "idempotency_concurrency":
+        case_ids.extend(
+            (f"idempotency-concurrency:{scenario}", True, None)
+            for scenario in ("replay", "stale-revision")
+        )
+    elif case_kind == "public_put_protection":
+        case_ids.append(("public-put-protection", True, None))
+    elif case_kind == "invalid_downloads":
+        for scenario in ("missing", "pending", "required-conflict", "whitespace"):
+            case_ids.extend(
+                (f"invalid-downloads:{scenario}:{renderer}", True, None)
+                for renderer in renderers
+            )
+        for dependent in manifest["fields"]:
+            if dependent.get("required_when") is None:
+                continue
+            case_ids.extend(
+                (
+                    f"invalid-downloads:required-when-{dependent['key']}:{renderer}",
+                    True,
+                    None,
+                )
+                for renderer in renderers
+            )
+    elif case_kind == "cross_format_semantics":
+        case_ids.extend(
+            (f"cross-format-semantics:{scenario}", True, None)
+            for scenario in ("conflict-projection", "pending-projection")
+        )
+        case_ids.extend(
+            (f"cross-format-semantics:complete:{renderer}", True, None)
+            for renderer in renderers
+        )
+        candidates = _candidate_specs(manifest)
+        for state_name, candidate in zip(
+            ("conflict", "pending"), candidates, strict=True
+        ):
+            applicable = candidate is not None
+            if applicable:
+                reason = None
+            elif state_name == "conflict":
+                reason = (
+                    "no non-required conflict candidate; required conflict "
+                    "is blocked by download readiness"
+                )
+            else:
+                reason = "no safe non-required pending candidate field"
+            case_ids.extend(
+                (
+                    f"cross-format-semantics:{state_name}:{renderer}",
+                    applicable,
+                    reason,
+                )
+                for renderer in renderers
+            )
+    else:
+        raise CorpusValidationError(
+            "unregistered_case_kind", f"No coverage planner for {case_kind!r}."
+        )
+    return [
+        _coverage_expectation(doc_id, case_kind, case_id, applicable, reason)
+        for case_id, applicable, reason in case_ids
+    ]
 
-    complete = _confirm_fields(_fresh_snapshot(doc_id, manifest), manifest["fields"])
+
+def _coverage_expectation(
+    doc_id: str,
+    case_kind: str,
+    case_id: str,
+    applicable: bool,
+    reason: str | None,
+) -> CoverageExpectation:
+    scenario, renderer = _split_renderer(case_id)
+    return CoverageExpectation(
+        doc_id=doc_id,
+        case_kind=case_kind,
+        scenario=scenario,
+        renderer=renderer,
+        applicable=applicable,
+        reason=reason,
+    )
+
+
+def _split_renderer(case_id: str) -> tuple[str, str | None]:
+    prefix, separator, suffix = case_id.rpartition(":")
+    if separator and suffix in {"docx", "pdf"}:
+        return prefix, suffix
+    return case_id, None
+
+
+def _evaluate_complete_state_case(
+    report, client, _get_conn, headers, document, manifest
+) -> None:
+    complete = _confirm_fields(
+        _fresh_snapshot(document.doc_id, manifest), manifest["fields"]
+    )
     unresolved = unresolved_required_field_keys(manifest, complete)
     _record(
         report,
-        doc_id,
+        document.doc_id,
         "complete-state",
         not unresolved,
         expected="[]",
         actual=repr(unresolved),
         metric=_FALSE_POSITIVE_METRIC,
     )
+    created = _create_document(client, headers, document.doc_id, "complete-readiness")
+    _api_confirm_fields(client, headers, created["id"], manifest, manifest["fields"], 0)
+    readiness = client.get(
+        f"/api/documents/{created['id']}/download-readiness", headers=headers
+    )
+    body = readiness.json() if readiness.status_code == 200 else {}
+    _record(
+        report,
+        document.doc_id,
+        "complete-state:download-readiness",
+        readiness.status_code == 200
+        and body.get("can_download") is True
+        and body.get("unresolved_required_fields") == [],
+        expected="HTTP 200 with can_download=true and no unresolved fields",
+        actual=f"HTTP {readiness.status_code}, body={body!r}",
+        metric=_FALSE_POSITIVE_METRIC,
+    )
 
+
+def _evaluate_missing_required_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
+    anchor = document.anchor_field
     missing = _confirm_fields(
-        _fresh_snapshot(doc_id, manifest),
+        _fresh_snapshot(document.doc_id, manifest),
         [field for field in manifest["fields"] if field["key"] != anchor],
     )
     missing_keys = unresolved_required_field_keys(manifest, missing)
     _record(
         report,
-        doc_id,
+        document.doc_id,
         "missing-required",
         anchor in missing_keys,
         field_key=anchor,
@@ -120,7 +343,9 @@ def _evaluate_kernel(
         actual=repr(missing_keys),
         metric=_FALSE_NEGATIVE_METRIC,
     )
-
+    complete = _confirm_fields(
+        _fresh_snapshot(document.doc_id, manifest), manifest["fields"]
+    )
     for field in manifest["fields"]:
         if field.get("required") is not True:
             continue
@@ -130,7 +355,7 @@ def _evaluate_kernel(
         whitespace_keys = unresolved_required_field_keys(manifest, whitespace)
         _record(
             report,
-            doc_id,
+            document.doc_id,
             f"required-field:{key}:whitespace",
             key in whitespace_keys,
             field_key=key,
@@ -139,12 +364,54 @@ def _evaluate_kernel(
             metric=_FALSE_NEGATIVE_METRIC,
         )
 
+
+def _evaluate_conditions_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
     _evaluate_conditions(report, document, manifest)
+
+
+def _evaluate_constraints_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
     _evaluate_constraints(report, document, manifest)
+
+
+def _evaluate_unknown_field_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
     _evaluate_unknown_field(report, document, manifest)
+
+
+def _evaluate_conflicts_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
     _evaluate_conflicts(report, document, manifest)
+
+
+def _evaluate_idempotency_case(
+    report, _client, _get_conn, _headers, document, manifest
+) -> None:
     _evaluate_idempotency(report, document, manifest)
+
+
+def _evaluate_public_put_case(
+    report, client, _get_conn, headers, document, manifest
+) -> None:
+    _evaluate_public_put(report, client, headers, document, manifest)
+
+
+def _evaluate_invalid_downloads_case(
+    report, client, get_conn, headers, document, manifest
+) -> None:
+    _evaluate_invalid_downloads(report, client, get_conn, headers, document, manifest)
+
+
+def _evaluate_cross_format_case(
+    report, client, _get_conn, headers, document, manifest
+) -> None:
     _evaluate_semantic_projection(report, document, manifest)
+    _evaluate_successful_downloads(report, client, headers, document, manifest)
 
 
 def _evaluate_conditions(
@@ -161,104 +428,61 @@ def _evaluate_conditions(
             raw_condition if isinstance(raw_condition, list) else [raw_condition]
         )
         case_prefix = f"required-when:{dependent['key']}"
-        matching_values = _condition_witness_values(manifest, conditions)
-
-        unconfirmed = _fresh_snapshot(document.doc_id, manifest)
-        active_unconfirmed = dependent["key"] in required_field_keys(
-            manifest, unconfirmed
-        )
-        _record(
+        positive, negatives = _condition_group_witnesses(manifest, conditions)
+        _record_condition_assignment(
             report,
-            document.doc_id,
+            document,
+            manifest,
             f"{case_prefix}:drivers-unconfirmed",
-            not active_unconfirmed,
-            field_key=dependent["key"],
-            expected="inactive until every driver is confirmed",
-            actual=f"active={active_unconfirmed}",
+            {},
             metric=_FALSE_POSITIVE_METRIC,
         )
-
-        matched = _confirm_values(
-            _fresh_snapshot(document.doc_id, manifest),
-            manifest,
-            matching_values,
-        )
-        matched_unresolved = unresolved_required_field_keys(manifest, matched)
-        _record(
+        matched = _record_condition_assignment(
             report,
-            document.doc_id,
+            document,
+            manifest,
             f"{case_prefix}:all-matched-missing",
-            dependent["key"] in matched_unresolved,
-            field_key=dependent["key"],
-            expected="dependent unresolved when all conditions match",
-            actual=repr(matched_unresolved),
+            positive,
             metric=_FALSE_NEGATIVE_METRIC,
+            expected_unresolved=dependent["key"],
         )
-
         resolved = _confirm_values(
             matched,
             manifest,
             {dependent["key"]: _valid_value(fields[dependent["key"]])},
         )
-        resolved_keys = unresolved_required_field_keys(manifest, resolved)
-        _record(
+        _record_condition_snapshot(
             report,
-            document.doc_id,
+            document,
+            manifest,
             f"{case_prefix}:all-matched-confirmed",
-            dependent["key"] not in resolved_keys,
-            field_key=dependent["key"],
-            expected="dependent resolved",
-            actual=repr(resolved_keys),
+            resolved,
             metric=_FALSE_POSITIVE_METRIC,
+            expected_resolved=dependent["key"],
         )
 
-        for index, condition in enumerate(conditions):
-            driver_key = condition["field"]
-            unconfirmed_values = {
-                key: value
-                for key, value in matching_values.items()
-                if key != driver_key
-            }
-            one_unconfirmed = _confirm_values(
-                _fresh_snapshot(document.doc_id, manifest),
-                manifest,
-                unconfirmed_values,
-            )
-            unconfirmed_keys = required_field_keys(manifest, one_unconfirmed)
-            _record(
+        for driver_key in sorted(positive):
+            _record_condition_assignment(
                 report,
-                document.doc_id,
-                f"{case_prefix}:{index}:driver-unconfirmed",
-                dependent["key"] not in unconfirmed_keys,
-                field_key=dependent["key"],
-                expected="dependent not required",
-                actual=repr(unconfirmed_keys),
+                document,
+                manifest,
+                f"{case_prefix}:driver-{driver_key}:unconfirmed",
+                {
+                    key: value
+                    for key, value in positive.items()
+                    if key != driver_key
+                },
                 metric=_FALSE_POSITIVE_METRIC,
             )
-
-            if (condition.get("op") or "equals") == "exists":
-                continue
-            negative_values = _condition_witness_values(
-                manifest,
-                conditions,
-                failing_index=index,
-            )
-            one_mismatch = _confirm_values(
-                _fresh_snapshot(document.doc_id, manifest),
-                manifest,
-                negative_values,
-            )
-            mismatch_keys = required_field_keys(manifest, one_mismatch)
-            _record(
-                report,
-                document.doc_id,
-                f"{case_prefix}:{index}:driver-mismatched",
-                dependent["key"] not in mismatch_keys,
-                field_key=dependent["key"],
-                expected="dependent not required",
-                actual=repr(mismatch_keys),
-                metric=_FALSE_POSITIVE_METRIC,
-            )
+            if driver_key in negatives:
+                _record_condition_assignment(
+                    report,
+                    document,
+                    manifest,
+                    f"{case_prefix}:driver-{driver_key}:mismatched",
+                    negatives[driver_key],
+                    metric=_FALSE_POSITIVE_METRIC,
+                )
 
 
 def _evaluate_constraints(
@@ -591,72 +815,185 @@ def _evaluate_semantic_projection(
     )
 
 
-def _evaluate_routes(
+def _evaluate_successful_downloads(
     report: QualityReport,
     client: TestClient,
-    get_conn,
     headers: dict[str, str],
     document: CorpusDocument,
     manifest: dict[str, Any],
 ) -> None:
-    complete = _create_document(client, headers, document.doc_id, "complete")
+    complete = _create_document(client, headers, document.doc_id, "semantic-complete")
     complete_snapshot = _api_confirm_fields(
         client, headers, complete["id"], manifest, manifest["fields"], 0
     )
-    complete_snapshot, forbidden_values = _add_nonblocking_candidates(
+    _assert_semantic_formats(
+        report,
         client,
         headers,
-        complete["id"],
+        document,
         manifest,
+        complete,
         complete_snapshot,
+        "complete",
     )
-    readiness = client.get(
-        f"/api/documents/{complete['id']}/download-readiness",
-        headers=headers,
+
+    conflict_spec, pending_spec = _candidate_specs(manifest)
+    if conflict_spec is not None:
+        _evaluate_candidate_downloads(
+            report,
+            client,
+            headers,
+            document,
+            manifest,
+            "conflict",
+            conflict_spec,
+        )
+    if pending_spec is not None:
+        _evaluate_candidate_downloads(
+            report,
+            client,
+            headers,
+            document,
+            manifest,
+            "pending",
+            pending_spec,
+        )
+
+
+def _evaluate_candidate_downloads(
+    report: QualityReport,
+    client: TestClient,
+    headers: dict[str, str],
+    document: CorpusDocument,
+    manifest: dict[str, Any],
+    state_name: str,
+    spec: tuple[dict[str, Any], str],
+) -> None:
+    field, candidate = spec
+    created = _create_document(
+        client, headers, document.doc_id, f"semantic-{state_name}"
     )
-    readiness_body = readiness.json() if readiness.status_code == 200 else {}
-    _record(
+    snapshot = _api_confirm_fields(
+        client, headers, created["id"], manifest, manifest["fields"], 0
+    )
+    if state_name == "pending":
+        cleared = _api_patch(
+            client,
+            headers,
+            created["id"],
+            patch_id=f"semantic-pending-clear-{created['id']}",
+            base_revision=snapshot["revision"],
+            source="form",
+            operations=[{"op": "confirm", "key": field["key"], "value": ""}],
+        )
+        if cleared.status_code != 200:
+            raise RuntimeError(f"Pending clear failed: HTTP {cleared.status_code}")
+        snapshot = cleared.json()["snapshot"]
+    response = _api_patch(
+        client,
+        headers,
+        created["id"],
+        patch_id=f"semantic-{state_name}-{created['id']}",
+        base_revision=snapshot["revision"],
+        source="llm",
+        operations=[{"op": "propose", "key": field["key"], "value": candidate}],
+    )
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"{state_name.title()} candidate setup failed: HTTP {response.status_code}"
+        )
+    _assert_semantic_formats(
         report,
-        document.doc_id,
-        "complete-state:download-readiness",
-        readiness.status_code == 200
-        and readiness_body.get("can_download") is True
-        and readiness_body.get("unresolved_required_fields") == [],
-        expected="HTTP 200 with can_download=true and no unresolved fields",
-        actual=f"HTTP {readiness.status_code}, body={readiness_body!r}",
-        metric=_FALSE_POSITIVE_METRIC,
+        client,
+        headers,
+        document,
+        manifest,
+        created,
+        response.json()["snapshot"],
+        state_name,
+        forbidden_values=(candidate,),
     )
+
+
+def _assert_semantic_formats(
+    report: QualityReport,
+    client: TestClient,
+    headers: dict[str, str],
+    document: CorpusDocument,
+    manifest: dict[str, Any],
+    created: dict[str, Any],
+    snapshot: dict[str, Any],
+    state_name: str,
+    *,
+    forbidden_values: tuple[str, ...] = (),
+) -> None:
     model = build_export_document(
         doc_id=document.doc_id,
-        title=complete["title"],
+        title=created["title"],
         manifest=manifest,
-        snapshot=DraftStateSnapshot.model_validate(complete_snapshot),
+        snapshot=DraftStateSnapshot.model_validate(snapshot),
     )
     for renderer in ("docx", "pdf"):
         response = client.get(
-            f"/api/documents/{complete['id']}/download?format={renderer}",
+            f"/api/documents/{created['id']}/download?format={renderer}",
             headers=headers,
         )
         issues = _semantic_response_issues(
-            renderer,
-            response,
-            model,
-            forbidden_values=forbidden_values,
+            renderer, response, model, forbidden_values=forbidden_values
         )
         _record(
             report,
             document.doc_id,
-            f"cross-format-semantics:{renderer}",
+            f"cross-format-semantics:{state_name}:{renderer}",
             not issues,
-            field_key=document.anchor_field,
-            expected="actual download matches the authoritative export model",
+            expected="actual download matches model without candidate leakage",
             actual="; ".join(issues) if issues else "matched",
             metric=_SEMANTIC_METRIC,
         )
-    _evaluate_invalid_downloads(
-        report, client, get_conn, headers, document, manifest
+
+
+def _candidate_specs(
+    manifest: dict[str, Any],
+) -> tuple[tuple[dict[str, Any], str] | None, tuple[dict[str, Any], str] | None]:
+    driver_keys = {
+        condition["field"]
+        for field in manifest.get("fields", [])
+        for condition in _conditions(field.get("required_when"))
+        if isinstance(condition.get("field"), str)
+    }
+    candidate_fields = [
+        field
+        for field in manifest.get("fields", [])
+        if field.get("required") is not True
+        and field.get("required_when") is None
+        and field.get("key") not in driver_keys
+        and field.get("type") in {"string", "text"}
+        and not (field.get("enum") or field.get("options"))
+    ]
+    return (
+        _candidate_spec(manifest, candidate_fields[0], "conflict")
+        if candidate_fields
+        else None,
+        _candidate_spec(manifest, candidate_fields[0], "pending")
+        if candidate_fields
+        else None,
     )
-    _evaluate_public_put(report, client, headers, document, manifest)
+
+
+def _candidate_spec(
+    manifest: dict[str, Any], field: dict[str, Any], state_name: str
+) -> tuple[dict[str, Any], str]:
+    digest = hashlib.sha256(
+        f"{manifest.get('doc_id')}::{field['key']}::{state_name}".encode()
+    ).hexdigest()[:12]
+    return field, f"PL24候选-{digest}"
+
+
+def _conditions(raw: Any) -> list[dict[str, Any]]:
+    if raw is None:
+        return []
+    values = raw if isinstance(raw, list) else [raw]
+    return [value for value in values if isinstance(value, dict)]
 
 
 def _evaluate_invalid_downloads(
@@ -909,84 +1246,6 @@ def _evaluate_public_put(
     )
 
 
-def _add_nonblocking_candidates(
-    client: TestClient,
-    headers: dict[str, str],
-    document_id: int,
-    manifest: dict[str, Any],
-    snapshot: dict[str, Any],
-) -> tuple[dict[str, Any], tuple[str, ...]]:
-    eligible: list[tuple[dict[str, Any], tuple[str, str]]] = []
-    for field in manifest["fields"]:
-        if field.get("required") or field.get("required_when") is not None:
-            continue
-        try:
-            values = _distinct_valid_values(field)
-        except CorpusValidationError:
-            continue
-        eligible.append((field, values))
-
-    forbidden: list[str] = []
-    if eligible:
-        field, values = eligible[0]
-        current = snapshot["fields"][field["key"]].get("value")
-        candidate = values[1] if current == values[0] else values[0]
-        response = _api_patch(
-            client,
-            headers,
-            document_id,
-            patch_id=f"semantic-conflict-{document_id}",
-            base_revision=snapshot["revision"],
-            source="llm",
-            operations=[
-                {"op": "propose", "key": field["key"], "value": candidate}
-            ],
-        )
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Semantic conflict setup failed: HTTP {response.status_code}"
-            )
-        snapshot = response.json()["snapshot"]
-        forbidden.append(candidate)
-
-    if len(eligible) > 1:
-        field, values = eligible[1]
-        clear_response = _api_patch(
-            client,
-            headers,
-            document_id,
-            patch_id=f"semantic-clear-{document_id}",
-            base_revision=snapshot["revision"],
-            source="form",
-            operations=[{"op": "confirm", "key": field["key"], "value": ""}],
-        )
-        if clear_response.status_code != 200:
-            raise RuntimeError(
-                f"Semantic pending clear failed: HTTP {clear_response.status_code}"
-            )
-        snapshot = clear_response.json()["snapshot"]
-        candidate = values[0]
-        pending_response = _api_patch(
-            client,
-            headers,
-            document_id,
-            patch_id=f"semantic-pending-{document_id}",
-            base_revision=snapshot["revision"],
-            source="llm",
-            operations=[
-                {"op": "propose", "key": field["key"], "value": candidate}
-            ],
-        )
-        if pending_response.status_code != 200:
-            raise RuntimeError(
-                f"Semantic pending setup failed: HTTP {pending_response.status_code}"
-            )
-        snapshot = pending_response.json()["snapshot"]
-        forbidden.append(candidate)
-
-    return snapshot, tuple(forbidden)
-
-
 def _semantic_response_issues(
     renderer: str,
     response: Any,
@@ -1053,15 +1312,35 @@ def _semantic_response_issues(
         expected = _normalize_output_text(block.text)
         if not expected:
             continue
+        if expected not in normalized_text:
+            issues.append(f"rendered block missing: {block.section}:{block.order}")
+            continue
+        # PDF extractors may emit short table headers before their visual row.
+        # Keep presence checks for those labels, but order only substantive text.
+        if len(expected) < 8:
+            continue
         position = normalized_text.find(expected, cursor)
         if position < 0:
             issues.append(
-                f"rendered block missing or out of order: {block.section}:{block.order}"
+                f"rendered block out of order: {block.section}:{block.order}"
             )
             continue
         cursor = position + len(expected)
+    authoritative_text = _normalize_output_text(
+        "\n".join(
+            [
+                model.title,
+                model.disclaimer,
+                *(field.value or "" for field in model.fields),
+                *(block.text for block in model.blocks),
+            ]
+        )
+    )
     for value in forbidden_values:
-        if _normalize_output_text(value) in normalized_text:
+        normalized_value = _normalize_output_text(value)
+        if normalized_value in authoritative_text:
+            continue
+        if normalized_value in normalized_text:
             issues.append(f"unconfirmed candidate leaked: {value}")
     return issues
 
@@ -1214,50 +1493,181 @@ def _condition_witness_values(
     *,
     failing_index: int | None = None,
 ) -> dict[str, str]:
+    positive, negatives = _condition_group_witnesses(manifest, conditions)
+    if failing_index is None:
+        return positive
+    try:
+        driver_key = conditions[failing_index]["field"]
+    except (IndexError, KeyError, TypeError) as exc:
+        raise CorpusValidationError(
+            "condition_witness_unavailable", "Invalid failing condition index."
+        ) from exc
+    negative = negatives.get(driver_key)
+    if negative is None:
+        raise CorpusValidationError(
+            "condition_witness_unavailable",
+            "No negative group witness exists for "
+            f"{manifest.get('doc_id')}:{driver_key}.",
+        )
+    return negative
+
+
+def _condition_group_witnesses(
+    manifest: dict[str, Any],
+    conditions: list[dict[str, Any]],
+) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
     fields = {
         field["key"]: field
         for field in manifest.get("fields", [])
         if isinstance(field, dict) and isinstance(field.get("key"), str)
     }
-    grouped: dict[str, list[tuple[int, dict[str, Any]]]] = {}
-    for index, condition in enumerate(conditions):
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for condition in conditions:
         key = condition.get("field")
         if not isinstance(key, str) or key not in fields:
             raise CorpusValidationError(
                 "unknown_condition_field",
                 f"Condition references unknown field {key!r}.",
             )
-        grouped.setdefault(key, []).append((index, condition))
+        grouped.setdefault(key, []).append(condition)
 
-    assignments: dict[str, str] = {}
-    for key, entries in grouped.items():
+    positive: dict[str, str] = {}
+    group_negatives: dict[str, str] = {}
+    for key, group_conditions in grouped.items():
         field = fields[key]
-        candidates = _valid_value_candidates(
-            field,
-            [condition for _index, condition in entries],
-        )
-        selected = next(
+        candidates = _valid_value_candidates(field, group_conditions)
+        positive_value = next(
             (
                 candidate
                 for candidate in candidates
                 if all(
                     _condition_matches_value(condition, candidate)
-                    != (index == failing_index)
-                    for index, condition in entries
+                    for condition in group_conditions
                 )
             ),
             None,
         )
-        if selected is None:
-            mode = "negative" if failing_index is not None else "positive"
+        if positive_value is None:
             raise CorpusValidationError(
                 "condition_witness_unavailable",
-                "No "
-                f"{mode} condition witness exists for "
+                "No positive condition witness exists for "
                 f"{manifest.get('doc_id')}:{key}.",
             )
-        assignments[key] = selected
-    return assignments
+        positive[key] = positive_value
+        negative_value = next(
+            (
+                candidate
+                for candidate in candidates
+                if not all(
+                    _condition_matches_value(condition, candidate)
+                    for condition in group_conditions
+                )
+            ),
+            None,
+        )
+        if negative_value is not None:
+            group_negatives[key] = negative_value
+
+    negatives = {
+        key: {**positive, key: value}
+        for key, value in group_negatives.items()
+    }
+    return positive, negatives
+
+
+def _record_condition_assignment(
+    report: QualityReport,
+    document: CorpusDocument,
+    manifest: dict[str, Any],
+    case_id: str,
+    values: dict[str, str],
+    *,
+    metric: str,
+    expected_unresolved: str | None = None,
+) -> DraftStateSnapshot:
+    snapshot = _confirm_values(
+        _fresh_snapshot(document.doc_id, manifest), manifest, values
+    )
+    _record_condition_snapshot(
+        report,
+        document,
+        manifest,
+        case_id,
+        snapshot,
+        metric=metric,
+        expected_unresolved=expected_unresolved,
+    )
+    return snapshot
+
+
+def _record_condition_snapshot(
+    report: QualityReport,
+    document: CorpusDocument,
+    manifest: dict[str, Any],
+    case_id: str,
+    snapshot: DraftStateSnapshot,
+    *,
+    metric: str,
+    expected_unresolved: str | None = None,
+    expected_resolved: str | None = None,
+) -> None:
+    values = {
+        key: field.value.strip()
+        for key, field in snapshot.fields.items()
+        if isinstance(field.value, str)
+        and field.value.strip()
+        and (
+            field.status == "confirmed"
+            or (field.status == "conflict" and field.confirmed_at is not None)
+        )
+    }
+    expected_active = _oracle_conditional_required_keys(manifest, values)
+    conditional_keys = {
+        field["key"]
+        for field in manifest["fields"]
+        if field.get("required_when") is not None
+    }
+    actual_active = set(required_field_keys(manifest, snapshot)) & conditional_keys
+    unresolved = set(unresolved_required_field_keys(manifest, snapshot))
+    passed = actual_active == expected_active
+    if expected_unresolved is not None:
+        passed = passed and expected_unresolved in unresolved
+    if expected_resolved is not None:
+        passed = passed and expected_resolved not in unresolved
+    _record(
+        report,
+        document.doc_id,
+        case_id,
+        passed,
+        field_key=expected_unresolved or expected_resolved,
+        expected=(
+            f"active={sorted(expected_active)!r}, "
+            f"unresolved={expected_unresolved!r}, resolved={expected_resolved!r}"
+        ),
+        actual=f"active={sorted(actual_active)!r}, unresolved={sorted(unresolved)!r}",
+        metric=metric,
+    )
+
+
+def _oracle_conditional_required_keys(
+    manifest: dict[str, Any], values: dict[str, str]
+) -> set[str]:
+    active: set[str] = set()
+    for field in manifest.get("fields", []):
+        raw = field.get("required_when")
+        if raw is None:
+            continue
+        conditions = raw if isinstance(raw, list) else [raw]
+        if all(
+            isinstance(condition, dict)
+            and isinstance(values.get(condition.get("field")), str)
+            and _condition_matches_value(
+                condition, values[condition["field"]]
+            )
+            for condition in conditions
+        ):
+            active.add(field["key"])
+    return active
 
 
 def _valid_value_candidates(
@@ -1359,6 +1769,16 @@ def _record(
     metric: str | None = None,
     metric_triggered: bool | None = None,
 ) -> None:
+    case_kind = _ACTIVE_CASE_KIND.get()
+    coverage_key = None
+    if case_kind is not None:
+        scenario, renderer = _split_renderer(case_id)
+        coverage_key = CoverageExpectation(
+            doc_id=doc_id,
+            case_kind=case_kind,
+            scenario=scenario,
+            renderer=renderer,
+        ).key
     report.add(
         QualityCaseResult(
             doc_id=doc_id,
@@ -1371,6 +1791,7 @@ def _record(
             metric_triggered=(
                 not passed if metric_triggered is None else metric_triggered
             ),
+            coverage_key=coverage_key,
         )
     )
 

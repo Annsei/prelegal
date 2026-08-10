@@ -1044,12 +1044,15 @@ def _single_condition_matches(
 
 def _confirmed_value(snapshot: DraftStateSnapshot, key: str) -> str | None:
     field = snapshot.fields.get(key)
-    if field is None or field.value is None:
+    if field is None or not isinstance(field.value, str):
+        return None
+    value = field.value.strip()
+    if not value:
         return None
     if field.status == "confirmed":
-        return field.value
+        return value
     if field.status == "conflict" and field.confirmed_at is not None:
-        return field.value
+        return value
     return None
 
 

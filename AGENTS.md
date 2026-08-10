@@ -74,7 +74,8 @@ backend/         FastAPI service (uv project)
                    documents.py (per-user CRUD), health.py
   tests/           pytest
   quality_evals/   deterministic 11-document kernel/download/export corpus
-                   and CI hard gate (`python -m quality_evals`)
+                   and fresh-process offline CI hard gate
+                   (`python -m quality_evals.offline_gate`)
 frontend/        Next.js 15 (static export, output: "export")
   app/page.tsx     Legal-agreement generator with sidebar / editor / preview
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
@@ -152,6 +153,6 @@ cd frontend && NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ### Tests
 
 - Backend: `cd backend && uv run pytest`
-- Contract quality hard gate: `cd backend && uv run python -m quality_evals`
+- Contract quality hard gate: `cd backend && uv run python -m quality_evals.offline_gate`
 - Frontend unit: `cd frontend && npm test -- --run`
 - Frontend e2e: `cd frontend && npx playwright test`

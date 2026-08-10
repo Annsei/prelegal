@@ -67,10 +67,12 @@ export function stableFieldValues(
   for (const field of manifest.fields) {
     const state = snapshot.fields[field.key];
     if (typeof state?.value !== "string") continue;
+    const value = state.value.trim();
+    if (!value) continue;
     if (state.status === "confirmed") {
-      values[field.key] = state.value;
+      values[field.key] = value;
     } else if (state.status === "conflict" && state.confirmed_at) {
-      values[field.key] = state.value;
+      values[field.key] = value;
     }
   }
   return values;

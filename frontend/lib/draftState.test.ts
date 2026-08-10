@@ -269,7 +269,7 @@ describe("draftState helpers", () => {
     ).not.toContain("付款安排");
   });
 
-  it("treats confirmed empty strings as present for not_equals and in conditions", () => {
+  it("does not activate conditional fields from whitespace-only drivers", () => {
     const manifest: DocManifest = {
       ...MANIFEST,
       fields: [
@@ -300,8 +300,7 @@ describe("draftState helpers", () => {
           required: false,
           required_when: {
             field: "空值控制字段",
-            op: "in",
-            values: ["", "触发"],
+            op: "exists",
           },
           label: { zh: "枚举触发字段", en: "In Dependent" },
         },
@@ -323,7 +322,7 @@ describe("draftState helpers", () => {
         空值控制字段: {
           key: "空值控制字段",
           status: "confirmed",
-          value: "",
+          value: "   ",
           revision: 4,
           provenance: [],
           confirmed_at: "2026-07-31T00:00:00+00:00",
@@ -332,10 +331,7 @@ describe("draftState helpers", () => {
       },
     };
 
-    expect(unresolvedRequiredKeys(manifest, snapshot)).toEqual([
-      "非某值触发字段",
-      "枚举触发字段",
-    ]);
+    expect(unresolvedRequiredKeys(manifest, snapshot)).toEqual([]);
   });
 
   it("requires paid-pilot fee details after the pricing model is confirmed", () => {
