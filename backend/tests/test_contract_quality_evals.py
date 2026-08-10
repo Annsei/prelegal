@@ -547,7 +547,12 @@ def test_quality_command_returns_stable_corpus_failure(monkeypatch, capsys):
 @pytest.mark.parametrize(
     ("probe", "marker"),
     [
-        ("socket", "offline_guard_blocked_socket"),
+        ("socket", "offline_guard_blocked_create_connection"),
+        ("inet_socket", "offline_guard_blocked_socket_family:AF_INET"),
+        ("low_level_socket", "offline_guard_blocked_socket_family:AF_INET"),
+        ("ipv6", "offline_guard_blocked_socket_family:AF_INET6"),
+        ("dns", "offline_guard_blocked_dns"),
+        ("subprocess", "offline_guard_blocked_subprocess"),
         ("app_llm", "offline_guard_blocked_import:app.llm"),
         ("litellm", "offline_guard_blocked_import:litellm"),
     ],
@@ -570,6 +575,44 @@ def test_fresh_process_offline_guard_rejects_network_and_llm_imports(
 
     assert completed.returncode != 0
     assert marker in completed.stderr
+
+
+@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="AF_UNIX unavailable")
+def test_fresh_process_offline_guard_allows_unix_socket():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "quality_evals.offline_gate",
+            "--probe",
+            "unix_socket",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "offline_guard_blocked" not in completed.stderr
+
+
+def test_fresh_process_udp_probe_closes_legacy_three_patch_escape():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "quality_evals.offline_gate",
+            "--probe",
+            "udp",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    assert "offline_guard_blocked_socket_family:AF_INET" in completed.stderr
+    assert "udp_bytes_sent=1" not in completed.stdout
 
 
 def test_offline_gate_parses_json_and_preserves_evaluator_exit(monkeypatch):
