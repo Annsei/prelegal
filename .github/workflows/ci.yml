@@ -28,9 +28,6 @@ jobs:
         run: uv run ruff check .
       - name: Tests
         run: uv run pytest -m "not contract_quality_gate"
-      - name: Deterministic contract-quality hard gate
-        run: uv run python -m quality_evals.offline_gate
-
   frontend:
     name: Frontend (eslint + tsc + vitest)
     runs-on: ubuntu-latest
@@ -90,5 +87,23 @@ jobs:
         with:
           context: .
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=product
+          cache-to: type=gha,mode=max,scope=product
+      - name: Build quality-gate image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: quality-gate
+          load: true
+          tags: prelegal-quality-gate:ci
+          cache-from: type=gha,scope=quality-gate
+          cache-to: type=gha,mode=max,scope=quality-gate
+      - name: Run kernel-isolated deterministic contract-quality hard gate
+        run: |
+          docker run --rm \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=512m \
+            prelegal-quality-gate:ci

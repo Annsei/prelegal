@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 from docx import Document
 
 import quality_evals.__main__ as quality_cli
+import quality_evals.kernel_gate as kernel_gate
 import quality_evals.offline_gate as offline_gate
 import quality_evals.offline_worker as offline_worker
 import quality_evals.runner as quality_runner
@@ -654,6 +655,69 @@ def test_fresh_process_udp_probe_closes_legacy_three_patch_escape():
     assert completed.returncode != 0
     assert "offline_guard_blocked_socket_family:AF_INET" in completed.stderr
     assert "udp_bytes_sent=1" not in completed.stdout
+
+
+def test_fresh_process_tripwire_does_not_claim_to_block_native_process_calls():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "quality_evals.offline_gate",
+            "--probe",
+            "native_process",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "offline_tripwire_native_process_rc=0" in completed.stdout
+    assert "offline_guard_blocked_subprocess" not in completed.stderr
+
+
+def test_kernel_gate_report_contract_fails_closed_on_count_drift():
+    report = {
+        "schema_version": 1,
+        "total_cases": 703,
+        "passed_cases": 703,
+        "failed_cases": 0,
+        "invariant_errors": [],
+        "coverage": {
+            "expected_count": 715,
+            "actual_count": 714,
+            "not_applicable": [{}] * 12,
+        },
+    }
+
+    with pytest.raises(
+        kernel_gate.KernelIsolationError,
+        match="kernel_isolation_failed:quality_report_mismatch:coverage.actual_count",
+    ):
+        kernel_gate._validate_report(report)
+
+
+def test_kernel_gate_rejects_an_active_non_loopback_interface(
+    monkeypatch, tmp_path: Path
+):
+    network_root = tmp_path / "net"
+    for name, state in (("lo", "unknown"), ("eth0", "up")):
+        interface = network_root / name
+        interface.mkdir(parents=True)
+        (interface / "operstate").write_text(state)
+    route_file = tmp_path / "route"
+    route_file.write_text("Iface Destination Gateway Flags\n")
+    ipv6_file = tmp_path / "if_inet6"
+    ipv6_file.write_text("")
+    monkeypatch.setattr(kernel_gate, "_NETWORK_ROOT", network_root)
+    monkeypatch.setattr(kernel_gate, "_ROUTE_FILE", route_file)
+    monkeypatch.setattr(kernel_gate, "_IPV6_ADDRESS_FILE", ipv6_file)
+
+    with pytest.raises(
+        kernel_gate.KernelIsolationError,
+        match="kernel_isolation_failed:active_non_loopback_interface:eth0",
+    ):
+        kernel_gate._assert_network_namespace()
 
 
 def test_offline_gate_parses_json_and_preserves_evaluator_exit(monkeypatch):

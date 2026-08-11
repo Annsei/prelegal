@@ -1,4 +1,8 @@
-"""CI entry point for one fresh-process offline quality evaluation."""
+"""Local fresh-process tripwire runner for the deterministic evaluator.
+
+The authoritative CI no-network guarantee is provided by the Linux container
+entry point in ``quality_evals.kernel_gate``.
+"""
 
 from __future__ import annotations
 

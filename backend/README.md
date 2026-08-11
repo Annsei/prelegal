@@ -31,11 +31,13 @@ non-API routes will return 404 — that's expected.
 
 ```bash
 cd backend
-uv run pytest
-uv run python -m quality_evals.offline_gate
+uv run ruff check .
+uv run pytest -m "not contract_quality_gate"
 ```
 
-The second command runs the deterministic 11-document kernel, download-gate,
-and DOCX/PDF semantic evaluation in a fresh process with socket and LLM imports
-blocked. Its report compares the manifest-expanded expected coverage plan with
-the executed/N/A coverage records before returning the evaluator exit code.
+The ordinary test suite includes fresh-process tripwires for accidental socket,
+DNS, subprocess, and LLM imports. Those Python hooks are regression checks, not
+a security sandbox. The authoritative hard gate runs the full deterministic
+11-document kernel, download, and DOCX/PDF evaluation in the Linux quality-gate
+image under `docker run --network none --cap-drop ALL --security-opt
+no-new-privileges`; see `.github/workflows/ci.yml` for the exact command.

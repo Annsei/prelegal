@@ -1,10 +1,17 @@
-"""Fresh-process worker that proves the deterministic evaluator is offline."""
+"""Fresh-process tripwire for accidental network, process, and LLM use.
+
+This guard catches ordinary Python call paths and provides stable regression
+markers. It is not a security sandbox: native calls can bypass in-process
+Python hooks. CI obtains the authoritative no-network boundary from the Linux
+container gate in ``quality_evals.kernel_gate``.
+"""
 
 from __future__ import annotations
 
 import _socket
 import argparse
 import builtins
+import ctypes
 import ctypes.util
 import os
 import socket
@@ -238,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
             "subprocess",
             "ldconfig_args",
             "ctypes_toolchain",
+            "native_process",
             "unix_socket",
             "app_llm",
             "litellm",
@@ -277,6 +285,13 @@ def main(argv: list[str] | None = None) -> int:
             if lookup is not None and lookup("offline-probe") is not None:
                 raise RuntimeError("offline_guard_ctypes_toolchain_enabled")
         return 0
+    if args.probe == "native_process":
+        # Deliberately demonstrates the boundary of this Python tripwire.
+        # The authoritative CI gate runs this worker inside a kernel network
+        # namespace, which native children inherit and cannot leave.
+        result = ctypes.CDLL(None).system(b"/usr/bin/true")
+        print(f"offline_tripwire_native_process_rc={result}")
+        return 0 if result == 0 else 1
     if args.probe == "unix_socket":
         sock = _ORIGINAL_SOCKET_CONSTRUCTOR(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.close()
