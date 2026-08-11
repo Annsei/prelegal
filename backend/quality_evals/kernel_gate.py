@@ -10,8 +10,11 @@ import socket
 import stat
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from quality_evals.report import HARD_GATE_METRICS, METRIC_NAMES
 
 _EXPECTED_CASES = 703
 _EXPECTED_COVERAGE = 715
@@ -30,6 +33,27 @@ _KNOWN_CONTROL_SOCKETS = (
 )
 _PROBE_ADDRESS = "192.0.2.1"
 _PROBE_PORT = 9
+_DOCUMENT_SUMMARY_KEYS = {"total_cases", "passed_cases", "failed_cases"}
+_COVERAGE_COUNT_EXPECTATIONS = {
+    "expected_count": _EXPECTED_COVERAGE,
+    "actual_count": _EXPECTED_COVERAGE,
+    "expected_unique_count": _EXPECTED_COVERAGE,
+    "actual_unique_count": _EXPECTED_COVERAGE,
+    "applicable_expected_count": _EXPECTED_CASES,
+    "not_applicable_expected_count": _EXPECTED_NOT_APPLICABLE,
+}
+_COVERAGE_EMPTY_LISTS = {
+    "missing_coverage_keys",
+    "unexpected_coverage_keys",
+    "unexpected_duplicate_coverage_keys",
+    "duplicate_expected_coverage_keys",
+}
+_COVERAGE_KEYS = {
+    *_COVERAGE_COUNT_EXPECTATIONS,
+    *_COVERAGE_EMPTY_LISTS,
+    "not_applicable",
+    "records",
+}
 
 
 class KernelIsolationError(RuntimeError):
@@ -199,31 +223,147 @@ def _assert_environment() -> None:
     print("kernel_isolation_openrouter_key_absent", file=sys.stderr)
 
 
-def _validate_report(report: Any) -> None:
-    if not isinstance(report, dict) or report.get("schema_version") != 1:
-        _fail("invalid_report_schema")
-    expected = {
-        "total_cases": _EXPECTED_CASES,
-        "passed_cases": _EXPECTED_CASES,
-        "failed_cases": 0,
-        "invariant_errors": [],
-    }
-    for key, value in expected.items():
-        if report.get(key) != value:
-            _fail("quality_report_mismatch", key)
-    coverage = report.get("coverage")
-    if not isinstance(coverage, dict):
+@lru_cache(maxsize=1)
+def _expected_document_ids() -> frozenset[str]:
+    from quality_evals.corpus import load_corpus, validate_corpus
+
+    validated = validate_corpus(load_corpus())
+    return frozenset(validated.catalog_doc_ids)
+
+
+def _strict_int(report: dict[str, Any], key: str, expected: int) -> None:
+    value = report.get(key)
+    if type(value) is not int or value != expected:
+        _fail("quality_report_mismatch", key)
+
+
+def _validate_coverage(coverage: Any) -> None:
+    if type(coverage) is not dict:
         _fail("quality_report_mismatch", "coverage")
-    if coverage.get("expected_count") != _EXPECTED_COVERAGE:
-        _fail("quality_report_mismatch", "coverage.expected_count")
-    if coverage.get("actual_count") != _EXPECTED_COVERAGE:
-        _fail("quality_report_mismatch", "coverage.actual_count")
+    if set(coverage) != _COVERAGE_KEYS:
+        _fail("quality_report_mismatch", "coverage.keys")
+
+    for key, expected in _COVERAGE_COUNT_EXPECTATIONS.items():
+        value = coverage.get(key)
+        if type(value) is not int or value != expected:
+            _fail("quality_report_mismatch", f"coverage.{key}")
+
+    for key in _COVERAGE_EMPTY_LISTS:
+        value = coverage.get(key)
+        if type(value) is not list or value:
+            _fail("quality_report_mismatch", f"coverage.{key}")
+
     not_applicable = coverage.get("not_applicable")
     if (
-        not isinstance(not_applicable, list)
+        type(not_applicable) is not list
         or len(not_applicable) != _EXPECTED_NOT_APPLICABLE
     ):
         _fail("quality_report_mismatch", "coverage.not_applicable")
+    not_applicable_keys: list[str] = []
+    for item in not_applicable:
+        if (
+            type(item) is not dict
+            or set(item) != {"key", "reason"}
+            or type(item.get("key")) is not str
+            or not item["key"]
+            or item.get("reason") is not None
+            and type(item.get("reason")) is not str
+        ):
+            _fail("quality_report_mismatch", "coverage.not_applicable")
+        not_applicable_keys.append(item["key"])
+    if len(set(not_applicable_keys)) != _EXPECTED_NOT_APPLICABLE:
+        _fail("quality_report_mismatch", "coverage.not_applicable")
+
+    records = coverage.get("records")
+    if type(records) is not list or len(records) != _EXPECTED_COVERAGE:
+        _fail("quality_report_mismatch", "coverage.records")
+    record_keys: list[str] = []
+    record_not_applicable_keys: list[str] = []
+    for item in records:
+        if (
+            type(item) is not dict
+            or set(item) != {"key", "status", "reason"}
+            or type(item.get("key")) is not str
+            or not item["key"]
+            or type(item.get("status")) is not str
+            or item["status"] not in {"executed", "not_applicable"}
+            or item.get("reason") is not None
+            and type(item.get("reason")) is not str
+        ):
+            _fail("quality_report_mismatch", "coverage.records")
+        record_keys.append(item["key"])
+        if item["status"] == "not_applicable":
+            record_not_applicable_keys.append(item["key"])
+
+    if len(set(record_keys)) != _EXPECTED_COVERAGE:
+        _fail("quality_report_mismatch", "coverage.records")
+    if (
+        len(record_not_applicable_keys) != _EXPECTED_NOT_APPLICABLE
+        or set(record_not_applicable_keys) != set(not_applicable_keys)
+    ):
+        _fail("quality_report_mismatch", "coverage.records")
+
+
+def _validate_documents(documents: Any) -> None:
+    if type(documents) is not dict:
+        _fail("quality_report_mismatch", "documents")
+    if set(documents) != _expected_document_ids():
+        _fail("quality_report_mismatch", "documents.keys")
+
+    total_cases = 0
+    for summary in documents.values():
+        if type(summary) is not dict or set(summary) != _DOCUMENT_SUMMARY_KEYS:
+            _fail("quality_report_mismatch", "documents.summary")
+        if any(type(summary.get(key)) is not int for key in _DOCUMENT_SUMMARY_KEYS):
+            _fail("quality_report_mismatch", "documents.summary")
+        if (
+            summary["total_cases"] <= 0
+            or summary["failed_cases"] != 0
+            or summary["passed_cases"] != summary["total_cases"]
+        ):
+            _fail("quality_report_mismatch", "documents.summary")
+        total_cases += summary["total_cases"]
+    if total_cases != _EXPECTED_CASES:
+        _fail("quality_report_mismatch", "documents.summary")
+
+
+def _validate_report(report: Any) -> None:
+    if (
+        type(report) is not dict
+        or type(report.get("schema_version")) is not int
+        or report["schema_version"] != 1
+    ):
+        _fail("invalid_report_schema")
+    _strict_int(report, "total_cases", _EXPECTED_CASES)
+    _strict_int(report, "passed_cases", _EXPECTED_CASES)
+    _strict_int(report, "failed_cases", 0)
+    if type(report.get("invariant_errors")) is not list or report[
+        "invariant_errors"
+    ]:
+        _fail("quality_report_mismatch", "invariant_errors")
+
+    metrics = report.get("metrics")
+    if type(metrics) is not dict:
+        _fail("quality_report_mismatch", "metrics")
+    if set(metrics) != set(METRIC_NAMES):
+        _fail("quality_report_mismatch", "metrics.keys")
+    for name in METRIC_NAMES:
+        value = metrics[name]
+        if type(value) is not int or (name in HARD_GATE_METRICS and value != 0):
+            _fail("quality_report_mismatch", f"metrics.{name}")
+
+    denominators = report.get("metric_denominators")
+    if type(denominators) is not dict:
+        _fail("quality_report_mismatch", "metric_denominators")
+    if set(denominators) != set(METRIC_NAMES):
+        _fail("quality_report_mismatch", "metric_denominators.keys")
+    for name in METRIC_NAMES:
+        value = denominators[name]
+        if type(value) is not int or value <= 0:
+            _fail("quality_report_mismatch", f"metric_denominators.{name}")
+
+    _validate_coverage(report.get("coverage"))
+    _validate_documents(report.get("documents"))
 
 
 def _run_evaluator() -> int:

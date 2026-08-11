@@ -73,6 +73,9 @@ _OS_PROCESS_ENTRY_POINTS = (
     "system",
 )
 _CTYPES_TOOLCHAIN_LOOKUPS = ("_findLib_gcc", "_findLib_ld")
+_NATIVE_PROCESS_UNSUPPORTED = (
+    "offline_tripwire_native_process_unsupported:non_posix"
+)
 
 
 class _ForbiddenImportFinder:
@@ -231,6 +234,22 @@ def _install_guards() -> None:
     _GUARDS_INSTALLED = True
 
 
+def _native_process_probe_supported() -> bool:
+    return os.name == "posix"
+
+
+def _run_native_process_probe() -> int:
+    if not _native_process_probe_supported():
+        print(_NATIVE_PROCESS_UNSUPPORTED, file=sys.stderr)
+        return 2
+
+    # This deliberately demonstrates the boundary of the Python tripwire.
+    # Linux CI provides the authoritative kernel-enforced network isolation.
+    result = ctypes.CDLL(None).system(b"/usr/bin/true")
+    print(f"offline_tripwire_native_process_rc={result}")
+    return 0 if result == 0 else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -286,12 +305,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise RuntimeError("offline_guard_ctypes_toolchain_enabled")
         return 0
     if args.probe == "native_process":
-        # Deliberately demonstrates the boundary of this Python tripwire.
-        # The authoritative CI gate runs this worker inside a kernel network
-        # namespace, which native children inherit and cannot leave.
-        result = ctypes.CDLL(None).system(b"/usr/bin/true")
-        print(f"offline_tripwire_native_process_rc={result}")
-        return 0 if result == 0 else 1
+        return _run_native_process_probe()
     if args.probe == "unix_socket":
         sock = _ORIGINAL_SOCKET_CONSTRUCTOR(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.close()

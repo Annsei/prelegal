@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -50,6 +51,48 @@ EXPECTED_METRIC_NAMES = {
     "cross_format_semantic_mismatch_count",
 }
 EXPECTED_HARD_GATE_METRICS = set(EXPECTED_METRIC_NAMES)
+
+
+def _valid_kernel_report() -> dict:
+    validated = validate_corpus(load_corpus())
+    doc_ids = sorted(validated.catalog_doc_ids)
+    applicable = tuple(
+        CoverageExpectation(
+            doc_id=doc_ids[index % len(doc_ids)],
+            case_kind="kernel-validator-fixture",
+            scenario=f"executed-{index}",
+        )
+        for index in range(703)
+    )
+    not_applicable = tuple(
+        CoverageExpectation(
+            doc_id=doc_ids[index % len(doc_ids)],
+            case_kind="kernel-validator-fixture",
+            scenario=f"not-applicable-{index}",
+            applicable=False,
+            reason="controlled validator fixture",
+        )
+        for index in range(12)
+    )
+    report = QualityReport.empty(
+        expected_doc_ids=set(doc_ids),
+        expected_coverage=(*applicable, *not_applicable),
+    )
+    for index, expectation in enumerate(applicable):
+        report.add(
+            QualityCaseResult(
+                doc_id=expectation.doc_id,
+                case_id=f"validator-fixture-{index}",
+                passed=True,
+                metric=METRIC_NAMES[index % len(METRIC_NAMES)],
+                coverage_key=expectation.key,
+            )
+        )
+    for expectation in not_applicable:
+        report.mark_not_applicable(expectation)
+    result = report.to_dict()
+    assert result["invariant_errors"] == []
+    return result
 
 
 def test_quality_corpus_discovers_every_catalog_manifest():
@@ -657,6 +700,13 @@ def test_fresh_process_udp_probe_closes_legacy_three_patch_escape():
     assert "udp_bytes_sent=1" not in completed.stdout
 
 
+@pytest.mark.skipif(
+    os.name != "posix",
+    reason=(
+        "POSIX-only tripwire-boundary demonstration; skipping on Windows "
+        "does not prove native isolation"
+    ),
+)
 def test_fresh_process_tripwire_does_not_claim_to_block_native_process_calls():
     completed = subprocess.run(
         [
@@ -676,23 +726,272 @@ def test_fresh_process_tripwire_does_not_claim_to_block_native_process_calls():
     assert "offline_guard_blocked_subprocess" not in completed.stderr
 
 
-def test_kernel_gate_report_contract_fails_closed_on_count_drift():
-    report = {
-        "schema_version": 1,
-        "total_cases": 703,
-        "passed_cases": 703,
-        "failed_cases": 0,
-        "invariant_errors": [],
-        "coverage": {
-            "expected_count": 715,
-            "actual_count": 714,
-            "not_applicable": [{}] * 12,
-        },
-    }
+def test_native_process_probe_reports_non_posix_as_unsupported(monkeypatch, capsys):
+    monkeypatch.setattr(
+        offline_worker,
+        "_native_process_probe_supported",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        offline_worker.ctypes,
+        "CDLL",
+        lambda *_args, **_kwargs: pytest.fail("non-POSIX probe called libc"),
+    )
+
+    assert offline_worker._run_native_process_probe() == 2
+    assert (
+        capsys.readouterr().err
+        == "offline_tripwire_native_process_unsupported:non_posix\n"
+    )
+
+
+def test_kernel_gate_report_contract_accepts_quality_report_schema():
+    kernel_gate._validate_report(_valid_kernel_report())
+
+
+def _remove_path(report: dict, *path: str) -> None:
+    current = report
+    for key in path[:-1]:
+        current = current[key]
+    current.pop(path[-1])
+
+
+def _set_path(report: dict, *path_and_value) -> None:
+    *path, value = path_and_value
+    current = report
+    for key in path[:-1]:
+        current = current[key]
+    current[path[-1]] = value
+
+
+@pytest.mark.parametrize(
+    ("mutation", "marker"),
+    [
+        (
+            lambda report: _remove_path(report, "metrics"),
+            "quality_report_mismatch:metrics",
+        ),
+        (
+            lambda report: report["metrics"].update({"extra_metric": 0}),
+            "quality_report_mismatch:metrics.keys",
+        ),
+        (
+            lambda report: report["metrics"].pop(METRIC_NAMES[0]),
+            "quality_report_mismatch:metrics.keys",
+        ),
+        (
+            lambda report: _set_path(report, "metrics", METRIC_NAMES[0], 1),
+            f"quality_report_mismatch:metrics.{METRIC_NAMES[0]}",
+        ),
+        *[
+            (
+                lambda report, value=value: _set_path(
+                    report, "metrics", METRIC_NAMES[0], value
+                ),
+                f"quality_report_mismatch:metrics.{METRIC_NAMES[0]}",
+            )
+            for value in (True, "0", 0.0)
+        ],
+        (
+            lambda report: _remove_path(report, "metric_denominators"),
+            "quality_report_mismatch:metric_denominators",
+        ),
+        (
+            lambda report: report["metric_denominators"].pop(METRIC_NAMES[0]),
+            "quality_report_mismatch:metric_denominators.keys",
+        ),
+        *[
+            (
+                lambda report, value=value: _set_path(
+                    report, "metric_denominators", METRIC_NAMES[0], value
+                ),
+                f"quality_report_mismatch:metric_denominators.{METRIC_NAMES[0]}",
+            )
+            for value in (0, -1, True, "1", 1.0)
+        ],
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "missing_coverage_keys",
+                ["missing"],
+            ),
+            "quality_report_mismatch:coverage.missing_coverage_keys",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "unexpected_coverage_keys",
+                ["unexpected"],
+            ),
+            "quality_report_mismatch:coverage.unexpected_coverage_keys",
+        ),
+        *[
+            (
+                lambda report, key=key: _set_path(
+                    report, "coverage", key, ["duplicate"]
+                ),
+                f"quality_report_mismatch:coverage.{key}",
+            )
+            for key in (
+                "unexpected_duplicate_coverage_keys",
+                "duplicate_expected_coverage_keys",
+            )
+        ],
+        *[
+            (
+                lambda report, key=key: _set_path(
+                    report, "coverage", key, 714
+                ),
+                f"quality_report_mismatch:coverage.{key}",
+            )
+            for key in ("expected_unique_count", "actual_unique_count")
+        ],
+        *[
+            (
+                lambda report, key=key: _set_path(
+                    report, "coverage", key, 0
+                ),
+                f"quality_report_mismatch:coverage.{key}",
+            )
+            for key in (
+                "applicable_expected_count",
+                "not_applicable_expected_count",
+            )
+        ],
+        (
+            lambda report: _set_path(report, "coverage", "not_applicable", {}),
+            "quality_report_mismatch:coverage.not_applicable",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "not_applicable",
+                report["coverage"]["not_applicable"][:-1],
+            ),
+            "quality_report_mismatch:coverage.not_applicable",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "not_applicable",
+                [
+                    {**report["coverage"]["not_applicable"][0], "key": 1},
+                    *report["coverage"]["not_applicable"][1:],
+                ],
+            ),
+            "quality_report_mismatch:coverage.not_applicable",
+        ),
+        (
+            lambda report: _set_path(report, "coverage", "records", {}),
+            "quality_report_mismatch:coverage.records",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "records",
+                report["coverage"]["records"][:-1],
+            ),
+            "quality_report_mismatch:coverage.records",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "coverage",
+                "records",
+                [
+                    {**report["coverage"]["records"][0], "status": 1},
+                    *report["coverage"]["records"][1:],
+                ],
+            ),
+            "quality_report_mismatch:coverage.records",
+        ),
+        (
+            lambda report: report["documents"].pop(next(iter(report["documents"]))),
+            "quality_report_mismatch:documents.keys",
+        ),
+        (
+            lambda report: report["documents"].update(
+                {
+                    "unknown-document": {
+                        "total_cases": 0,
+                        "passed_cases": 0,
+                        "failed_cases": 0,
+                    }
+                }
+            ),
+            "quality_report_mismatch:documents.keys",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "documents",
+                next(iter(report["documents"])),
+                "failed_cases",
+                1,
+            ),
+            "quality_report_mismatch:documents.summary",
+        ),
+        (
+            lambda report: _set_path(
+                report,
+                "documents",
+                next(iter(report["documents"])),
+                "total_cases",
+                report["documents"][next(iter(report["documents"]))][
+                    "total_cases"
+                ]
+                + 1,
+            ),
+            "quality_report_mismatch:documents.summary",
+        ),
+    ],
+    ids=(
+        "metrics-missing",
+        "metrics-extra-key",
+        "metrics-missing-key",
+        "hard-metric-nonzero",
+        "metric-bool",
+        "metric-string",
+        "metric-float",
+        "denominators-missing",
+        "denominators-missing-key",
+        "denominator-zero",
+        "denominator-negative",
+        "denominator-bool",
+        "denominator-string",
+        "denominator-float",
+        "coverage-missing",
+        "coverage-unexpected",
+        "coverage-actual-duplicate",
+        "coverage-plan-duplicate",
+        "coverage-expected-unique-count",
+        "coverage-actual-unique-count",
+        "coverage-applicable-count",
+        "coverage-na-count",
+        "coverage-na-type",
+        "coverage-na-length",
+        "coverage-na-key-type",
+        "coverage-records-type",
+        "coverage-records-length",
+        "coverage-record-status-type",
+        "documents-missing",
+        "documents-extra",
+        "document-failure",
+        "document-total-sum",
+    ),
+)
+def test_kernel_gate_report_contract_rejects_mutations(mutation, marker: str):
+    report = _valid_kernel_report()
+    mutation(report)
 
     with pytest.raises(
         kernel_gate.KernelIsolationError,
-        match="kernel_isolation_failed:quality_report_mismatch:coverage.actual_count",
+        match=rf"kernel_isolation_failed:{marker}$",
     ):
         kernel_gate._validate_report(report)
 
@@ -1108,6 +1407,7 @@ def test_contract_quality_hard_gate_is_zero_and_report_is_serializable(monkeypat
     }
     assert "app.llm" not in sys.modules
     assert "litellm" not in sys.modules
+    kernel_gate._validate_report(decoded)
 
 
 class _raises_corpus_error:
