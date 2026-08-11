@@ -5,6 +5,7 @@ from __future__ import annotations
 import _socket
 import argparse
 import builtins
+import ctypes.util
 import os
 import socket
 import subprocess
@@ -64,6 +65,7 @@ _OS_PROCESS_ENTRY_POINTS = (
     "spawnvpe",
     "system",
 )
+_CTYPES_TOOLCHAIN_LOOKUPS = ("_findLib_gcc", "_findLib_ld")
 
 
 class _ForbiddenImportFinder:
@@ -163,6 +165,16 @@ def _guarded_popen(*args: Any, **kwargs: Any):
         _LOCAL_PROCESS_AUDIT_ALLOWED.reset(token)
 
 
+def _disabled_toolchain_lookup(_name: str) -> None:
+    return None
+
+
+def _disable_ctypes_toolchain_fallbacks() -> None:
+    for name in _CTYPES_TOOLCHAIN_LOOKUPS:
+        if hasattr(ctypes.util, name):
+            setattr(ctypes.util, name, _disabled_toolchain_lookup)
+
+
 def _install_guards() -> None:
     global _GUARDS_INSTALLED
     if _GUARDS_INSTALLED:
@@ -190,6 +202,10 @@ def _install_guards() -> None:
         for name in _DNS_ENTRY_POINTS:
             if hasattr(module, name):
                 setattr(module, name, _blocked_dns)
+
+    # ctypes library discovery falls back to gcc/ld when a cache lookup misses.
+    # The evaluator needs no compilation, so keep only the fixed ldconfig read.
+    _disable_ctypes_toolchain_fallbacks()
 
     # ctypes.util uses this fixed local cache query to find Pango on Linux.
     # A context-scoped audit capability prevents captured Popen references from
@@ -221,6 +237,7 @@ def main(argv: list[str] | None = None) -> int:
             "dns",
             "subprocess",
             "ldconfig_args",
+            "ctypes_toolchain",
             "unix_socket",
             "app_llm",
             "litellm",
@@ -253,6 +270,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.probe == "ldconfig_args":
         subprocess.Popen(["/sbin/ldconfig", "-p", "--extra"])
+        return 0
+    if args.probe == "ctypes_toolchain":
+        for name in _CTYPES_TOOLCHAIN_LOOKUPS:
+            lookup = getattr(ctypes.util, name, None)
+            if lookup is not None and lookup("offline-probe") is not None:
+                raise RuntimeError("offline_guard_ctypes_toolchain_enabled")
         return 0
     if args.probe == "unix_socket":
         sock = _ORIGINAL_SOCKET_CONSTRUCTOR(socket.AF_UNIX, socket.SOCK_STREAM)

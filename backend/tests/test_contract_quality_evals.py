@@ -600,6 +600,24 @@ def test_offline_guard_local_subprocess_allowlist_is_exact():
     )
 
 
+def test_fresh_process_offline_guard_disables_ctypes_toolchain_fallbacks():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "quality_evals.offline_gate",
+            "--probe",
+            "ctypes_toolchain",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "offline_guard_blocked" not in completed.stderr
+
+
 @pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="AF_UNIX unavailable")
 def test_fresh_process_offline_guard_allows_unix_socket():
     completed = subprocess.run(
