@@ -181,7 +181,95 @@ describe("draftState helpers", () => {
     ]);
   });
 
-  it("treats confirmed empty strings as present for not_equals and in conditions", () => {
+  it("treats required_when arrays as one AND expression", () => {
+    const manifest: DocManifest = {
+      doc_id: "synthetic-conjunction",
+      version: 1,
+      sections: [{ key: "terms", label: { zh: "条款", en: "Terms" } }],
+      fields: [
+        {
+          key: "模式",
+          section: "terms",
+          type: "string",
+          required: false,
+          label: { zh: "模式", en: "Mode" },
+        },
+        {
+          key: "地区",
+          section: "terms",
+          type: "string",
+          required: false,
+          label: { zh: "地区", en: "Region" },
+        },
+        {
+          key: "付款安排",
+          section: "terms",
+          type: "string",
+          required: false,
+          required_when: [
+            { field: "模式", op: "equals", value: "付费" },
+            { field: "地区", op: "in", values: ["境内"] },
+          ],
+          label: { zh: "付款安排", en: "Payment" },
+        },
+      ],
+    };
+    const base: DraftStateSnapshot = {
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: manifest.doc_id,
+      revision: 0,
+      fields: Object.fromEntries(
+        manifest.fields.map((field) => [
+          field.key,
+          {
+            key: field.key,
+            status: "missing",
+            value: null,
+            revision: 0,
+            provenance: [],
+          },
+        ]),
+      ),
+    };
+    const withValues = (
+      mode: DraftStateSnapshot["fields"][string],
+      region: DraftStateSnapshot["fields"][string],
+    ): DraftStateSnapshot => ({
+      ...base,
+      fields: { ...base.fields, 模式: mode, 地区: region },
+    });
+    const paid = {
+      ...base.fields.模式,
+      status: "confirmed" as const,
+      value: "付费",
+      confirmed_at: "2026-01-15T00:00:00+00:00",
+    };
+    const domestic = {
+      ...base.fields.地区,
+      status: "confirmed" as const,
+      value: "境内",
+      confirmed_at: "2026-01-15T00:00:00+00:00",
+    };
+
+    expect(unresolvedRequiredKeys(manifest, withValues(paid, domestic))).toContain(
+      "付款安排",
+    );
+    expect(
+      unresolvedRequiredKeys(
+        manifest,
+        withValues(paid, { ...domestic, value: "境外" }),
+      ),
+    ).not.toContain("付款安排");
+    expect(
+      unresolvedRequiredKeys(
+        manifest,
+        withValues(paid, { ...domestic, status: "pending_confirmation" }),
+      ),
+    ).not.toContain("付款安排");
+  });
+
+  it("does not activate conditional fields from whitespace-only drivers", () => {
     const manifest: DocManifest = {
       ...MANIFEST,
       fields: [
@@ -212,8 +300,7 @@ describe("draftState helpers", () => {
           required: false,
           required_when: {
             field: "空值控制字段",
-            op: "in",
-            values: ["", "触发"],
+            op: "exists",
           },
           label: { zh: "枚举触发字段", en: "In Dependent" },
         },
@@ -235,7 +322,7 @@ describe("draftState helpers", () => {
         空值控制字段: {
           key: "空值控制字段",
           status: "confirmed",
-          value: "",
+          value: "   ",
           revision: 4,
           provenance: [],
           confirmed_at: "2026-07-31T00:00:00+00:00",
@@ -244,10 +331,7 @@ describe("draftState helpers", () => {
       },
     };
 
-    expect(unresolvedRequiredKeys(manifest, snapshot)).toEqual([
-      "非某值触发字段",
-      "枚举触发字段",
-    ]);
+    expect(unresolvedRequiredKeys(manifest, snapshot)).toEqual([]);
   });
 
   it("requires paid-pilot fee details after the pricing model is confirmed", () => {

@@ -815,3 +815,132 @@ def test_manifest_version_mismatch_blocks_silent_field_deletion():
 
     assert info.value.status_code == 409
     assert info.value.errors[0].kind == "manifest_version_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("field_def", "initial_value", "invalid_value"),
+    [
+        (
+            {"key": "枚举字段", "type": "string", "enum": ["甲", "乙"]},
+            "甲",
+            "丙",
+        ),
+        (
+            {"key": "选项字段", "type": "string", "options": ["一", "二"]},
+            "一",
+            "三",
+        ),
+    ],
+)
+def test_confirmed_constrained_field_can_be_explicitly_cleared(
+    field_def: dict,
+    initial_value: str,
+    invalid_value: str,
+):
+    manifest = {"doc_id": "clear-test", "version": 1, "fields": [field_def]}
+    snapshot = snapshot_from_document_state(
+        doc_id="clear-test",
+        state={},
+        manifest=manifest,
+    )
+    confirmed = apply_field_patch(
+        snapshot=snapshot,
+        patch=_patch(
+            "confirm-constrained",
+            0,
+            "form",
+            [
+                {
+                    "op": "confirm",
+                    "key": field_def["key"],
+                    "value": initial_value,
+                }
+            ],
+        ),
+        manifest=manifest,
+        actor_user_id=7,
+    ).snapshot
+
+    cleared = apply_field_patch(
+        snapshot=confirmed,
+        patch=_patch(
+            "clear-constrained",
+            1,
+            "form",
+            [{"op": "confirm", "key": field_def["key"], "value": "  "}],
+        ),
+        manifest=manifest,
+        actor_user_id=7,
+    ).snapshot
+
+    assert cleared.revision == 2
+    assert cleared.fields[field_def["key"]].status == "missing"
+    assert cleared.fields[field_def["key"]].value is None
+    assert cleared.fields[field_def["key"]].confirmed_at is None
+    assert cleared.fields[field_def["key"]].confirmed_by_user_id is None
+
+    with pytest.raises(DraftPatchRejected) as invalid:
+        apply_field_patch(
+            snapshot=snapshot,
+            patch=_patch(
+                "invalid-constrained",
+                0,
+                "form",
+                [
+                    {
+                        "op": "confirm",
+                        "key": field_def["key"],
+                        "value": invalid_value,
+                    }
+                ],
+            ),
+            manifest=manifest,
+            actor_user_id=7,
+        )
+    assert invalid.value.errors[0].kind == "invalid_enum"
+
+
+def test_constrained_field_clear_keeps_type_and_llm_boundaries():
+    manifest = {
+        "doc_id": "clear-test",
+        "version": 1,
+        "fields": [
+            {"key": "枚举字段", "type": "string", "enum": ["甲", "乙"]}
+        ],
+    }
+    snapshot = snapshot_from_document_state(
+        doc_id="clear-test",
+        state={},
+        manifest=manifest,
+    )
+
+    with pytest.raises(DraftPatchRejected) as invalid_type:
+        apply_field_patch(
+            snapshot=snapshot,
+            patch=_patch(
+                "non-string-clear",
+                0,
+                "form",
+                [{"op": "confirm", "key": "枚举字段", "value": []}],
+            ),
+            manifest=manifest,
+            actor_user_id=7,
+        )
+    assert invalid_type.value.errors[0].kind == "invalid_type"
+
+    with pytest.raises(DraftPatchRejected) as llm_clear:
+        apply_field_patch(
+            snapshot=snapshot,
+            patch=_patch(
+                "llm-empty-proposal",
+                0,
+                "llm",
+                [{"op": "propose", "key": "枚举字段", "value": "  "}],
+            ),
+            manifest=manifest,
+            actor_user_id=7,
+        )
+    error_kinds = {error.kind for error in llm_clear.value.errors}
+    assert "llm_clear_forbidden" in error_kinds
+    assert "invalid_enum" not in error_kinds
+    assert snapshot.revision == 0

@@ -73,6 +73,8 @@ backend/         FastAPI service (uv project)
                    templates.py (GET /api/templates/{doc_id}),
                    documents.py (per-user CRUD), health.py
   tests/           pytest
+  quality_evals/   deterministic 11-document kernel/download/export corpus;
+                   Python tripwires plus a kernel-isolated Linux Docker gate
 frontend/        Next.js 15 (static export, output: "export")
   app/page.tsx     Legal-agreement generator with sidebar / editor / preview
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
@@ -150,5 +152,6 @@ cd frontend && NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ### Tests
 
 - Backend: `cd backend && uv run pytest`
+- Contract quality tripwires: `cd backend && uv run pytest -m "not contract_quality_gate"`; the authoritative full gate is the `quality-gate` Docker target run with `--network none` (exact command in `.github/workflows/ci.yml`)
 - Frontend unit: `cd frontend && npm test -- --run`
 - Frontend e2e: `cd frontend && npx playwright test`
