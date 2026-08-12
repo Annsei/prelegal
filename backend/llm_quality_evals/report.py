@@ -136,6 +136,8 @@ class LiveEvalReport:
             errors.append("case_totals_mismatch")
         if self.actual_calls > self.max_calls:
             errors.append("call_budget_exceeded")
+        if self.actual_calls != sum(result.calls for result in self.results):
+            errors.append("actual_call_total_mismatch")
         if self.retry_count > self.max_retries:
             errors.append("retry_budget_exceeded")
         if self.retry_count != sum(result.retries for result in self.results):
@@ -153,6 +155,15 @@ class LiveEvalReport:
             for result in self.results
         ):
             errors.append("call_classification_invalid")
+        if any(
+            result.status != "skipped"
+            and result.error_class
+            not in {"local_chat_rate_limit", "call_budget_exhausted"}
+            and result.http_status in {200, 502}
+            and result.calls == 0
+            for result in self.results
+        ):
+            errors.append("provider_case_missing_call")
         if any(
             result.error_class == "local_chat_rate_limit"
             and result.status != "error"

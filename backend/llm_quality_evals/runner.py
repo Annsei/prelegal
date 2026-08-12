@@ -465,11 +465,12 @@ def _evaluate_response(
     if expectations.get("field_keys_manifest_only"):
         allowed = set(manifest_field_keys(load_manifest(case.doc_id)))
         actual = set(fields) if isinstance(fields, dict) else set()
+        manifest_only = isinstance(fields, dict) and actual <= allowed
         assertions.append(
             AssertionResult(
                 "field_keys_manifest_only",
-                isinstance(fields, dict) and actual <= allowed,
-                "manifest_key_violation" if not actual <= allowed else None,
+                manifest_only,
+                "manifest_key_violation" if not manifest_only else None,
             )
         )
     forbidden_fields = set(expectations.get("forbidden_field_keys", []))
@@ -482,19 +483,14 @@ def _evaluate_response(
                 "forbidden_field_present" if actual & forbidden_fields else None,
             )
         )
-    expected_fields = expectations.get("expected_field_updates")
-    if expected_fields is not None:
-        matches = isinstance(fields, dict) and all(
-            key in fields
-            and isinstance(fields[key], str)
-            and fields[key].strip() == expected.strip()
-            for key, expected in expected_fields.items()
-        )
+    field_expectation = expectations.get("field_updates_expectation")
+    if field_expectation is not None:
+        matches, detail = _field_updates_match(fields, field_expectation)
         assertions.append(
             AssertionResult(
-                "expected_field_updates",
+                "field_updates_expectation",
                 matches,
-                "expected_field_update_missing_or_mismatch" if not matches else None,
+                detail,
             )
         )
     if "done" in expectations:
@@ -565,6 +561,37 @@ def _evaluate_response(
             )
         )
     return assertions
+
+
+def _field_updates_match(
+    actual: Any, expectation: dict[str, Any]
+) -> tuple[bool, str | None]:
+    if not isinstance(actual, dict):
+        return False, "field_updates_not_object"
+    if any(
+        type(key) is not str or type(value) is not str
+        for key, value in actual.items()
+    ):
+        return False, "field_updates_non_string_value"
+
+    normalized_actual = {key: value.strip() for key, value in actual.items()}
+    mode = expectation["mode"]
+    if mode == "empty":
+        matches = normalized_actual == {}
+        return matches, None if matches else "field_updates_not_empty"
+
+    normalized_expected = {
+        key: value.strip() for key, value in expectation["values"].items()
+    }
+    if mode == "exact":
+        matches = normalized_actual == normalized_expected
+        return matches, None if matches else "field_updates_exact_mismatch"
+
+    matches = all(
+        normalized_actual.get(key) == value
+        for key, value in normalized_expected.items()
+    )
+    return matches, None if matches else "field_updates_contains_mismatch"
 
 
 def _normalized_response(body: dict[str, Any]) -> str:

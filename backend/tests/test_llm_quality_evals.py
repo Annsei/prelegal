@@ -15,7 +15,7 @@ from llm_quality_evals.corpus import (
     parse_corpus,
     validate_corpus,
 )
-from llm_quality_evals.report import LiveCaseResult, LiveEvalReport
+from llm_quality_evals.report import AssertionResult, LiveCaseResult, LiveEvalReport
 from llm_quality_evals.runner import (
     CallBudget,
     LiveEvalConfigurationError,
@@ -36,6 +36,8 @@ CATALOG_DOC_IDS = {
     "service-level-agreement",
     "software-license-agreement",
 }
+
+CORPUS_PATH = Path(__file__).parents[1] / "llm_quality_evals" / "corpus.json"
 
 
 def _fake_response(payload: dict, *, prompt_tokens: int = 20, output_tokens: int = 8):
@@ -69,6 +71,7 @@ def _one_case_raw(**overrides):
             "selected_doc_ids": ["mutual-nda"],
             "selected_doc_must_exist": True,
             "field_keys_manifest_only": True,
+            "field_updates_expectation": {"mode": "empty"},
             "done": False,
             "requires_question": True,
             "assistant_contains_cjk": True,
@@ -97,6 +100,7 @@ def _validated_single_case(**overrides):
 
 def _passing_payload(case):
     expectations = case.expectations
+    field_expectation = expectations.get("field_updates_expectation", {})
     return {
         "assistant_message": (
             "封面页信息已完整。"
@@ -104,9 +108,21 @@ def _passing_payload(case):
             else "已记录，请问还需要补充什么？"
         ),
         "selected_doc_id": expectations.get("selected_doc_ids", [case.doc_id])[0],
-        "field_updates": dict(expectations.get("expected_field_updates", {})),
+        "field_updates": dict(field_expectation.get("values", {})),
         "done": expectations.get("done", False),
     }
+
+
+def _committed_corpus_raw() -> dict:
+    return json.loads(CORPUS_PATH.read_text())
+
+
+def _raw_case(raw: dict, case_id: str) -> dict:
+    return next(case for case in raw["cases"] if case["id"] == case_id)
+
+
+def _validate_production_corpus(raw: dict):
+    return validate_corpus(parse_corpus(raw))
 
 
 class FakeClock:
@@ -135,21 +151,32 @@ def test_committed_live_corpus_is_valid_and_covers_all_documents():
     assert len(validated.smoke_cases) == 3
     assert len(validated.cases) == 34
     cases = {case.id: case for case in validated.cases}
-    assert cases["fields.mnda-simplified-chinese"].expectations[
-        "expected_field_updates"
-    ] == {
-        "甲方公司名称": "示例甲科技有限公司",
-        "保密用途": "评估双方人工智能产品合作",
+    assert {case.id for case in validated.smoke_cases} == {
+        "routing.mutual-nda",
+        "routing.cloud-service-agreement",
+        "routing.data-processing-agreement",
     }
-    assert cases["fields.csa-no-cross-document"].expectations[
-        "expected_field_updates"
-    ] == {"服务方": "示例云科技有限公司"}
-    assert cases["fields.fake-manifest-field"].expectations[
-        "expected_field_updates"
-    ] == {"服务方": "示例服务公司"}
-    assert cases["fields.required-incomplete"].expectations[
-        "expected_field_updates"
-    ] == {"委托方名称": "示例客户有限公司"}
+    assert cases["fields.mnda-simplified-chinese"].expectations[
+        "field_updates_expectation"
+    ] == {
+        "mode": "exact",
+        "values": {
+            "甲方公司名称": "示例甲科技有限公司",
+            "保密用途": "评估双方人工智能产品合作",
+        },
+    }
+    assert cases["fields.required-complete"].expectations[
+        "field_updates_expectation"
+    ] == {"mode": "empty"}
+    assert cases["followup.missing-required"].expectations[
+        "field_updates_expectation"
+    ] == {
+        "mode": "exact",
+        "values": {"许可方": "示例软件有限公司"},
+    }
+    assert cases["injection.arbitrary-field"].expectations[
+        "field_updates_expectation"
+    ] == {"mode": "empty"}
 
 
 def test_corpus_rejects_duplicate_case_ids():
@@ -200,8 +227,6 @@ def test_corpus_rejects_unknown_document_and_expectation_key():
         ("forbidden_field_keys", [1]),
         ("forbidden_substrings", []),
         ("forbidden_substrings", [""]),
-        ("expected_field_updates", {}),
-        ("expected_field_updates", {"保密用途": 1}),
     ],
 )
 def test_corpus_expectation_types_fail_closed_before_provider_call(key, invalid):
@@ -217,6 +242,104 @@ def test_corpus_expectation_types_fail_closed_before_provider_call(key, invalid)
             require_all_categories=False,
             require_three_smoke_cases=False,
         )
+
+
+def test_corpus_rejects_removing_all_expectations_before_provider_call():
+    raw = _committed_corpus_raw()
+    for case in raw["cases"]:
+        case["expectations"] = {}
+
+    with pytest.raises(CorpusValidationError, match="category_contract_missing"):
+        _validate_production_corpus(raw)
+
+
+@pytest.mark.parametrize(
+    ("case_id", "expectation_key"),
+    [
+        ("routing.mutual-nda", "selected_doc_ids"),
+        ("routing.mutual-nda", "done"),
+        ("routing.mutual-nda", "requires_question"),
+        ("routing.mutual-nda", "assistant_contains_cjk"),
+        ("routing.mutual-nda", "field_keys_manifest_only"),
+        ("routing.mutual-nda", "forbid_secret_patterns"),
+        ("fields.mnda-simplified-chinese", "field_updates_expectation"),
+        ("followup.missing-required", "requires_question"),
+        ("followup.missing-required", "field_updates_expectation"),
+        ("injection.arbitrary-field", "field_updates_expectation"),
+    ],
+)
+def test_corpus_rejects_missing_category_contract_expectations(
+    case_id, expectation_key
+):
+    raw = _committed_corpus_raw()
+    del _raw_case(raw, case_id)["expectations"][expectation_key]
+
+    with pytest.raises(CorpusValidationError, match="category_contract_missing"):
+        _validate_production_corpus(raw)
+
+
+def test_corpus_rejects_routing_to_a_different_valid_document():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "routing.mutual-nda")["expectations"]["selected_doc_ids"] = [
+        "cloud-service-agreement"
+    ]
+
+    with pytest.raises(CorpusValidationError, match="routing_target_mismatch"):
+        _validate_production_corpus(raw)
+
+
+def test_corpus_rejects_empty_routing_selection():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "routing.mutual-nda")["expectations"]["selected_doc_ids"] = [""]
+
+    with pytest.raises(CorpusValidationError, match="routing_target_mismatch"):
+        _validate_production_corpus(raw)
+
+
+def test_corpus_rejects_prompt_injection_without_specific_prohibition():
+    raw = _committed_corpus_raw()
+    expectations = _raw_case(raw, "injection.arbitrary-field")["expectations"]
+    expectations.pop("forbidden_field_keys")
+
+    with pytest.raises(
+        CorpusValidationError, match="injection_contract_missing_prohibition"
+    ):
+        _validate_production_corpus(raw)
+
+
+def test_corpus_rejects_moved_smoke_flags():
+    raw = _committed_corpus_raw()
+    for case in raw["cases"]:
+        case["smoke"] = case["id"] in {
+            "routing.design-partner-agreement",
+            "routing.service-level-agreement",
+            "routing.professional-services-agreement",
+        }
+
+    with pytest.raises(CorpusValidationError, match="smoke_case_set_mismatch"):
+        _validate_production_corpus(raw)
+
+
+@pytest.mark.parametrize(
+    "field_expectation",
+    [
+        {"mode": "unknown", "values": {"保密用途": "测试"}},
+        {"mode": "exact", "values": {}},
+        {"mode": "contains", "values": {}},
+        {"mode": "empty", "values": {"保密用途": "测试"}},
+        {"mode": "exact", "values": {"非清单字段": "测试"}},
+        {"mode": "exact", "values": {1: "测试"}},
+        {"mode": "exact", "values": {"保密用途": 1}},
+    ],
+)
+def test_corpus_rejects_invalid_field_update_policy(field_expectation):
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        "field_updates_expectation"
+    ] = field_expectation
+
+    with pytest.raises(CorpusValidationError, match="invalid_field_update_expectation"):
+        _validate_production_corpus(raw)
 
 
 def test_call_budget_counts_attempts_usage_cost_and_fails_closed():
@@ -293,6 +416,8 @@ def test_product_followup_call_counts_against_hard_budget(monkeypatch):
     assert [item["max_retries"] for item in captured] == [0, 0]
     assert report.local_followup_fallback_count == 0
     assert report.results[0].local_followup_fallback_used is False
+    assert report.actual_calls == sum(result.calls for result in report.results)
+    assert report.invariant_errors == []
 
 
 @pytest.mark.parametrize(
@@ -368,6 +493,8 @@ def test_call_budget_exhaustion_is_stable_and_never_overruns(monkeypatch):
     assert report.actual_calls == 1
     assert report.incomplete is True
     assert report.results[0].error_class == "call_budget_exhausted"
+    assert report.actual_calls == sum(result.calls for result in report.results)
+    assert report.invariant_errors == []
     assert report.exit_code == 3
 
 
@@ -407,6 +534,8 @@ def test_evaluator_retry_is_bounded_and_separate_from_product_followup(monkeypat
     assert report.actual_calls == 2
     assert report.retry_count == 1
     assert report.product_followup_calls == 0
+    assert report.actual_calls == sum(result.calls for result in report.results)
+    assert report.invariant_errors == []
     assert [item["max_retries"] for item in captured] == [0, 0]
 
 
@@ -534,6 +663,114 @@ def test_report_rejects_retry_overrun_and_false_green_incomplete_run():
     assert report.exit_code == 1
 
 
+def test_report_rejects_actual_call_total_mismatch():
+    report = LiveEvalReport.start(
+        corpus_version="test-1",
+        git_sha="a" * 40,
+        dirty_worktree=False,
+        mode="selected",
+        max_calls=3,
+        max_retries=0,
+        api_key_present=True,
+        selected_case_ids=("case.one",),
+    )
+    report.results.append(
+        LiveCaseResult(
+            case_id="case.one",
+            category="follow_up",
+            doc_id="mutual-nda",
+            status="pass",
+            latency_ms=1,
+            http_status=200,
+            calls=0,
+            retries=0,
+        )
+    )
+    report.actual_calls = 3
+    report.finish()
+
+    assert "actual_call_total_mismatch" in report.invariant_errors
+    assert report.exit_code == 1
+
+
+def test_incomplete_report_with_skipped_case_preserves_call_total():
+    report = LiveEvalReport.start(
+        corpus_version="test-1",
+        git_sha="a" * 40,
+        dirty_worktree=False,
+        mode="selected",
+        max_calls=1,
+        max_retries=0,
+        api_key_present=True,
+        selected_case_ids=("case.error", "case.skipped"),
+    )
+    report.results.extend(
+        [
+            LiveCaseResult(
+                case_id="case.error",
+                category="follow_up",
+                doc_id="mutual-nda",
+                status="error",
+                latency_ms=1,
+                http_status=502,
+                calls=1,
+                retries=0,
+                error_class="upstream_timeout",
+            ),
+            LiveCaseResult(
+                case_id="case.skipped",
+                category="follow_up",
+                doc_id="mutual-nda",
+                status="skipped",
+                latency_ms=0,
+                http_status=None,
+                calls=0,
+                retries=0,
+                error_class="prior_upstream_error",
+            ),
+        ]
+    )
+    report.actual_calls = 1
+    report.incomplete = True
+    report.finish()
+
+    assert report.invariant_errors == []
+    assert report.exit_code == 3
+
+
+def test_blocked_call_budget_attempt_counts_neither_global_nor_case_call():
+    report = LiveEvalReport.start(
+        corpus_version="test-1",
+        git_sha="a" * 40,
+        dirty_worktree=False,
+        mode="selected",
+        max_calls=1,
+        max_retries=0,
+        api_key_present=True,
+        selected_case_ids=("case.blocked",),
+    )
+    report.results.append(
+        LiveCaseResult(
+            case_id="case.blocked",
+            category="follow_up",
+            doc_id="mutual-nda",
+            status="error",
+            latency_ms=1,
+            http_status=502,
+            calls=0,
+            retries=0,
+            error_class="call_budget_exhausted",
+        )
+    )
+    report.actual_calls = 0
+    report.incomplete = True
+    report.finish()
+
+    assert report.actual_calls == sum(result.calls for result in report.results)
+    assert report.invariant_errors == []
+    assert report.exit_code == 3
+
+
 def test_report_rejects_missing_duplicate_and_invalid_results():
     report = LiveEvalReport.start(
         corpus_version="test-1",
@@ -659,8 +896,9 @@ def test_live_runner_uses_authenticated_chat_route_and_records_safe_report(
     monkeypatch,
 ):
     expectations = deepcopy(_one_case_raw()["cases"][0]["expectations"])
-    expectations["expected_field_updates"] = {
-        "保密用途": "评估双方人工智能产品合作"
+    expectations["field_updates_expectation"] = {
+        "mode": "exact",
+        "values": {"保密用途": "评估双方人工智能产品合作"},
     }
     corpus = _validated_single_case(
         category="manifest_field_extraction",
@@ -709,9 +947,114 @@ def test_live_runner_uses_authenticated_chat_route_and_records_safe_report(
     assert captured["max_retries"] == 0
     assert "## Field checklist" in captured["messages"][0]["content"]
     assertions = {item.name: item for item in report.results[0].assertions}
-    assert assertions["expected_field_updates"].passed is True
+    assert assertions["field_updates_expectation"].passed is True
     assert "never-record-this-key" not in encoded
     assert "Authorization" not in encoded
+
+
+def _field_assertion(case_id: str, field_updates: object) -> AssertionResult:
+    raw = _committed_corpus_raw()
+    case = parse_corpus(raw).cases[
+        next(index for index, item in enumerate(raw["cases"]) if item["id"] == case_id)
+    ]
+    selected_doc_id = case.expectations["selected_doc_ids"][0]
+    assertions = _evaluate_response(
+        case=case,
+        body={
+            "assistant_message": "已记录，请问还需要补充什么？",
+            "selected_doc_id": selected_doc_id,
+            "mnda_updates": {},
+            "field_updates": field_updates,
+            "done": case.expectations["done"],
+        },
+        status_code=200,
+        catalog_doc_ids=CATALOG_DOC_IDS,
+    )
+    return next(
+        assertion
+        for assertion in assertions
+        if assertion.name == "field_updates_expectation"
+    )
+
+
+def test_exact_field_updates_reject_extra_manifest_valid_field():
+    assertion = _field_assertion(
+        "fields.csa-no-cross-document",
+        {
+            "服务方": "示例云科技有限公司",
+            "客户": "凭空臆造的客户",
+        },
+    )
+
+    assert assertion.passed is False
+    assert assertion.detail == "field_updates_exact_mismatch"
+
+
+def test_exact_field_updates_trim_string_values_before_comparison():
+    assertion = _field_assertion(
+        "fields.csa-no-cross-document",
+        {"服务方": "  示例云科技有限公司  "},
+    )
+
+    assert assertion.passed is True
+    assert assertion.detail is None
+
+
+def test_exact_field_updates_reject_non_string_value():
+    assertion = _field_assertion(
+        "fields.csa-no-cross-document",
+        {"服务方": ["示例云科技有限公司"]},
+    )
+
+    assert assertion.passed is False
+    assert assertion.detail == "field_updates_non_string_value"
+
+
+def test_contains_field_updates_allows_extra_manifest_valid_fields():
+    raw = _committed_corpus_raw()
+    case_raw = _raw_case(raw, "fields.csa-no-cross-document")
+    case_raw["expectations"]["field_updates_expectation"]["mode"] = "contains"
+    case = parse_corpus(raw).cases[
+        next(index for index, item in enumerate(raw["cases"]) if item is case_raw)
+    ]
+
+    assertions = _evaluate_response(
+        case=case,
+        body={
+            "assistant_message": "已记录，请问还需要补充什么？",
+            "selected_doc_id": "cloud-service-agreement",
+            "mnda_updates": {},
+            "field_updates": {
+                "服务方": "示例云科技有限公司",
+                "客户": "示例客户有限公司",
+            },
+            "done": False,
+        },
+        status_code=200,
+        catalog_doc_ids=CATALOG_DOC_IDS,
+    )
+
+    assertion = next(
+        item for item in assertions if item.name == "field_updates_expectation"
+    )
+    assert assertion.passed is True
+
+
+@pytest.mark.parametrize(
+    ("case_id", "field_updates"),
+    [
+        ("followup.missing-required", {}),
+        ("injection.arbitrary-field", {"服务方": "凭空臆造的值"}),
+        (
+            "injection.change-contract-language",
+            {"合作期限": "This agreement shall remain in force for twelve months."},
+        ),
+    ],
+)
+def test_field_update_policy_closes_known_false_green_paths(case_id, field_updates):
+    assertion = _field_assertion(case_id, field_updates)
+
+    assert assertion.passed is False
 
 
 def test_runner_filters_cross_document_fields_and_detects_injection_sentinel(
@@ -943,6 +1286,9 @@ def test_route_level_chat_rate_limit_is_incomplete_not_quality_fail(monkeypatch)
     assert provider_calls == 0
     assert report.results[0].status == "error"
     assert report.results[0].error_class == "local_chat_rate_limit"
+    assert report.actual_calls == 0
+    assert report.results[0].calls == 0
+    assert report.invariant_errors == []
     assert report.incomplete is True
     assert report.exit_code == 3
 

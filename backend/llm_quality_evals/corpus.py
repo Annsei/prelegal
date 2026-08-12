@@ -22,7 +22,7 @@ _CATEGORIES = {
 _EXPECTATION_KEYS = {
     "assistant_contains_cjk",
     "done",
-    "expected_field_updates",
+    "field_updates_expectation",
     "field_keys_manifest_only",
     "forbid_secret_patterns",
     "forbidden_field_keys",
@@ -30,6 +30,38 @@ _EXPECTATION_KEYS = {
     "requires_question",
     "selected_doc_ids",
     "selected_doc_must_exist",
+}
+_FIELD_UPDATE_MODES = {"exact", "contains", "empty"}
+_STABLE_SMOKE_CASE_IDS = {
+    "routing.mutual-nda",
+    "routing.cloud-service-agreement",
+    "routing.data-processing-agreement",
+}
+_ROUTING_REQUIRED_EXPECTATIONS = {
+    "selected_doc_ids",
+    "done",
+    "requires_question",
+    "assistant_contains_cjk",
+    "field_keys_manifest_only",
+    "forbid_secret_patterns",
+}
+_FOLLOW_UP_REQUIRED_EXPECTATIONS = {
+    "selected_doc_ids",
+    "done",
+    "requires_question",
+    "assistant_contains_cjk",
+    "field_keys_manifest_only",
+    "field_updates_expectation",
+}
+_PROMPT_INJECTION_REQUIRED_EXPECTATIONS = {
+    "selected_doc_ids",
+    "selected_doc_must_exist",
+    "done",
+    "requires_question",
+    "assistant_contains_cjk",
+    "field_keys_manifest_only",
+    "forbid_secret_patterns",
+    "field_updates_expectation",
 }
 _STATE_FIXTURES = {"empty", "required_complete"}
 _BOOLEAN_EXPECTATIONS = {
@@ -244,34 +276,18 @@ def validate_corpus(
                 raise CorpusValidationError(
                     "invalid_expectation_value", f"{case.id}: {key}"
                 )
-        expected_fields = case.expectations.get("expected_field_updates")
-        if expected_fields is not None and (
-            type(expected_fields) is not dict
-            or not expected_fields
-            or any(
-                not _nonempty(key) or not _nonempty(value)
-                for key, value in expected_fields.items()
-            )
-        ):
-            raise CorpusValidationError(
-                "invalid_expectation_value", f"{case.id}: expected_field_updates"
-            )
         manifest = load_manifest(case.doc_id)
         if manifest is None:
             raise CorpusValidationError(
                 "manifest_unavailable", f"{case.id}: {case.doc_id}"
             )
-        if expected_fields is not None:
-            manifest_keys = {
-                field.get("key")
-                for field in manifest.get("fields", [])
-                if _nonempty(field.get("key"))
-            }
-            if not set(expected_fields) <= manifest_keys:
-                raise CorpusValidationError(
-                    "invalid_expectation_value",
-                    f"{case.id}: expected_field_updates keys",
-                )
+        manifest_keys = {
+            field.get("key")
+            for field in manifest.get("fields", [])
+            if _nonempty(field.get("key"))
+        }
+        _validate_field_update_expectation(case, manifest_keys)
+        _validate_category_contract(case)
 
     validated = ValidatedLiveEvalCorpus(
         corpus=corpus,
@@ -288,11 +304,130 @@ def validate_corpus(
             "category_coverage_incomplete",
             f"covered={sorted(validated.categories)} expected={sorted(_CATEGORIES)}",
         )
-    if require_three_smoke_cases and len(validated.smoke_cases) != 3:
-        raise CorpusValidationError(
-            "smoke_case_count_mismatch", "exactly three smoke cases are required"
-        )
+    if require_three_smoke_cases:
+        smoke_ids = {case.id for case in validated.smoke_cases}
+        if smoke_ids != _STABLE_SMOKE_CASE_IDS:
+            raise CorpusValidationError(
+                "smoke_case_set_mismatch",
+                f"actual={sorted(smoke_ids)} expected={sorted(_STABLE_SMOKE_CASE_IDS)}",
+            )
     return validated
+
+
+def _validate_field_update_expectation(
+    case: LiveEvalCase, manifest_keys: set[str]
+) -> None:
+    expectation = case.expectations.get("field_updates_expectation")
+    if expectation is None:
+        return
+    if type(expectation) is not dict or set(expectation) - {"mode", "values"}:
+        raise CorpusValidationError(
+            "invalid_field_update_expectation", f"{case.id}: invalid object"
+        )
+    mode = expectation.get("mode")
+    values = expectation.get("values")
+    if mode not in _FIELD_UPDATE_MODES:
+        raise CorpusValidationError(
+            "invalid_field_update_expectation", f"{case.id}: invalid mode"
+        )
+    if mode == "empty":
+        if values not in (None, {}):
+            raise CorpusValidationError(
+                "invalid_field_update_expectation",
+                f"{case.id}: empty mode cannot contain values",
+            )
+        return
+    if type(values) is not dict or not values or any(
+        type(key) is not str
+        or type(value) is not str
+        or not key.strip()
+        or not value.strip()
+        for key, value in values.items()
+    ):
+        raise CorpusValidationError(
+            "invalid_field_update_expectation", f"{case.id}: invalid values"
+        )
+    if not set(values) <= manifest_keys:
+        raise CorpusValidationError(
+            "invalid_field_update_expectation", f"{case.id}: unknown manifest key"
+        )
+
+
+def _validate_category_contract(case: LiveEvalCase) -> None:
+    expectations = case.expectations
+    if case.category == "catalog_routing":
+        _require_expectations(case, _ROUTING_REQUIRED_EXPECTATIONS)
+        if expectations["selected_doc_ids"] != [case.target_doc_id]:
+            raise CorpusValidationError(
+                "routing_target_mismatch", f"{case.id}: target must be exact"
+            )
+        _require_boolean_values(
+            case,
+            {
+                "done": False,
+                "requires_question": True,
+                "assistant_contains_cjk": True,
+                "field_keys_manifest_only": True,
+                "forbid_secret_patterns": True,
+            },
+        )
+        return
+    if case.category == "manifest_field_extraction":
+        _require_expectations(case, {"field_updates_expectation"})
+        return
+    if case.category == "follow_up":
+        _require_expectations(case, _FOLLOW_UP_REQUIRED_EXPECTATIONS)
+        _require_boolean_values(
+            case,
+            {
+                "done": False,
+                "requires_question": True,
+                "assistant_contains_cjk": True,
+                "field_keys_manifest_only": True,
+            },
+        )
+        return
+    _require_expectations(case, _PROMPT_INJECTION_REQUIRED_EXPECTATIONS)
+    _require_boolean_values(
+        case,
+        {
+            "selected_doc_must_exist": True,
+            "done": False,
+            "requires_question": True,
+            "assistant_contains_cjk": True,
+            "field_keys_manifest_only": True,
+            "forbid_secret_patterns": True,
+        },
+    )
+    if expectations["selected_doc_ids"] != [case.target_doc_id]:
+        raise CorpusValidationError(
+            "routing_target_mismatch", f"{case.id}: target must be exact"
+        )
+    if not ({"forbidden_substrings", "forbidden_field_keys"} & set(expectations)):
+        raise CorpusValidationError(
+            "injection_contract_missing_prohibition",
+            f"{case.id}: scenario-specific prohibition required",
+        )
+
+
+def _require_expectations(case: LiveEvalCase, required: set[str]) -> None:
+    missing = required - set(case.expectations)
+    if missing:
+        raise CorpusValidationError(
+            "category_contract_missing", f"{case.id}: {sorted(missing)}"
+        )
+
+
+def _require_boolean_values(case: LiveEvalCase, expected: dict[str, bool]) -> None:
+    mismatched = [
+        key
+        for key, value in expected.items()
+        if case.expectations.get(key) is not value
+    ]
+    if mismatched:
+        raise CorpusValidationError(
+            "category_contract_mismatch", f"{case.id}: {sorted(mismatched)}"
+        )
 
 
 def _load_catalog_doc_ids() -> set[str]:
