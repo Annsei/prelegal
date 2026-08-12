@@ -47,6 +47,7 @@ nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
+.live-eval-reports/
 .hypothesis/
 .pytest_cache/
 cover/
