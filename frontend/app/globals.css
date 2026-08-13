@@ -33,8 +33,10 @@
   --red-soft: #fff1f2;
   --rule: rgba(3, 33, 71, 0.16);
   --rule-soft: rgba(3, 33, 71, 0.08);
+  --contract-serif: "Songti SC", "STSong", "Noto Serif CJK SC",
+    "Source Han Serif SC", SimSun, serif;
   /* One height for sidebar, chat, and form so the three columns line up. */
-  --workspace-h: calc(100vh - 11.5rem);
+  --workspace-h: calc(100dvh - 12.5rem);
 }
 
 html,
@@ -122,6 +124,18 @@ body {
   background: #0a3260;
 }
 
+.btn-sidebar-create {
+  color: var(--ink);
+  background: var(--card);
+  border-color: rgba(32, 157, 215, 0.34);
+  box-shadow: 0 5px 14px -12px rgba(3, 33, 71, 0.7);
+}
+.btn-sidebar-create:hover:not(:disabled) {
+  color: #075a85;
+  background: rgba(32, 157, 215, 0.07);
+  border-color: rgba(32, 157, 215, 0.58);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: var(--rule);
@@ -189,7 +203,7 @@ body {
   box-shadow: none;
 }
 
-/* Sidebar draft entries use the product blue to identify the active file. */
+/* Sidebar draft entries stay quiet; the blue spine is the sole active cue. */
 .file-item {
   display: block;
   width: 100%;
@@ -197,7 +211,7 @@ body {
   border-radius: 5px;
   border: 1px solid transparent;
   border-left: 3px solid transparent;
-  padding: 0.5rem 0.7rem;
+  padding: 0.44rem 0.62rem;
   transition:
     background-color 0.14s ease,
     border-color 0.14s ease,
@@ -208,8 +222,8 @@ body {
   transform: translateX(1px);
 }
 .file-item[data-active="true"] {
-  background: rgba(32, 157, 215, 0.1);
-  border-color: transparent;
+  background: rgba(32, 157, 215, 0.08);
+  border-color: rgba(32, 157, 215, 0.18);
   border-left-color: var(--blue);
   box-shadow: none;
 }
@@ -274,8 +288,54 @@ body {
   background: rgba(255, 255, 255, 0.92) !important;
 }
 
-.app-toolbar {
-  min-height: 62px;
+.app-global-row {
+  min-height: 48px;
+}
+
+.document-action-row {
+  border-color: var(--rule-soft);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.document-action-inner {
+  min-height: 52px;
+  padding-block: 0.42rem;
+}
+
+.document-context-label {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 550;
+}
+
+.document-meta {
+  min-height: 1.1rem;
+  margin-top: 0.18rem;
+}
+
+/* Cyan required-fields meter along the header's bottom edge: download
+   readiness readable at a glance instead of buried in a button tooltip. */
+.header-progress {
+  position: relative;
+  height: 2px;
+  background: rgba(3, 33, 71, 0.08);
+  overflow: hidden;
+}
+.header-progress span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  background: var(--blue);
+  transition: width 0.4s ease;
+}
+
+.required-meter-label {
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .workspace-grid {
@@ -284,7 +344,7 @@ body {
 
 .sidebar-panel {
   height: var(--workspace-h);
-  padding-right: 0.25rem;
+  padding: 0.15rem 0.65rem 0 0.15rem;
   border-right: 1px solid var(--rule-soft);
 }
 
@@ -312,8 +372,8 @@ body {
 .form-panel {
   background: var(--card);
   border: 1px solid var(--rule);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px -22px rgba(3, 33, 71, 0.5);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px -18px rgba(3, 33, 71, 0.45);
 }
 
 .chat-panel {
@@ -321,7 +381,7 @@ body {
 }
 
 .chat-scroll {
-  background: #f7f9fb;
+  background: #f5f8fa;
 }
 
 .chat-composer {
@@ -333,13 +393,14 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-right: 0.55rem;
+  width: 26px;
+  height: 26px;
+  margin-right: 0.45rem;
   margin-top: 0.15rem;
   border-radius: 999px;
-  background: var(--gold);
-  color: var(--ink);
+  border: 1px solid rgba(32, 157, 215, 0.28);
+  background: rgba(32, 157, 215, 0.1);
+  color: #08799e;
   font-family: var(--font-display);
   font-size: 0.78rem;
   font-weight: 700;
@@ -347,43 +408,43 @@ body {
 }
 
 .chat-bubble {
-  border-radius: 14px;
+  border-radius: 6px;
 }
 
 .chat-bubble-user {
   color: var(--ink);
   background: #e8f5fb;
   border: 1px solid rgba(32, 157, 215, 0.22);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 2px;
 }
 
 .chat-bubble-assistant {
   color: var(--ink);
   background: var(--card);
   border: 1px solid var(--rule-soft);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 2px;
   box-shadow: 0 4px 12px -10px rgba(3, 33, 71, 0.38);
 }
 
 .chat-composer-row {
   display: flex;
   align-items: flex-end;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .chat-composer-input {
-  border-radius: 16px !important;
-  min-height: 52px;
-  padding: 0.7rem 0.95rem !important;
+  border-radius: 6px !important;
+  min-height: 46px;
+  padding: 0.6rem 0.75rem !important;
 }
 
 .chat-send-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
   border: 0;
   background: var(--blue);
   color: #fff;
@@ -416,7 +477,7 @@ body {
 }
 
 .doc-form-section {
-  padding-top: 1rem;
+  padding-top: 0.8rem;
   border-top: 1px solid var(--rule-soft);
 }
 
@@ -429,7 +490,7 @@ body {
   display: flex;
   width: 100%;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.6rem;
   color: var(--ink);
   font-size: 0.82rem;
   font-weight: 700;
@@ -444,7 +505,7 @@ body {
 }
 
 .doc-field {
-  padding: 0.65rem;
+  padding: 0.55rem;
   border: 1px solid transparent;
   border-radius: 6px;
   background: var(--surface);
@@ -497,96 +558,81 @@ body {
   font-weight: 700;
 }
 
-/* One split control instead of a select butted against a button: the old
-   pairing let the focus ring (outline-offset: 3px) bleed onto its neighbour. */
-.download-control {
-  position: relative;
-  display: inline-flex;
-  align-items: stretch;
-  min-height: 36px;
+/* The selector and command are separate controls with a stable gap. The
+   cluster may wrap as a unit but its children can never occupy the same box. */
+.export-cluster {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.download-main,
-.download-caret {
-  background: var(--purple);
-  color: #fdf9f2;
+.format-segment {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(3.5rem, 1fr));
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: #eef2f5;
+}
+
+.format-segment-button {
+  min-width: 3.5rem;
+  padding: 0.32rem 0.55rem;
   border: 0;
-  font-size: 0.875rem;
-  font-weight: 550;
-  transition:
-    background-color 0.15s ease,
-    opacity 0.15s ease;
+  border-radius: 4px;
+  color: var(--ink-3);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
 }
-.download-main:hover:not(:disabled),
-.download-caret:hover:not(:disabled) {
-  background: var(--purple-deep);
+.format-segment-button:hover {
+  color: var(--ink);
 }
-/* Draw focus inside the control so joined segments never overlap. */
-.download-main:focus-visible,
-.download-caret:focus-visible {
-  outline: 2px solid #fdf9f2;
-  outline-offset: -4px;
-}
-
-.download-main {
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px 0 0 6px;
-  box-shadow: 0 6px 16px -8px rgba(117, 57, 145, 0.65);
-}
-.download-main:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  box-shadow: none;
+.format-segment-button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(3, 33, 71, 0.15);
 }
 
-.download-caret {
+.download-button {
   display: inline-flex;
+  min-height: 38px;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  border-radius: 0 6px 6px 0;
-  border-left: 1px solid rgba(253, 249, 242, 0.32);
-  cursor: pointer;
+  gap: 0.42rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  color: #fff;
+  background: var(--ink);
+  box-shadow: 0 7px 16px -11px rgba(3, 33, 71, 0.85);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
 }
-.caret-icon {
-  width: 14px;
-  height: 14px;
+.download-button:hover:not(:disabled) {
+  border-color: #0a3260;
+  background: #0a3260;
 }
-
-.download-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.4rem);
-  z-index: 50;
-  width: 200px;
-  padding: 0.3rem;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: 0 16px 36px -24px rgba(3, 33, 71, 0.55);
+.download-button:disabled {
+  cursor: not-allowed;
+  color: #65758b;
+  background: #dfe5eb;
+  border-color: #d2d9e0;
+  box-shadow: none;
 }
-
-.download-menu-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--ink);
-  font-size: 0.8rem;
-  text-align: left;
-  cursor: pointer;
-}
-.download-menu-item:hover {
-  background: rgba(32, 157, 215, 0.1);
-}
-.download-menu-tick {
-  color: var(--blue);
-  font-weight: 700;
+.download-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
 .brand-mark {
@@ -613,7 +659,7 @@ body {
   color: var(--ink-2);
   font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 .lang-toggle:hover {
   color: var(--ink);
@@ -664,15 +710,18 @@ body {
   white-space: nowrap;
 }
 
+/* A neutral document desk keeps attention on the agreement itself. */
 .preview-column {
   min-width: 0;
+  padding: 0.7rem 0.9rem 1.5rem;
+  border: 1px solid var(--rule-soft);
+  border-top: 2px solid var(--blue);
+  border-radius: 4px;
+  background: #edf1f4;
 }
 
 .preview-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .preview-toolbar-hint {
@@ -680,30 +729,41 @@ body {
   color: var(--ink-3);
   font-size: 0.75rem;
   line-height: 1.45;
-}
-
-.preview-disclaimer {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.28rem 0.55rem;
-  border: 1px solid rgba(236, 173, 10, 0.45);
-  border-radius: 5px;
-  background: rgba(253, 243, 211, 0.72);
-  color: #6f5208;
-  font-size: 0.72rem;
-  line-height: 1.4;
+  text-align: left;
 }
 
 .preview-stage {
-  padding: 0.85rem;
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* Compact legal notice stays visible without covering document content. */
+.draft-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  padding: 0.46rem 0.62rem;
   border: 1px solid var(--rule-soft);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(243, 245, 247, 0.95)),
-    #eef1f4;
+  border-left: 2px solid var(--blue);
+  border-radius: 4px;
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.draft-notice-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(32, 157, 215, 0.42);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #08799e;
 }
 
 .login-card {
@@ -732,16 +792,28 @@ body {
 }
 
 @media (max-width: 767px) {
-  .app-toolbar {
-    grid-template-columns: 1fr;
-    align-items: flex-start;
-    gap: 0.75rem;
+  .app-global-row,
+  .document-action-inner {
     padding-inline: 1rem;
   }
 
-  .app-toolbar > div:last-child {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+  .document-action-inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .export-cluster {
+    width: 100%;
+  }
+
+  .format-segment,
+  .download-button {
+    flex: 1 1 0;
+  }
+
+  .global-actions {
+    flex: none;
   }
 
   .document-paper {
@@ -749,8 +821,8 @@ body {
     padding: 1.25rem;
   }
 
-  .preview-stage {
-    padding: 0.5rem;
+  .preview-column {
+    padding: 0.75rem 0.75rem 1.5rem;
   }
 
   .cover-page-grid {
@@ -827,26 +899,32 @@ body {
 
 .document-paper {
   min-height: 760px;
-  padding: clamp(2rem, 4.5vw, 3.75rem);
+  padding: clamp(2.15rem, 4.5vw, 3.9rem);
   color: #182233;
-  background: #ffffff;
+  background: #fffefa;
   border: 1px solid rgba(3, 33, 71, 0.1);
+  border-top: 2px solid var(--blue);
   border-radius: 2px;
+  /* Typeset like the exported contract: Songti body, so the on-screen
+     draft and the DOCX/PDF read as the same document. */
+  font-family: var(--contract-serif);
   box-shadow:
-    0 1px 2px rgba(3, 33, 71, 0.04),
-    0 18px 40px -28px rgba(3, 33, 71, 0.55),
-    0 40px 70px -48px rgba(3, 33, 71, 0.35);
+    0 1px 2px rgba(3, 33, 71, 0.06),
+    0 16px 34px -24px rgba(3, 33, 71, 0.34);
 }
 
 .document-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.6rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--rule);
+  text-align: center;
 }
 
 .document-header h1 {
   color: var(--ink);
   letter-spacing: 0;
+  font-family: var(--contract-serif);
+  font-weight: 650;
 }
 
 .cover-page-sheet {
@@ -857,30 +935,32 @@ body {
 
 .cover-page-sheet > h2 {
   color: var(--ink);
+  font-family: var(--contract-serif);
+  font-weight: 650;
 }
 
 .cover-page-section {
   margin-top: 1.6rem;
 }
 
-/* Hairline key-terms table: a formal document reads as ruled lines, not as
-   a web grid with shaded header bands. */
+/* Cover-page rows mirror the restrained tables in the exported document. */
 .cover-page-section-title {
-  margin: 0 0 0.35rem;
-  padding: 0;
-  color: var(--ink-3);
-  background: transparent;
-  border: 0;
-  font-size: 0.68rem;
+  margin: 0;
+  padding: 0.48rem 0.65rem;
+  color: var(--ink);
+  background: #eef1f4;
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .cover-page-grid {
   display: grid;
   grid-template-columns: minmax(9.5rem, 32%) minmax(0, 1fr);
-  border-top: 1px solid var(--rule-soft);
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
   font-size: 0.82rem;
 }
 
@@ -891,15 +971,16 @@ body {
 .cover-page-grid dt,
 .cover-page-grid dd {
   min-width: 0;
-  padding: 0.62rem 0.75rem 0.62rem 0;
-  border-bottom: 1px solid var(--rule-soft);
+  padding: 0.58rem 0.65rem;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
   overflow-wrap: anywhere;
 }
 
 .cover-page-grid dt {
   color: var(--ink-3);
-  font-weight: 500;
-  background: transparent;
+  font-weight: 600;
+  background: #f7f8fa;
 }
 
 .field-value {
@@ -909,9 +990,11 @@ body {
   border-radius: 2px 2px 0 0;
 }
 
+/* Confirmed values are ink on paper — blue reads as a hyperlink, and no
+   hyperlinks belong inside a contract sheet. */
 .field-value[data-state="confirmed"] {
-  color: #156a96;
-  border-bottom-color: rgba(32, 157, 215, 0.85);
+  color: var(--ink);
+  border-bottom-color: rgba(3, 33, 71, 0.55);
   background: transparent;
   font-weight: 600;
 }
@@ -931,7 +1014,7 @@ body {
 
 .field-value[data-state="missing"] {
   color: #8a7350;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   border-bottom-style: solid;
   border-bottom-color: rgba(236, 173, 10, 0.55);
   background: rgba(253, 243, 211, 0.55);
@@ -942,10 +1025,33 @@ body {
   border-bottom: 0;
 }
 
+/* Tiny state tags beside cover-page values; utility face so they read as
+   UI chrome laid over the serif sheet, not part of the contract text. */
+.value-chip {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.02rem 0.32rem;
+  border-radius: 3px;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 650;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+}
+.value-chip[data-kind="pending"] {
+  color: #795500;
+  background: var(--gold-soft);
+  border: 1px solid rgba(236, 173, 10, 0.5);
+}
+.value-chip[data-kind="confirmed"] {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+}
+
 .document-prose {
   color: #182233;
-  font-family: "Songti SC", "STSong", "Noto Serif CJK SC",
-    "Source Han Serif SC", SimSun, serif;
+  font-family: var(--contract-serif);
   font-size: 0.92rem;
   line-height: 1.82;
 }
@@ -956,7 +1062,7 @@ body {
 .document-prose .header_2,
 .document-prose .header_3 {
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--contract-serif);
   letter-spacing: 0;
 }
 
@@ -1033,8 +1139,7 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   margin: 1.25rem 0 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .doc h3 {
@@ -1077,8 +1182,8 @@ body {
    terms by name (coverpage_link / orderform_link / keyterms_link spans).
    Defined terms show their value in a tooltip; missing ones flag the gap. */
 [data-print-root] .term-defined {
-  background: rgba(32, 157, 215, 0.09);
-  border-bottom: 1.5px solid #209dd7;
+  background: transparent;
+  border-bottom: 1px solid rgba(3, 33, 71, 0.5);
   border-radius: 2px;
   padding: 0 0.1rem;
   cursor: help;

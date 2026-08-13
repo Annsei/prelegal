@@ -273,12 +273,12 @@ function CoverPageValue({
       <span className="field-value" data-state={state}>
         {value}
         {fieldState?.status === "pending_confirmation" && (
-          <span className="ml-2 text-xs">
+          <span className="value-chip" data-kind="pending">
             {labels.pending}
           </span>
         )}
         {fieldState?.status === "confirmed" && (
-          <span className="ml-2 text-xs">
+          <span className="value-chip" data-kind="confirmed">
             {labels.confirmed}
           </span>
         )}
@@ -307,7 +307,7 @@ function SummaryCard({ fields }: { fields: Record<string, string> }) {
       style={{ background: "#fef9e7" }}
     >
       <h2
-        className="mb-3 text-sm font-semibold uppercase tracking-wide"
+        className="mb-3 text-sm font-semibold"
         style={{ color: "var(--ink)" }}
       >
         Cover Page Summary

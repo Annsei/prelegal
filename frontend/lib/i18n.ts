@@ -42,6 +42,7 @@ type Dictionary = {
   pickDocPrompt: string;
   disclaimer: string;
   disclaimerShort: string;
+  requiredProgress: string;
   signOut: string;
   auth: {
     welcome: string;
@@ -174,6 +175,7 @@ const zh: Dictionary = {
   disclaimer:
     "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。正式签署前请交由执业律师审核。",
   disclaimerShort: "AI 草稿，不构成法律意见；正式签署前请执业律师审核。",
+  requiredProgress: "必填",
   signOut: "退出登录",
   auth: {
     welcome: "Prelegal · 法律协议生成器",
@@ -319,6 +321,7 @@ const en: Dictionary = {
     "This document is an AI-generated draft for reference only and does not constitute legal advice. Have a licensed lawyer review it before formal execution.",
   disclaimerShort:
     "AI draft, not legal advice. Have a licensed lawyer review it before signing.",
+  requiredProgress: "Required",
   signOut: "Sign out",
   auth: {
     welcome: "Prelegal · Legal Agreement Generator",

@@ -12,7 +12,9 @@ import {
   displayFieldValues,
   isCompleteForDownload,
   readDraftStateSnapshot,
+  requiredFieldKeys,
   stableFieldValues,
+  unresolvedRequiredKeys,
   type DraftStateSnapshot,
 } from "@/lib/draftState";
 import { localized } from "@/lib/docManifest";
@@ -182,7 +184,6 @@ export default function Home() {
   const [downloadFormat, setDownloadFormat] =
     useState<DownloadFormat>("docx");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -635,6 +636,14 @@ export default function Home() {
 
   const manifestComplete =
     manifest !== null && isCompleteForDownload(manifest, draftState);
+  // Required-field meter for the header hairline: how many of the fields
+  // that gate the download are already confirmed.
+  const requiredTotal = manifest
+    ? requiredFieldKeys(manifest, draftState).length
+    : 0;
+  const requiredDone = manifest
+    ? requiredTotal - unresolvedRequiredKeys(manifest, draftState).length
+    : 0;
   // Manifest docs unlock download once every required cover-page field has
   // a confirmed value; docs without a manifest can't download at all — the
   // output would be a raw unpopulated template.
@@ -675,23 +684,17 @@ export default function Home() {
     }
   }, [activeDocId, downloadFormat, handleAuthError, manifest]);
 
-  // Header popovers dismiss on Escape or on a click outside their own root,
-  // which is what users expect from a menu and what keeps two open menus
-  // from stacking on top of each other.
-  const anyMenuOpen = accountMenuOpen || formatMenuOpen;
+  // The account popover dismisses on Escape or on a click outside its root.
   useEffect(() => {
-    if (!anyMenuOpen) return;
-    const closeAll = () => {
-      setAccountMenuOpen(false);
-      setFormatMenuOpen(false);
-    };
+    if (!accountMenuOpen) return;
+    const closeMenu = () => setAccountMenuOpen(false);
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest("[data-menu-root]")) return;
-      closeAll();
+      closeMenu();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeAll();
+      if (event.key === "Escape") closeMenu();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -699,7 +702,7 @@ export default function Home() {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [anyMenuOpen]);
+  }, [accountMenuOpen]);
 
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
@@ -710,80 +713,20 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="app-header no-print sticky top-0 z-40 border-b backdrop-blur">
-        <div className="app-toolbar mx-auto grid max-w-[1480px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-6 py-3">
+        <div className="app-global-row mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-6">
           <div className="flex min-w-0 items-center gap-2.5">
             <span aria-hidden className="brand-mark">
               契
             </span>
-            <h1 className="display text-lg tracking-wide" style={{ color: "var(--ink)" }}>
+            <h1 className="display truncate text-lg" style={{ color: "var(--ink)" }}>
               {t.appTitle}
             </h1>
           </div>
-          <div className="hidden min-w-0 flex-col items-center text-center md:flex">
-            <div
-              className="max-w-[28rem] truncate text-sm font-semibold"
-              style={{ color: "var(--ink)" }}
-              title={`${t.drafting}: ${docTitle}`}
-            >
-              {docTitle}
-            </div>
-            <SaveStatus locale={locale} state={saveState} />
-          </div>
-          <div className="flex items-center justify-end gap-2">
+          <div className="global-actions flex items-center justify-end gap-2">
             <LanguageToggle
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
             />
-            <div className="download-control" data-menu-root>
-              <button
-                type="button"
-                onClick={() => void handleDownload()}
-                disabled={!canDownload}
-                className="download-main"
-                title={downloadTitle}
-              >
-                {t.download} {downloadFormat.toUpperCase()}
-              </button>
-              <button
-                type="button"
-                className="download-caret"
-                aria-label={t.downloadFormat}
-                aria-haspopup="menu"
-                aria-expanded={formatMenuOpen}
-                onClick={() => setFormatMenuOpen((open) => !open)}
-              >
-                <svg aria-hidden="true" viewBox="0 0 20 20" className="caret-icon">
-                  <path
-                    fill="currentColor"
-                    d="M5.5 7.5 10 12l4.5-4.5H5.5z"
-                  />
-                </svg>
-              </button>
-              {formatMenuOpen && (
-                <div className="download-menu" role="menu">
-                  {(["docx", "pdf"] as const).map((format) => (
-                    <button
-                      key={format}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={downloadFormat === format}
-                      className="download-menu-item"
-                      onClick={() => {
-                        setDownloadFormat(format);
-                        setFormatMenuOpen(false);
-                      }}
-                    >
-                      <span>{t.downloadFormatOptions[format]}</span>
-                      {downloadFormat === format && (
-                        <span aria-hidden="true" className="download-menu-tick">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="account-menu" data-menu-root>
               <button
                 type="button"
@@ -816,9 +759,75 @@ export default function Home() {
             </div>
           </div>
         </div>
+        <div className="document-action-row border-t">
+          <div className="document-action-inner mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-6">
+            <div className="document-context min-w-0">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <span className="document-context-label">{t.drafting}</span>
+                <h2
+                  className="truncate text-sm font-semibold"
+                  title={`${t.drafting}: ${docTitle}`}
+                >
+                  {docTitle}
+                </h2>
+              </div>
+              <div className="document-meta flex items-center gap-3">
+                {manifest !== null && requiredTotal > 0 && (
+                  <span className="required-meter-label">
+                    {t.requiredProgress} {requiredDone} / {requiredTotal}
+                  </span>
+                )}
+                <SaveStatus locale={locale} state={saveState} />
+              </div>
+            </div>
+
+            <div className="export-cluster">
+              <div
+                className="format-segment"
+                role="group"
+                aria-label={t.downloadFormat}
+              >
+                {(["docx", "pdf"] as const).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    className="format-segment-button"
+                    aria-pressed={downloadFormat === format}
+                    title={t.downloadFormatOptions[format]}
+                    onClick={() => setDownloadFormat(format)}
+                  >
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleDownload()}
+                disabled={!canDownload}
+                className="download-button"
+                title={downloadTitle}
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20" className="download-icon">
+                  <path
+                    fill="currentColor"
+                    d="M9.25 2.5h1.5v8.05l2.85-2.85 1.05 1.06L10 13.4 5.35 8.76 6.4 7.7l2.85 2.85V2.5ZM3.5 14h1.5v2h10v-2h1.5v3.5h-13V14Z"
+                  />
+                </svg>
+                {t.download} {downloadFormat.toUpperCase()}
+              </button>
+            </div>
+          </div>
+        </div>
+        {manifest !== null && requiredTotal > 0 && (
+          <div className="header-progress" aria-hidden="true">
+            <span
+              style={{ width: `${(requiredDone / requiredTotal) * 100}%` }}
+            />
+          </div>
+        )}
       </header>
 
-      <main className="workspace-grid mx-auto grid w-full max-w-[1480px] flex-1 grid-cols-1 gap-5 px-5 py-5 lg:grid-cols-[220px_minmax(320px,420px)_minmax(520px,1fr)]">
+      <main className="workspace-grid mx-auto grid w-full max-w-[1580px] flex-1 grid-cols-1 gap-3 px-3 py-3 lg:grid-cols-[210px_minmax(320px,390px)_minmax(560px,1fr)]">
         <DocumentSidebar
           locale={locale}
           documents={documents}
@@ -829,7 +838,7 @@ export default function Home() {
         />
 
         <div className="no-print">
-          <div role="tablist" className="mode-tabs mb-3 flex">
+          <div role="tablist" className="mode-tabs mb-2 flex">
             <ModeTab
               active={mode === "chat"}
               onClick={() => setMode("chat")}
@@ -859,7 +868,7 @@ export default function Home() {
               onHistoryChange={setChatHistory}
             />
           ) : (
-            <div className="form-panel p-5">
+            <div className="form-panel p-4">
               {manifest !== null ? (
                 <DocForm
                   locale={locale}
@@ -897,9 +906,9 @@ export default function Home() {
             <p className="preview-toolbar-hint">
               {manifest ? t.previewToolbarHint : t.comingSoon}
             </p>
-            <Disclaimer locale={locale} variant="banner" />
           </div>
           <div className="preview-stage">
+            <Disclaimer locale={locale} variant="banner" />
             <GenericDocPreview
               load={templateLoad}
               fields={genericFields}

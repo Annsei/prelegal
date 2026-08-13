@@ -64,7 +64,7 @@ export default function LoginPage() {
 
           <div className="reveal reveal-1">
             <p
-              className="display text-base tracking-[0.3em]"
+              className="display text-base"
               style={{ color: "#ecad0a" }}
             >
               Prelegal
@@ -108,7 +108,7 @@ export default function LoginPage() {
           <div className="flex w-full max-w-sm flex-col">
             <div className="reveal reveal-1 mb-6 flex items-center justify-between">
               <p
-                className="display text-lg tracking-wide lg:invisible"
+                className="display text-lg lg:invisible"
                 style={{ color: "#032147" }}
               >
                 <span aria-hidden style={{ color: "#ecad0a" }}>

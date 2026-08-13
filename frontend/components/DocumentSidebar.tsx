@@ -42,13 +42,13 @@ export function DocumentSidebar({
       <button
         type="button"
         onClick={onCreate}
-        className="btn btn-primary w-full"
+        className="btn btn-sidebar-create w-full"
       >
         {t.sidebar.newDraft}
       </button>
       <div className="mt-5 flex items-center gap-2 px-1 pb-2">
         <h2
-          className="text-xs font-semibold uppercase tracking-[0.14em]"
+          className="text-xs font-semibold"
           style={{ color: "var(--ink-3)" }}
         >
           {t.sidebar.title}

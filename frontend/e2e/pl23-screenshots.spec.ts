@@ -202,14 +202,13 @@ test("capture PL-23 visual evidence", async ({ page }) => {
     path: path.join(SCREENSHOT_DIR, "pl23-workspace-three-column.png"),
   });
 
-  await page.getByRole("button", { name: "下载格式" }).click();
-  await expect(page.getByRole("menu")).toBeVisible();
+  await page.getByRole("button", { name: "PDF", exact: true }).click();
+  await expect(page.getByRole("button", { name: /下载 PDF/ })).toBeVisible();
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, "pl23-download-menu.png"),
+    path: path.join(SCREENSHOT_DIR, "pl23-export-controls.png"),
     clip: { x: 940, y: 0, width: 500, height: 180 },
   });
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByRole("button", { name: "DOCX", exact: true }).click();
 
   const firstChapter = page
     .locator('span.header_2[id="1"]')
@@ -249,9 +248,68 @@ test("capture PL-23 visual evidence", async ({ page }) => {
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: path.join(SCREENSHOT_DIR, "pl23-workspace-mobile.png"),
+  });
+  expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(
+    390,
+  );
+
   await page.goto("/login");
   await page.getByRole("button", { name: "English" }).click();
   expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(
     390,
   );
+});
+
+test("export format and download controls never overlap", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await installScreenshotBackend(page);
+  await page.goto("/login");
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "prelegal:session",
+      JSON.stringify({
+        user: {
+          id: 1,
+          email: "reviewer@example.com",
+          name: "审核用户",
+          created_at: "2026-08-06T00:00:00",
+        },
+        token: "screenshot-token",
+      }),
+    );
+    window.localStorage.setItem("prelegal:activeDocId", "1");
+  });
+  await page.goto("/");
+  await expect(page.locator(".workspace-grid")).toBeVisible();
+
+  const formatGroup = page.getByRole("group", { name: "下载格式" });
+  const downloadButton = page.getByRole("button", { name: /下载 DOCX/ });
+  await expect(formatGroup).toBeVisible();
+  await expect(page.getByRole("button", { name: "DOCX", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  for (const width of [1440, 820, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const formatBox = await formatGroup.boundingBox();
+    const downloadBox = await downloadButton.boundingBox();
+    expect(formatBox).not.toBeNull();
+    expect(downloadBox).not.toBeNull();
+    if (!formatBox || !downloadBox) continue;
+
+    const separatedHorizontally =
+      formatBox.x + formatBox.width <= downloadBox.x ||
+      downloadBox.x + downloadBox.width <= formatBox.x;
+    const separatedVertically =
+      formatBox.y + formatBox.height <= downloadBox.y ||
+      downloadBox.y + downloadBox.height <= formatBox.y;
+    expect(separatedHorizontally || separatedVertically).toBe(true);
+    expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+  }
 });

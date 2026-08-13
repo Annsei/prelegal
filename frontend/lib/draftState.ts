@@ -114,7 +114,7 @@ export function isCompleteForDownload(
   return unresolvedRequiredKeys(manifest, snapshot).length === 0;
 }
 
-function requiredFieldKeys(
+export function requiredFieldKeys(
   manifest: DocManifest,
   snapshot: DraftStateSnapshot | null,
 ): string[] {
