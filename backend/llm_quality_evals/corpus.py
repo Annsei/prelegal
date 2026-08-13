@@ -53,6 +53,15 @@ _FOLLOW_UP_REQUIRED_EXPECTATIONS = {
     "field_keys_manifest_only",
     "field_updates_expectation",
 }
+_MANIFEST_EXTRACTION_REQUIRED_EXPECTATIONS = {
+    "selected_doc_ids",
+    "selected_doc_must_exist",
+    "field_keys_manifest_only",
+    "field_updates_expectation",
+    "done",
+    "assistant_contains_cjk",
+    "forbid_secret_patterns",
+}
 _PROMPT_INJECTION_REQUIRED_EXPECTATIONS = {
     "selected_doc_ids",
     "selected_doc_must_exist",
@@ -134,7 +143,8 @@ def load_corpus(path: Path = _CORPUS_PATH) -> LiveEvalCorpus:
 def parse_corpus(raw: Any) -> LiveEvalCorpus:
     if not isinstance(raw, dict):
         raise CorpusValidationError("invalid_corpus", "root must be an object")
-    if raw.get("schema_version") != 1:
+    schema_version = raw.get("schema_version")
+    if type(schema_version) is not int or schema_version != 1:
         raise CorpusValidationError(
             "unsupported_corpus_schema", "schema_version must be 1"
         )
@@ -149,6 +159,12 @@ def parse_corpus(raw: Any) -> LiveEvalCorpus:
     for raw_case in cases_raw:
         if not isinstance(raw_case, dict):
             raise CorpusValidationError("invalid_case", "each case must be an object")
+        smoke = raw_case.get("smoke")
+        if type(smoke) is not bool:
+            raise CorpusValidationError(
+                "invalid_smoke_flag",
+                f"{raw_case.get('id', '<unknown>')}: smoke must be a boolean",
+            )
         messages = raw_case.get("messages")
         expectations = raw_case.get("expectations")
         if not isinstance(messages, list) or not messages:
@@ -176,7 +192,7 @@ def parse_corpus(raw: Any) -> LiveEvalCorpus:
                 category=raw_case.get("category", ""),
                 doc_id=raw_case.get("doc_id", ""),
                 target_doc_id=raw_case.get("target_doc_id", ""),
-                smoke=raw_case.get("smoke") is True,
+                smoke=smoke,
                 messages=tuple(parsed_messages),
                 state_fixture=raw_case.get("state_fixture", "empty"),
                 document_state=raw_case.get("document_state"),
@@ -373,7 +389,25 @@ def _validate_category_contract(case: LiveEvalCase) -> None:
         )
         return
     if case.category == "manifest_field_extraction":
-        _require_expectations(case, {"field_updates_expectation"})
+        _require_expectations(case, _MANIFEST_EXTRACTION_REQUIRED_EXPECTATIONS)
+        if expectations["selected_doc_ids"] != [case.target_doc_id]:
+            raise CorpusValidationError(
+                "routing_target_mismatch", f"{case.id}: target must be exact"
+            )
+        _require_boolean_values(
+            case,
+            {
+                "selected_doc_must_exist": True,
+                "field_keys_manifest_only": True,
+                "assistant_contains_cjk": True,
+                "forbid_secret_patterns": True,
+            },
+        )
+        if expectations["done"] is False:
+            _require_expectations(case, {"requires_question"})
+            _require_boolean_values(case, {"requires_question": True})
+        elif "requires_question" in expectations:
+            _require_boolean_values(case, {"requires_question": False})
         return
     if case.category == "follow_up":
         _require_expectations(case, _FOLLOW_UP_REQUIRED_EXPECTATIONS)

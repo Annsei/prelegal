@@ -38,6 +38,7 @@ CATALOG_DOC_IDS = {
 }
 
 CORPUS_PATH = Path(__file__).parents[1] / "llm_quality_evals" / "corpus.json"
+_MISSING = object()
 
 
 def _fake_response(payload: dict, *, prompt_tokens: int = 20, output_tokens: int = 8):
@@ -179,6 +180,57 @@ def test_committed_live_corpus_is_valid_and_covers_all_documents():
     ] == {"mode": "empty"}
 
 
+@pytest.mark.parametrize(
+    "schema_version",
+    [True, False, 1.0, "1", None, _MISSING],
+    ids=["true", "false", "float", "string", "null", "missing"],
+)
+def test_corpus_schema_version_requires_exact_integer_one(schema_version):
+    raw = _committed_corpus_raw()
+    if schema_version is _MISSING:
+        raw.pop("schema_version")
+    else:
+        raw["schema_version"] = schema_version
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        parse_corpus(raw)
+
+    assert exc_info.value.kind == "unsupported_corpus_schema"
+
+
+@pytest.mark.parametrize(
+    "smoke",
+    ["true", "false", 1, 0, None, [], {}, _MISSING],
+    ids=[
+        "true-string",
+        "false-string",
+        "one",
+        "zero",
+        "null",
+        "list",
+        "object",
+        "missing",
+    ],
+)
+@pytest.mark.parametrize(
+    "case_id",
+    ["routing.mutual-nda", "fields.mnda-simplified-chinese"],
+    ids=["smoke-case", "non-smoke-case"],
+)
+def test_corpus_smoke_flag_requires_exact_boolean(case_id, smoke):
+    raw = _committed_corpus_raw()
+    raw_case = _raw_case(raw, case_id)
+    if smoke is _MISSING:
+        raw_case.pop("smoke")
+    else:
+        raw_case["smoke"] = smoke
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        parse_corpus(raw)
+
+    assert exc_info.value.kind == "invalid_smoke_flag"
+
+
 def test_corpus_rejects_duplicate_case_ids():
     raw = _one_case_raw()
     raw["cases"].append(dict(raw["cases"][0]))
@@ -276,6 +328,133 @@ def test_corpus_rejects_missing_category_contract_expectations(
 
     with pytest.raises(CorpusValidationError, match="category_contract_missing"):
         _validate_production_corpus(raw)
+
+
+@pytest.mark.parametrize(
+    "expectation_key",
+    [
+        "selected_doc_ids",
+        "selected_doc_must_exist",
+        "field_keys_manifest_only",
+        "field_updates_expectation",
+        "done",
+        "assistant_contains_cjk",
+        "forbid_secret_patterns",
+    ],
+)
+def test_manifest_extraction_rejects_missing_core_expectation_before_provider_call(
+    expectation_key,
+):
+    raw = _committed_corpus_raw()
+    del _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        expectation_key
+    ]
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_missing"
+
+
+def test_incomplete_manifest_extraction_requires_question_before_provider_call():
+    raw = _committed_corpus_raw()
+    del _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        "requires_question"
+    ]
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_missing"
+
+
+def test_manifest_extraction_rejects_different_valid_target_before_provider_call():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        "selected_doc_ids"
+    ] = ["cloud-service-agreement"]
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "routing_target_mismatch"
+
+
+@pytest.mark.parametrize(
+    "expectation_key",
+    [
+        "selected_doc_must_exist",
+        "field_keys_manifest_only",
+        "assistant_contains_cjk",
+        "forbid_secret_patterns",
+    ],
+)
+def test_manifest_extraction_rejects_false_core_boolean_before_provider_call(
+    expectation_key,
+):
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        expectation_key
+    ] = False
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_mismatch"
+
+
+def test_incomplete_manifest_extraction_rejects_false_requires_question():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.mnda-simplified-chinese")["expectations"][
+        "requires_question"
+    ] = False
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_mismatch"
+
+
+def test_complete_manifest_extraction_allows_omitted_requires_question():
+    raw = _committed_corpus_raw()
+    complete_case = _raw_case(raw, "fields.required-complete")
+
+    assert complete_case["expectations"]["done"] is True
+    assert "requires_question" not in complete_case["expectations"]
+    _validate_production_corpus(raw)
+
+
+def test_complete_manifest_extraction_allows_explicit_false_requires_question():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.required-complete")["expectations"][
+        "requires_question"
+    ] = False
+
+    _validate_production_corpus(raw)
+
+
+def test_complete_manifest_extraction_rejects_true_requires_question():
+    raw = _committed_corpus_raw()
+    _raw_case(raw, "fields.required-complete")["expectations"][
+        "requires_question"
+    ] = True
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_mismatch"
+
+
+def test_complete_manifest_extraction_rejects_missing_core_expectation():
+    raw = _committed_corpus_raw()
+    del _raw_case(raw, "fields.required-complete")["expectations"][
+        "selected_doc_must_exist"
+    ]
+
+    with pytest.raises(CorpusValidationError) as exc_info:
+        _validate_production_corpus(raw)
+
+    assert exc_info.value.kind == "category_contract_missing"
 
 
 def test_corpus_rejects_routing_to_a_different_valid_document():
