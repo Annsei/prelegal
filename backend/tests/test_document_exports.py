@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from io import BytesIO
 
 import pytest
@@ -9,7 +10,12 @@ from docx import Document
 from pypdf import PdfReader
 
 from app.draft_state import DraftStateSnapshot, FieldState
-from app.export import ExportTemplateError, build_export_document, render_docx
+from app.export import (
+    ExportTemplateError,
+    build_export_document,
+    render_docx,
+    render_pdf,
+)
 from app.manifests import load_manifest
 
 CATALOG_DOC_IDS = (
@@ -63,6 +69,9 @@ def _field_value(field: dict, overrides: dict[str, str] | None = None) -> str:
         return overrides[field["key"]]
     if field["type"] == "date":
         return "2026-08-03"
+    choices = field.get("enum") or field.get("options")
+    if choices:
+        return choices[0]
     return "已确认导出测试值"
 
 
@@ -316,7 +325,7 @@ def test_download_blocks_active_conditional_required_fields(client):
         ("pending_confirmation", "免费", True),
     ],
 )
-def test_pilot_docx_conditionally_renders_paid_terms(
+def test_pilot_exports_conditionally_render_paid_terms(
     status: str,
     value: str,
     paid_terms_visible: bool,
@@ -330,10 +339,15 @@ def test_pilot_docx_conditionally_renders_paid_terms(
         snapshot=_pilot_snapshot(status, value),
     )
 
-    text = _docx_text(render_docx(model))
+    docx_text = _docx_text(render_docx(model))
+    pdf_text = "\n".join(
+        page.extract_text() or ""
+        for page in PdfReader(BytesIO(render_pdf(model))).pages
+    )
 
-    assert ("逾期支付试点费用" in text) is paid_terms_visible
-    assert ("退还已预付的试点费用" in text) is paid_terms_visible
+    for text in (docx_text, pdf_text):
+        assert ("逾期支付试点费用" in text) is paid_terms_visible
+        assert ("退还已预付的试点费用" in text) is paid_terms_visible
 
 
 @pytest.mark.parametrize(
@@ -410,3 +424,112 @@ def test_export_supports_multiple_blocks_and_required_when_operators(
     assert "不等于条件条款" in model.html
     assert "集合条件条款" in model.html
     assert "<!-- when" not in model.html
+
+
+@pytest.mark.parametrize(
+    ("condition", "confirmed_value", "visible"),
+    [
+        ({"field": "试点收费方式", "value": "付费"}, "付费", True),
+        ({"field": "试点收费方式", "op": "equals", "value": "付费"}, "免费", False),
+        ({"field": "试点收费方式", "op": "not_equals", "value": "免费"}, "付费", True),
+        ({"field": "试点收费方式", "op": "in", "values": ["付费"]}, "付费", True),
+        ({"field": "试点收费方式", "op": "exists"}, "付费", True),
+        ({"field": "试点收费方式", "op": "exists", "value": "ignored"}, "付费", True),
+        ({"field": "试点收费方式", "op": "exists"}, None, True),
+    ],
+)
+def test_export_conditional_blocks_share_kernel_operator_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+    condition: object,
+    confirmed_value: str | None,
+    visible: bool,
+):
+    source = (
+        f"<!-- when {json.dumps(condition, ensure_ascii=False)} -->\n"
+        "条件条款\n"
+        "<!-- endwhen -->\n"
+    )
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    monkeypatch.setattr(
+        "app.export._load_template_markdown",
+        lambda _doc_id: (None, source),
+    )
+
+    status = "confirmed" if confirmed_value is not None else "missing"
+    model = build_export_document(
+        doc_id="pilot-agreement",
+        title="试点协议",
+        manifest=manifest,
+        snapshot=_pilot_snapshot(status, confirmed_value),
+    )
+
+    assert ("条件条款" in model.html) is visible
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        {"field": "试点收费方式", "op": "" , "value": "付费"},
+        {"field": "试点收费方式", "op": None, "value": "付费"},
+        {"field": "试点收费方式", "op": [], "value": "付费"},
+        {"field": "试点收费方式", "op": {}, "value": "付费"},
+        {"field": "试点收费方式", "op": "unknown", "value": "付费"},
+        {"field": "", "op": "exists"},
+        {"field": "试点收费方式", "op": "equals"},
+        {"field": "试点收费方式", "op": "not_equals"},
+        {"field": "试点收费方式", "op": "in", "values": []},
+        {"field": "试点收费方式", "op": "in", "values": ["付费", 1]},
+        None,
+        [],
+    ],
+)
+def test_export_rejects_malformed_conditional_operators_without_type_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    condition: object,
+):
+    source = (
+        f"<!-- when {json.dumps(condition, ensure_ascii=False)} -->\n"
+        "不应渲染\n<!-- endwhen -->\n"
+    )
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    monkeypatch.setattr(
+        "app.export._load_template_markdown",
+        lambda _doc_id: (None, source),
+    )
+
+    with pytest.raises(ExportTemplateError, match="Conditional marker"):
+        build_export_document(
+            doc_id="pilot-agreement",
+            title="试点协议",
+            manifest=manifest,
+            snapshot=_pilot_snapshot("confirmed", "付费"),
+        )
+
+
+def test_download_maps_malformed_condition_to_template_unavailable(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    headers = _register(client, "malformed-condition-api@example.com")
+    document = _create_document(client, headers, "mutual-nda")
+    _confirm_required_fields(client, headers, document)
+    monkeypatch.setattr(
+        "app.export._load_template_markdown",
+        lambda _doc_id: (
+            None,
+            '<!-- when {"field":"保密用途","op":[]} -->\n'
+            "不应渲染\n<!-- endwhen -->\n",
+        ),
+    )
+
+    response = client.get(
+        f"/api/documents/{document['id']}/download?format=docx",
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["validation_errors"][0]["kind"] == (
+        "export_template_unavailable"
+    )

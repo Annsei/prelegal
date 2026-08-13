@@ -36,6 +36,14 @@ const MANIFEST: DocManifest = {
       required: false,
       label: { zh: "费用", en: "Fees" },
     },
+    {
+      key: "Pricing Model",
+      section: "order",
+      type: "string",
+      required: true,
+      enum: ["免费", "付费"],
+      label: { zh: "收费方式", en: "Pricing Model" },
+    },
   ],
 };
 
@@ -58,7 +66,7 @@ describe("DocForm", () => {
     expect(screen.getByLabelText(/Order Date/)).toHaveAttribute("type", "date");
     expect(screen.getByLabelText(/Fees/).tagName).toBe("TEXTAREA");
     // Required mark on required fields only.
-    expect(screen.getAllByText("*required")).toHaveLength(2);
+    expect(screen.getAllByText("*required")).toHaveLength(3);
   });
 
   it("shows current values and confirms only after an explicit action", async () => {
@@ -178,7 +186,7 @@ describe("DocForm", () => {
     expect(screen.getByText("Current: Acme")).toBeInTheDocument();
     expect(screen.getByText("Candidate: Beta")).toBeInTheDocument();
     expect(screen.getByText("Pending confirmation")).toBeInTheDocument();
-    expect(screen.getByText("Missing")).toBeInTheDocument();
+    expect(screen.getAllByText("Missing")).toHaveLength(2);
     expect(document.querySelector('[data-field-status="conflict"]')).toBeTruthy();
     expect(
       document.querySelector('[data-field-status="pending_confirmation"]'),
@@ -202,5 +210,33 @@ describe("DocForm", () => {
     );
     expect(screen.getByText("当事方")).toBeInTheDocument();
     expect(screen.getByLabelText(/客户/)).toBeInTheDocument();
+  });
+
+  it("renders manifest enum fields as constrained selects", async () => {
+    const onConfirm = vi.fn();
+    render(
+      <DocForm
+        locale="en"
+        manifest={MANIFEST}
+        values={{}}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const pricing = screen.getByRole("combobox", { name: /Pricing Model/ });
+    expect(pricing).toHaveValue("");
+    expect(screen.getByRole("option", { name: "免费" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "付费" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Pricing Model/ })).toBeNull();
+
+    await userEvent.selectOptions(pricing, "付费");
+    const field = pricing.closest(".doc-field");
+    expect(field).not.toBeNull();
+    await userEvent.click(
+      Array.from(field!.querySelectorAll("button")).find(
+        (button) => button.textContent === "Confirm",
+      )!,
+    );
+    expect(onConfirm).toHaveBeenCalledWith("Pricing Model", "付费");
   });
 });

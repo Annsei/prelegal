@@ -169,6 +169,13 @@ async function installScreenshotBackend(page: Page) {
   );
 }
 
+function sqliteUtcSecondsAgo(seconds: number): string {
+  return new Date(Date.now() - seconds * 1000)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+}
+
 test("capture PL-23 visual evidence", async ({ page }) => {
   test.skip(!CAPTURE, "Run with PL23_CAPTURE_SCREENSHOTS=1 to refresh evidence.");
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -312,4 +319,129 @@ test("export format and download controls never overlap", async ({ page }) => {
       width,
     );
   }
+});
+
+test("workspace breakpoint avoids horizontal overflow and keeps three columns", async ({
+  page,
+}) => {
+  await installScreenshotBackend(page);
+  await page.goto("/login");
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "prelegal:session",
+      JSON.stringify({
+        user: { id: 1, email: "responsive@example.com", name: "", created_at: "2026-08-06T00:00:00Z" },
+        token: "responsive-token",
+      }),
+    );
+    window.localStorage.setItem("prelegal:activeDocId", "1");
+  });
+  await page.goto("/");
+
+  const breakpoint = 1152;
+  for (const width of [390, 820, 1024, breakpoint - 1, breakpoint, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(page.locator(".workspace-grid")).toBeVisible();
+    const layout = await page.locator(".workspace-grid").evaluate((element) => ({
+      columns: getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
+      bodyWidth: document.body.scrollWidth,
+    }));
+    expect(layout.bodyWidth, `${width}px body overflow`).toBeLessThanOrEqual(width);
+    expect(layout.columns, `${width}px grid columns`).toBe(
+      width >= breakpoint ? 3 : 1,
+    );
+  }
+});
+
+test("mobile and desktop document styles resolve at computed-style level", async ({
+  page,
+}) => {
+  await installScreenshotBackend(page);
+  await page.goto("/login");
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "prelegal:session",
+      JSON.stringify({
+        user: { id: 1, email: "styles@example.com", name: "", created_at: "2026-08-06T00:00:00Z" },
+        token: "styles-token",
+      }),
+    );
+    window.localStorage.setItem("prelegal:activeDocId", "1");
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".document-paper")).toBeVisible();
+  await expect(page.locator(".cover-page-grid").first()).toBeVisible();
+  const mobile = await page.evaluate(() => {
+    const paper = getComputedStyle(document.querySelector(".document-paper")!);
+    const grid = getComputedStyle(document.querySelector(".cover-page-grid")!);
+    return {
+      minHeight: paper.minHeight,
+      paddingTop: paper.paddingTop,
+      columns: grid.gridTemplateColumns,
+    };
+  });
+  expect(mobile.minHeight).toBe("0px");
+  expect(mobile.paddingTop).toBe("20px");
+  expect(Number.parseFloat(mobile.columns.split(" ")[0])).toBeLessThan(130);
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const desktop = await page.evaluate(() => {
+    const paper = getComputedStyle(document.querySelector(".document-paper")!);
+    const grid = getComputedStyle(document.querySelector(".cover-page-grid")!);
+    return {
+      minHeight: paper.minHeight,
+      paddingTop: paper.paddingTop,
+      columns: grid.gridTemplateColumns,
+    };
+  });
+  expect(desktop.minHeight).toBe("760px");
+  expect(Number.parseFloat(desktop.paddingTop)).toBeGreaterThan(20);
+  expect(Number.parseFloat(desktop.columns.split(" ")[0])).toBeGreaterThan(130);
+});
+
+test("legacy SQLite UTC timestamps render as recent activity", async ({ page }) => {
+  const record = screenshotRecord();
+  record.updated_at = sqliteUtcSecondsAgo(120);
+  await page.route("**/api/documents", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: record.id,
+          doc_id: record.doc_id,
+          title: record.title,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+        },
+      ]),
+    }),
+  );
+  await page.route("**/api/templates/mutual-nda", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        doc_id: "mutual-nda",
+        title: "双方保密协议",
+        cover_page: "",
+        standard_terms: "# 双方保密协议",
+        manifest: null,
+      }),
+    }),
+  );
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "prelegal:session",
+      JSON.stringify({
+        user: { id: 1, email: "time@example.com", name: "", created_at: "2026-08-06T00:00:00Z" },
+        token: "time-token",
+      }),
+    );
+  });
+
+  await page.goto("/");
+  await expect(page.getByText(/2\s*分钟前/)).toBeVisible();
 });

@@ -22,6 +22,7 @@ from docx.shared import Cm, Pt
 from markdown import markdown
 
 from app.draft_state import (
+    CONDITION_OPERATORS,
     DraftStateSnapshot,
     confirmed_field_value,
     required_field_keys,
@@ -34,8 +35,6 @@ DISCLAIMER = (
 )
 OPTIONAL_DEFAULT = "／（适用标准条款默认约定）"
 TERM_CLASSES = {"coverpage_link", "orderform_link", "keyterms_link"}
-CONDITIONAL_OPS = {"equals", "not_equals", "in"}
-
 _WHEN_RE = re.compile(r"^\s*<!--\s*when\s+(.+?)\s*-->\s*$")
 _ENDWHEN_RE = re.compile(r"^\s*<!--\s*endwhen\s*-->\s*$")
 
@@ -355,13 +354,17 @@ def _parse_conditional_marker(
             f"Conditional marker at line {line_number} must contain an object."
         )
     field_key = condition.get("field")
-    if not isinstance(field_key, str) or field_key not in manifest_keys:
+    if (
+        not isinstance(field_key, str)
+        or not field_key.strip()
+        or field_key not in manifest_keys
+    ):
         raise ExportTemplateError(
             f"Conditional marker at line {line_number} references unknown "
             "manifest field."
         )
-    op = condition.get("op") or "equals"
-    if op not in CONDITIONAL_OPS:
+    op = condition["op"] if "op" in condition else "equals"
+    if not isinstance(op, str) or op not in CONDITION_OPERATORS:
         raise ExportTemplateError(
             f"Conditional marker at line {line_number} uses unsupported operator."
         )

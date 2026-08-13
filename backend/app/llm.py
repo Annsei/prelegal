@@ -137,6 +137,9 @@ def _manifest_prompt_section(manifest: dict[str, Any]) -> str:
             parts.append(f": {hint}")
         if example:
             parts.append(f' — e.g. "{example}"')
+        choices = field.get("enum") or field.get("options")
+        if isinstance(choices, list) and choices:
+            parts.append(f" — Allowed values: {', '.join(choices)}")
         lines.append("".join(parts))
     lines.append("")
     lines.append(
@@ -197,7 +200,18 @@ def _schema_for(manifest: dict[str, Any] | None) -> dict[str, Any]:
             "MUST come from the field checklist."
         ),
         "properties": {
-            key: {"type": "string"} for key in manifest_field_keys(manifest)
+            field["key"]: {
+                "type": "string",
+                **(
+                    {"enum": field.get("enum") or field.get("options")}
+                    if isinstance(field.get("enum") or field.get("options"), list)
+                    and (field.get("enum") or field.get("options"))
+                    else {}
+                ),
+            }
+            for field in manifest.get("fields", [])
+            if isinstance(field, dict)
+            and field.get("key") in manifest_field_keys(manifest)
         },
         "additionalProperties": False,
     }

@@ -6,6 +6,11 @@ import re
 
 import pytest
 
+from app.draft_state import (
+    DraftStateSnapshot,
+    FieldState,
+    unresolved_required_field_keys,
+)
 from app.manifests import load_manifest, manifest_field_keys
 
 PRELEGAL_MANIFEST_DOCUMENTS = {
@@ -140,7 +145,13 @@ def test_prelegal_template_required_fields_gate_download_until_confirmed(
         {
             "op": "confirm",
             "key": field["key"],
-            "value": "2026-08-01" if field["type"] == "date" else "已确认测试值",
+            "value": (
+                "2026-08-01"
+                if field["type"] == "date"
+                else (field.get("enum") or field.get("options") or [
+                    "已确认测试值"
+                ])[0]
+            ),
         }
         for field in manifest["fields"]
         if field["required"]
@@ -237,3 +248,81 @@ def test_paid_pilot_requires_fee_and_payment_arrangement_before_download(client)
         headers=headers,
     )
     assert ready.status_code == 200
+
+
+def test_pilot_pricing_model_is_a_closed_manifest_enum():
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    pricing = next(
+        field for field in manifest["fields"] if field["key"] == "试点收费方式"
+    )
+
+    assert pricing["enum"] == ["免费", "付费"]
+
+
+@pytest.mark.parametrize("invalid_value", ["付费试点", "有偿"])
+def test_pilot_rejects_noncanonical_pricing_without_advancing_revision(
+    client,
+    invalid_value: str,
+):
+    headers = _register(client, f"invalid-pilot-{invalid_value}@example.com")
+    created = client.post(
+        "/api/documents",
+        headers=headers,
+        json={"doc_id": "pilot-agreement", "title": "invalid pilot", "state": {}},
+    ).json()
+
+    rejected = client.post(
+        f"/api/documents/{created['id']}/field-patches",
+        headers=headers,
+        json={
+            "patch_id": f"invalid-pricing-{invalid_value}",
+            "base_revision": 0,
+            "source": "form",
+            "operations": [
+                {"op": "confirm", "key": "试点收费方式", "value": invalid_value}
+            ],
+        },
+    )
+
+    assert rejected.status_code == 422
+    errors = rejected.json()["detail"]["validation_errors"]
+    assert errors == [
+        {
+            "kind": "invalid_enum",
+            "field_key": "试点收费方式",
+            "message": "Field value is not one of the allowed options.",
+        }
+    ]
+    fetched = client.get(
+        f"/api/documents/{created['id']}", headers=headers
+    ).json()
+    assert fetched["state"] == {}
+
+
+def test_historical_noncanonical_pilot_pricing_cannot_unlock_download():
+    manifest = load_manifest("pilot-agreement")
+    assert manifest is not None
+    snapshot = DraftStateSnapshot(
+        doc_id="pilot-agreement",
+        manifest_version=manifest["version"],
+        fields={
+            field["key"]: FieldState(
+                key=field["key"],
+                status="confirmed",
+                value=(
+                    "2026-08-01"
+                    if field["type"] == "date"
+                    else "有偿"
+                    if field["key"] == "试点收费方式"
+                    else "已确认测试值"
+                ),
+                confirmed_at="2026-08-13T00:00:00+00:00",
+                confirmed_by_user_id=1,
+            )
+            for field in manifest["fields"]
+            if field["required"]
+        },
+    )
+
+    assert "试点收费方式" in unresolved_required_field_keys(manifest, snapshot)

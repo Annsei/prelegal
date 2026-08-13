@@ -661,3 +661,32 @@ def test_chat_complete_constrains_batch_template_updates_to_manifest_keys(
     assert field_schema["additionalProperties"] is False
     assert manifest_key in field_schema["properties"]
     assert result["field_updates"] == {manifest_key: "已提取的值"}
+
+
+def test_pilot_structured_output_uses_manifest_pricing_enum(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "试点是免费还是付费？",
+                "selected_doc_id": "pilot-agreement",
+                "field_updates": {},
+                "done": False,
+            }
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    llm.chat_complete(
+        messages=[{"role": "user", "content": "请起草试点协议"}],
+        mnda_state={},
+        doc_id="pilot-agreement",
+    )
+
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["properties"]["试点收费方式"]["enum"] == ["免费", "付费"]
+    assert "Allowed values: 免费, 付费" in captured["messages"][0]["content"]

@@ -171,7 +171,21 @@ function Field({
           {statusLabel}
         </span>
       </label>
-      {field.type === "text" ? (
+      {(field.enum ?? field.options)?.length ? (
+        <select
+          id={inputId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="input-field"
+        >
+          <option value="">—</option>
+          {(field.enum ?? field.options ?? []).map((choice) => (
+            <option key={choice} value={choice}>
+              {choice}
+            </option>
+          ))}
+        </select>
+      ) : field.type === "text" ? (
         <textarea rows={2} {...common} />
       ) : (
         <input type={field.type === "date" ? "date" : "text"} {...common} />

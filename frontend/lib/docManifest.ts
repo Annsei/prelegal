@@ -22,6 +22,8 @@ export type ManifestField = {
   section: string;
   type: ManifestFieldType;
   required: boolean;
+  enum?: string[];
+  options?: string[];
   required_when?: RequiredWhenCondition | RequiredWhenCondition[];
   label: LocalizedText;
   hint?: LocalizedText;

@@ -124,6 +124,7 @@ async function installManifestTemplateBackend(page: Page, doc: ManifestDoc) {
               ...doc.conditionalField,
               section: "parties",
               type: "string",
+              enum: ["免费", "付费"],
               required: true,
               label: {
                 zh: doc.conditionalField.key,

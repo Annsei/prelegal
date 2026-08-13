@@ -6,6 +6,13 @@ export type FieldStatus =
   | "conflict"
   | "missing";
 
+export const CONDITION_OPERATORS = [
+  "equals",
+  "not_equals",
+  "in",
+  "exists",
+] as const;
+
 export type FieldProvenance = {
   patch_id: string;
   source: "llm" | "user" | "form" | "system";
@@ -69,6 +76,8 @@ export function stableFieldValues(
     if (typeof state?.value !== "string") continue;
     const value = state.value.trim();
     if (!value) continue;
+    const choices = field.enum ?? field.options;
+    if (choices?.length && !choices.includes(value)) continue;
     if (state.status === "confirmed") {
       values[field.key] = value;
     } else if (state.status === "conflict" && state.confirmed_at) {
@@ -104,10 +113,12 @@ export function unresolvedRequiredKeys(
     .filter((field) => requiredKeys.includes(field.key))
     .filter((field) => {
       const state = snapshot.fields[field.key];
+      const value = typeof state?.value === "string" ? state.value.trim() : "";
+      const choices = field.enum ?? field.options;
       return (
         state?.status !== "confirmed" ||
-        typeof state.value !== "string" ||
-        state.value.trim() === ""
+        value === "" ||
+        Boolean(choices?.length && !choices.includes(value))
       );
     })
     .map((field) => field.key);
@@ -149,7 +160,9 @@ export function singleConditionMatches(
   stableValues: Record<string, string>,
 ): boolean {
   const value = stableValues[condition.field];
-  const op = condition.op ?? "equals";
+  const raw = condition as RequiredWhenCondition & Record<string, unknown>;
+  const op = Object.hasOwn(raw, "op") ? raw.op : "equals";
+  if (typeof op !== "string") return false;
   if (op === "equals") return value === condition.value;
   if (op === "not_equals") return value !== undefined && value !== condition.value;
   if (op === "in") return value !== undefined && (condition.values ?? []).includes(value);

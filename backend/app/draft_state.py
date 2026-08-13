@@ -21,6 +21,7 @@ FIELD_STATE_SCHEMA_VERSION = "draft-state.v1"
 
 FieldStatus = Literal["confirmed", "pending_confirmation", "conflict", "missing"]
 PatchSource = Literal["llm", "user", "form", "system"]
+CONDITION_OPERATORS = frozenset({"equals", "not_equals", "in", "exists"})
 PatchOp = Literal["propose", "confirm", "reject"]
 MessageIndexTrust = Literal["none", "client_asserted", "server_verified"]
 
@@ -551,6 +552,11 @@ def unresolved_required_field_keys(
         or snapshot.fields[key].status != "confirmed"
         or not isinstance(snapshot.fields[key].value, str)
         or not snapshot.fields[key].value.strip()
+        or _validate_value(
+            key,
+            snapshot.fields[key].value,
+            _manifest_fields_by_key(manifest)[key],
+        )
     ]
 
 
@@ -735,7 +741,7 @@ def _validate_value(
             ]
 
     choices = field_def.get("enum") or field_def.get("options")
-    if isinstance(choices, list) and choices and value not in choices:
+    if isinstance(choices, list) and choices and value.strip() not in choices:
         return [
             ValidationErrorItem(
                 kind="invalid_enum",
@@ -1030,7 +1036,7 @@ def single_condition_matches(
     if not isinstance(key, str):
         return False
     value = confirmed_field_value(snapshot, key)
-    op = condition.get("op") or "equals"
+    op = condition["op"] if "op" in condition else "equals"
     if op == "equals":
         return value == condition.get("value")
     if op == "not_equals":

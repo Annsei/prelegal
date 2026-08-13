@@ -414,4 +414,34 @@ describe("draftState helpers", () => {
     ]);
     expect(isCompleteForDownload(paidPilotManifest, paidPilotSnapshot)).toBe(false);
   });
+
+  it("does not treat a historical noncanonical enum value as a stable driver", () => {
+    const manifest: DocManifest = {
+      ...MANIFEST,
+      fields: MANIFEST.fields.map((field) =>
+        field.key === "是否自动续期"
+          ? { ...field, required: true, enum: ["是", "否"] }
+          : field,
+      ),
+    };
+    const snapshot: DraftStateSnapshot = {
+      ...SNAPSHOT,
+      fields: {
+        ...SNAPSHOT.fields,
+        是否自动续期: {
+          key: "是否自动续期",
+          status: "confirmed",
+          value: "自动续期",
+          revision: 4,
+          provenance: [],
+          confirmed_at: "2026-08-13T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+        },
+      },
+    };
+
+    expect(stableFieldValues(manifest, snapshot)).not.toHaveProperty("是否自动续期");
+    expect(unresolvedRequiredKeys(manifest, snapshot)).toContain("是否自动续期");
+    expect(unresolvedRequiredKeys(manifest, snapshot)).not.toContain("不续约通知期");
+  });
 });

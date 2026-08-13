@@ -19,9 +19,28 @@ import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_DB_PATH = "/data/prelegal.sqlite"
+
+
+def serialize_utc_timestamp(value: str) -> str:
+    """Normalize SQLite's timezone-less UTC text at the API boundary."""
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return (
+        parsed.astimezone(UTC)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def db_path() -> str:

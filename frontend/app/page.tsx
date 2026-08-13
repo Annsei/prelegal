@@ -827,7 +827,7 @@ export default function Home() {
         )}
       </header>
 
-      <main className="workspace-grid mx-auto grid w-full max-w-[1580px] flex-1 grid-cols-1 gap-3 px-3 py-3 lg:grid-cols-[210px_minmax(320px,390px)_minmax(560px,1fr)]">
+      <main className="workspace-grid mx-auto grid w-full max-w-[1580px] flex-1 grid-cols-1 gap-3 px-3 py-3">
         <DocumentSidebar
           locale={locale}
           documents={documents}

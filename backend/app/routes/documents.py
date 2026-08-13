@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from app.auth import current_user
-from app.db import get_conn
+from app.db import get_conn, serialize_utc_timestamp
 from app.draft_state import (
     DraftPatchRejected,
     DraftStateSnapshot,
@@ -66,8 +66,8 @@ def _row_to_summary(row: sqlite3.Row) -> DocumentSummary:
         id=row["id"],
         doc_id=row["doc_id"],
         title=row["title"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+        created_at=serialize_utc_timestamp(row["created_at"]),
+        updated_at=serialize_utc_timestamp(row["updated_at"]),
     )
 
 
@@ -77,8 +77,8 @@ def _row_to_full(row: sqlite3.Row) -> DocumentOut:
         doc_id=row["doc_id"],
         title=row["title"],
         state=_safe_load_state(row["state_json"]),
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+        created_at=serialize_utc_timestamp(row["created_at"]),
+        updated_at=serialize_utc_timestamp(row["updated_at"]),
     )
 
 

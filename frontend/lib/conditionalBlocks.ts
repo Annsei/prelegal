@@ -1,9 +1,12 @@
 import type { DocManifest, RequiredWhenCondition } from "@/lib/docManifest";
-import { singleConditionMatches } from "@/lib/draftState";
+import {
+  CONDITION_OPERATORS,
+  singleConditionMatches,
+} from "@/lib/draftState";
 
 const WHEN_RE = /^\s*<!--\s*when\s+(.+?)\s*-->\s*$/;
 const ENDWHEN_RE = /^\s*<!--\s*endwhen\s*-->\s*$/;
-const CONDITIONAL_OPS = new Set(["equals", "not_equals", "in"]);
+const CONDITIONAL_OPS = new Set<string>(CONDITION_OPERATORS);
 
 export class ConditionalTemplateError extends Error {}
 
@@ -81,13 +84,18 @@ function parseCondition(
     );
   }
   const condition = raw as RequiredWhenCondition;
-  if (typeof condition.field !== "string" || !manifestKeys.has(condition.field)) {
+  if (
+    typeof condition.field !== "string" ||
+    condition.field.trim() === "" ||
+    !manifestKeys.has(condition.field)
+  ) {
     throw new ConditionalTemplateError(
       `Conditional marker at line ${lineNumber} references unknown manifest field.`,
     );
   }
-  const op = condition.op ?? "equals";
-  if (!CONDITIONAL_OPS.has(op)) {
+  const rawRecord = raw as Record<string, unknown>;
+  const op = Object.hasOwn(rawRecord, "op") ? rawRecord.op : "equals";
+  if (typeof op !== "string" || !CONDITIONAL_OPS.has(op)) {
     throw new ConditionalTemplateError(
       `Conditional marker at line ${lineNumber} uses unsupported operator.`,
     );
@@ -110,5 +118,5 @@ function parseCondition(
       `Conditional marker at line ${lineNumber} requires string values.`,
     );
   }
-  return condition;
+  return { ...condition, op: op as RequiredWhenCondition["op"] };
 }

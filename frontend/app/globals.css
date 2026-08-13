@@ -342,6 +342,12 @@ body {
   align-items: start;
 }
 
+@media (min-width: 72rem) {
+  .workspace-grid {
+    grid-template-columns: 210px minmax(320px, 390px) minmax(560px, 1fr);
+  }
+}
+
 .sidebar-panel {
   height: var(--workspace-h);
   padding: 0.15rem 0.65rem 0 0.15rem;
@@ -777,7 +783,7 @@ body {
   background: #f6f8fa;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 71.999rem) {
   .sidebar-panel {
     height: auto;
     max-height: 18rem;
@@ -816,18 +822,10 @@ body {
     flex: none;
   }
 
-  .document-paper {
-    min-height: 0;
-    padding: 1.25rem;
-  }
-
   .preview-column {
     padding: 0.75rem 0.75rem 1.5rem;
   }
 
-  .cover-page-grid {
-    grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr);
-  }
 }
 
 /* Save indicator — a wax-dot beside the title. */
@@ -1119,6 +1117,17 @@ body {
 .document-cover-markdown {
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--rule);
+}
+
+@media (max-width: 767px) {
+  .document-paper {
+    min-height: 0;
+    padding: 1.25rem;
+  }
+
+  .cover-page-grid {
+    grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr);
+  }
 }
 
 /* Document preview uses a serif face so the filled form reads like a contract. */

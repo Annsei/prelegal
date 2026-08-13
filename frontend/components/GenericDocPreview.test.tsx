@@ -87,6 +87,23 @@ describe("GenericDocPreview with a manifest", () => {
     expect(missing?.textContent).toBe("Governing Law");
   });
 
+  it("contains malformed conditional templates in a local unavailable state", () => {
+    render(
+      <GenericDocPreview
+        load={readyLoad({
+          standard_terms:
+            '<!-- when {"field":"Customer","op":null,"value":"Acme"} -->\n' +
+            "must not leak\n<!-- endwhen -->",
+        })}
+        fields={{}}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/couldn't load the template/i);
+    expect(screen.queryByText("must not leak")).toBeNull();
+  });
+
   it("renders pending and conflict field state from draft_state", () => {
     const snapshot: DraftStateSnapshot = {
       schema_version: "draft-state.v1",

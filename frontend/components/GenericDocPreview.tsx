@@ -1,7 +1,10 @@
 "use client";
 
 import { marked } from "marked";
-import { applyConditionalBlocks } from "@/lib/conditionalBlocks";
+import {
+  applyConditionalBlocks,
+  ConditionalTemplateError,
+} from "@/lib/conditionalBlocks";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
 import {
@@ -73,13 +76,27 @@ export function GenericDocPreview({
   const stableFields = manifest
     ? stableFieldValues(manifest, draftState, fields)
     : fields;
-  const conditionalTerms = manifest
-    ? applyConditionalBlocks(template.standard_terms, manifest, stableFields)
-    : template.standard_terms;
-  const conditionalCoverPage =
-    manifest && template.cover_page
-      ? applyConditionalBlocks(template.cover_page, manifest, stableFields)
-      : template.cover_page ?? "";
+  let conditionalTerms: string;
+  let conditionalCoverPage: string;
+  try {
+    conditionalTerms = manifest
+      ? applyConditionalBlocks(template.standard_terms, manifest, stableFields)
+      : template.standard_terms;
+    conditionalCoverPage =
+      manifest && template.cover_page
+        ? applyConditionalBlocks(template.cover_page, manifest, stableFields)
+        : template.cover_page ?? "";
+  } catch (error) {
+    if (!(error instanceof ConditionalTemplateError)) throw error;
+    return (
+      <div
+        role="alert"
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+      >
+        {t.templateUnavailable}
+      </div>
+    );
+  }
   const annotated = annotateTermRefs(
     conditionalTerms,
     manifest,

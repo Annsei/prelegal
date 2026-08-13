@@ -13,10 +13,23 @@ type Props = {
   onCreate: () => void;
 };
 
-function relativeTime(iso: string, locale: Locale): string {
-  const stamp = Date.parse(iso);
-  if (!Number.isFinite(stamp)) return "";
-  const deltaSec = Math.round((stamp - Date.now()) / 1000);
+const TIMEZONELESS_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+
+export function parseDocumentTimestamp(value: string): number | null {
+  const normalized = TIMEZONELESS_TIMESTAMP.test(value) ? `${value.replace(" ", "T")}Z` : value;
+  const stamp = Date.parse(normalized);
+  return Number.isFinite(stamp) ? stamp : null;
+}
+
+export function relativeTime(
+  iso: string,
+  locale: Locale,
+  now = Date.now(),
+): string {
+  const stamp = parseDocumentTimestamp(iso);
+  if (stamp === null) return "";
+  const deltaSec = Math.round((stamp - now) / 1000);
   const abs = Math.abs(deltaSec);
   const rtf = new Intl.RelativeTimeFormat(locale === "zh" ? "zh-CN" : "en", {
     numeric: "auto",
