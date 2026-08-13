@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "vectors": [
+    {
+      "id": "same-driver-overlap",
+      "manifest": {
+        "doc_id": "synthetic-same-driver-overlap",
+        "version": 1,
+        "fields": [
+          {"key": "x", "type": "string", "enum": ["A", "B"], "required": false},
+          {
+            "key": "result",
+            "type": "string",
+            "required": false,
+            "required_when": [
+              {"field": "x", "op": "equals", "value": "A"},
+              {"field": "x", "op": "in", "values": ["A", "B"]}
+            ]
+          }
+        ]
+      },
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "positive", "values": {"x": "A"}, "expected_active": ["result"]},
+        {"id": "group-negative", "values": {"x": "B"}, "expected_active": []}
+      ]
+    },
+    {
+      "id": "redundant-conditions",
+      "manifest": {
+        "doc_id": "synthetic-redundant-conditions",
+        "version": 1,
+        "fields": [
+          {"key": "x", "type": "string", "enum": ["A", "B"], "required": false},
+          {
+            "key": "result",
+            "type": "string",
+            "required": false,
+            "required_when": [
+              {"field": "x", "op": "equals", "value": "A"},
+              {"field": "x", "op": "equals", "value": "A"}
+            ]
+          }
+        ]
+      },
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "positive", "values": {"x": "A"}, "expected_active": ["result"]},
+        {"id": "group-negative", "values": {"x": "B"}, "expected_active": []}
+      ]
+    },
+    {
+      "id": "two-drivers",
+      "manifest": {
+        "doc_id": "synthetic-two-drivers",
+        "version": 1,
+        "fields": [
+          {"key": "mode", "type": "string", "enum": ["paid", "free"], "required": false},
+          {"key": "region", "type": "string", "enum": ["domestic", "overseas"], "required": false},
+          {
+            "key": "payment",
+            "type": "string",
+            "required": false,
+            "required_when": [
+              {"field": "mode", "op": "equals", "value": "paid"},
+              {"field": "region", "op": "equals", "value": "domestic"}
+            ]
+          }
+        ]
+      },
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "positive", "values": {"mode": "paid", "region": "domestic"}, "expected_active": ["payment"]},
+        {"id": "mode-negative", "values": {"mode": "free", "region": "domestic"}, "expected_active": []},
+        {"id": "region-negative", "values": {"mode": "paid", "region": "overseas"}, "expected_active": []},
+        {"id": "region-unconfirmed", "values": {"mode": "paid", "region": "domestic"}, "unconfirmed": ["region"], "expected_active": []}
+      ]
+    },
+    {
+      "id": "impossible-positive",
+      "manifest": {
+        "doc_id": "synthetic-impossible-positive",
+        "version": 1,
+        "fields": [
+          {"key": "x", "type": "string", "enum": ["A", "B"], "required": false},
+          {
+            "key": "result",
+            "type": "string",
+            "required": false,
+            "required_when": [
+              {"field": "x", "op": "equals", "value": "A"},
+              {"field": "x", "op": "equals", "value": "B"}
+            ]
+          }
+        ]
+      },
+      "positive_witness": "impossible",
+      "assignments": []
+    },
+    {
+      "id": "whitespace-driver",
+      "manifest": {
+        "doc_id": "synthetic-whitespace-driver",
+        "version": 1,
+        "fields": [
+          {"key": "driver", "type": "string", "required": false},
+          {"key": "exists-result", "type": "string", "required": false, "required_when": {"field": "driver", "op": "exists"}},
+          {"key": "not-equals-result", "type": "string", "required": false, "required_when": {"field": "driver", "op": "not_equals", "value": "blocked"}}
+        ]
+      },
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "whitespace", "values": {"driver": "   "}, "expected_active": []}
+      ]
+    },
+    {
+      "id": "nonisolatable-negative",
+      "manifest": {
+        "doc_id": "synthetic-nonisolatable-negative",
+        "version": 1,
+        "fields": [
+          {"key": "x", "type": "string", "enum": ["A"], "required": false},
+          {"key": "result", "type": "string", "required": false, "required_when": {"field": "x", "op": "exists"}}
+        ]
+      },
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "positive", "values": {"x": "A"}, "expected_active": ["result"]}
+      ]
+    },
+    {
+      "id": "psa-special-authority",
+      "manifest_doc_id": "professional-services-agreement",
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "special", "values": {"委托方式": "特别委托"}, "expected_active": ["特别委托事项"]},
+        {"id": "general", "values": {"委托方式": "概括委托"}, "expected_active": ["概括委托范围"]}
+      ]
+    },
+    {
+      "id": "dpa-delivery-method",
+      "manifest_doc_id": "data-processing-agreement",
+      "positive_witness": "possible",
+      "assignments": [
+        {"id": "electronic", "values": {"数据交付方式": "电子交付"}, "expected_active": ["电子交付安排"]},
+        {"id": "physical", "values": {"数据交付方式": "物理交付"}, "expected_active": ["物理交付安排"]}
+      ]
+    }
+  ]
+}

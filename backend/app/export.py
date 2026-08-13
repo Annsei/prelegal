@@ -24,6 +24,7 @@ from markdown import markdown
 from app.draft_state import (
     DraftStateSnapshot,
     confirmed_field_value,
+    required_field_keys,
     single_condition_matches,
 )
 
@@ -48,11 +49,45 @@ class ExportTemplateError(ValueError):
 
 
 @dataclass(frozen=True)
+class ExportField:
+    """One field in the semantic verification projection for an export."""
+
+    key: str
+    label: str
+    value: str | None
+    rendered_value: str
+    status: str
+    required: bool
+
+
+@dataclass(frozen=True)
+class ExportConditionResult:
+    """The backend-authoritative result of one manifest required_when rule."""
+
+    field_key: str
+    active: bool
+
+
+@dataclass(frozen=True)
+class ExportBlock:
+    """An ordered text projection used to verify rendered output."""
+
+    section: str
+    order: int
+    kind: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ExportDocument:
-    """One normalized HTML model consumed by every file renderer."""
+    """Authoritative HTML renderer input plus its verification projection."""
 
     doc_id: str
     title: str
+    fields: tuple[ExportField, ...]
+    condition_results: tuple[ExportConditionResult, ...]
+    blocks: tuple[ExportBlock, ...]
+    disclaimer: str
     html: str
 
 
@@ -80,13 +115,8 @@ def build_export_document(
     cover_markdown, terms_markdown = _load_template_markdown(doc_id)
     if not cover_markdown:
         cover_markdown = _manifest_cover_markdown(title, manifest)
-    confirmed = {
-        key: field.value.strip()
-        for key, field in snapshot.fields.items()
-        if field.status == "confirmed"
-        and isinstance(field.value, str)
-        and field.value.strip()
-    }
+    confirmed = _stable_confirmed_values(snapshot)
+    active_required = set(required_field_keys(manifest, snapshot))
     cover_markdown = apply_conditional_blocks(
         cover_markdown,
         manifest=manifest,
@@ -104,6 +134,7 @@ def build_export_document(
         confirmed=confirmed,
         cover_page=True,
     )
+    cover_html = _add_draft_title_subtitle(cover_html, title)
     terms_html = _render_markdown_section(
         terms_markdown,
         lookup=lookup,
@@ -119,7 +150,9 @@ def build_export_document(
 </head>
 <body>
 <main class="export-document">
-<section class="cover-page">{cover_html}</section>
+<section class="cover-page">
+{cover_html}
+</section>
 <section class="standard-terms">{terms_html}</section>
 <section class="export-disclaimer">
 <h1>免责声明</h1>
@@ -128,7 +161,121 @@ def build_export_document(
 </main>
 </body>
 </html>"""
-    return ExportDocument(doc_id=doc_id, title=title, html=full_html)
+    fields = tuple(
+        _canonical_field(field, snapshot, confirmed, active_required)
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict) and isinstance(field.get("key"), str)
+    )
+    condition_results = tuple(
+        ExportConditionResult(
+            field_key=field["key"],
+            active=field["key"] in active_required,
+        )
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict)
+        and isinstance(field.get("key"), str)
+        and field.get("required_when") is not None
+    )
+    return ExportDocument(
+        doc_id=doc_id,
+        title=title,
+        fields=fields,
+        condition_results=condition_results,
+        blocks=_canonical_blocks(full_html),
+        disclaimer=DISCLAIMER,
+        html=full_html,
+    )
+
+
+def _add_draft_title_subtitle(cover_html: str, title: str) -> str:
+    """Keep the legal template title as H1 and show the user's draft as metadata."""
+    soup = BeautifulSoup(cover_html, "html.parser")
+    legal_titles = soup.find_all("h1")
+    if len(legal_titles) != 1:
+        raise ExportTemplateError("Cover page must contain exactly one legal H1 title.")
+    subtitle = soup.new_tag("h2", attrs={"class": "draft-title"})
+    subtitle.string = title
+    legal_titles[0].insert_after(subtitle)
+    return str(soup)
+
+
+def _stable_confirmed_values(snapshot: DraftStateSnapshot) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for key, field in snapshot.fields.items():
+        stable = field.status == "confirmed" or (
+            field.status == "conflict" and field.confirmed_at is not None
+        )
+        if stable and isinstance(field.value, str) and field.value.strip():
+            values[key] = field.value.strip()
+    return values
+
+
+def _canonical_field(
+    field_def: dict[str, Any],
+    snapshot: DraftStateSnapshot,
+    confirmed: dict[str, str],
+    active_required: set[str],
+) -> ExportField:
+    key = field_def["key"]
+    label = field_def.get("label")
+    display_label = label.get("zh") if isinstance(label, dict) else key
+    state = snapshot.fields.get(key)
+    value = confirmed.get(key)
+    return ExportField(
+        key=key,
+        label=display_label or key,
+        value=value,
+        rendered_value=value or OPTIONAL_DEFAULT,
+        status=state.status if state is not None else "missing",
+        required=key in active_required,
+    )
+
+
+def _canonical_blocks(source_html: str) -> tuple[ExportBlock, ...]:
+    soup = BeautifulSoup(source_html, "html.parser")
+    blocks: list[ExportBlock] = []
+    order = 0
+    for section_name, class_name in (
+        ("cover_page", "cover-page"),
+        ("standard_terms", "standard-terms"),
+        ("disclaimer", "export-disclaimer"),
+    ):
+        section = soup.find("section", class_=class_name)
+        if section is None:
+            continue
+        for node in section.find_all(recursive=False):
+            if not isinstance(node, Tag):
+                continue
+            projection_nodes = _projection_nodes(node)
+            for projection_node in projection_nodes:
+                text = " ".join(projection_node.stripped_strings)
+                if not text:
+                    continue
+                blocks.append(
+                    ExportBlock(
+                        section=section_name,
+                        order=order,
+                        kind=projection_node.name,
+                        text=text,
+                    )
+                )
+                order += 1
+    return tuple(blocks)
+
+
+def _projection_nodes(node: Tag) -> list[Tag]:
+    atomic = {"h1", "h2", "h3", "h4", "h5", "h6", "p"}
+    if node.name in atomic:
+        return [node]
+    if node.name == "table":
+        return node.find_all(["th", "td"])
+    if node.name not in {"ol", "ul", "li", "div", "section", "blockquote"}:
+        return []
+    projected: list[Tag] = []
+    for child in node.children:
+        if isinstance(child, Tag):
+            projected.extend(_projection_nodes(child))
+    return projected or [node]
 
 
 def apply_conditional_blocks(
@@ -545,6 +692,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 18pt; text-align: center; margin: 0 0 18pt; }
 h2 { font-size: 14pt; margin: 16pt 0 8pt; }
+.draft-title {
+  color: #444;
+  font-size: 10.5pt;
+  font-weight: 400;
+  margin: -10pt 0 18pt;
+  text-align: center;
+}
 h3 { font-size: 12pt; margin: 12pt 0 6pt; }
 p { margin: 0 0 7pt; }
 ol, ul { margin: 5pt 0 8pt 20pt; padding-left: 12pt; }

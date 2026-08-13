@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "renderers": ["docx", "pdf"],
+  "cases": [
+    {"id": "complete-state", "kind": "complete_state"},
+    {"id": "missing-required", "kind": "missing_required"},
+    {"id": "required-when", "kind": "required_when"},
+    {"id": "field-constraints", "kind": "field_constraints"},
+    {"id": "unknown-field", "kind": "unknown_field"},
+    {"id": "conflict-transitions", "kind": "conflict_transitions"},
+    {"id": "idempotency-concurrency", "kind": "idempotency_concurrency"},
+    {"id": "public-put-protection", "kind": "public_put_protection"},
+    {"id": "invalid-downloads", "kind": "invalid_downloads"},
+    {"id": "cross-format-semantics", "kind": "cross_format_semantics"}
+  ],
+  "documents": [
+    {"doc_id": "mutual-nda", "anchor_field": "保密用途"},
+    {"doc_id": "cloud-service-agreement", "anchor_field": "服务方"},
+    {"doc_id": "design-partner-agreement", "anchor_field": "甲方"},
+    {"doc_id": "service-level-agreement", "anchor_field": "服务方"},
+    {"doc_id": "professional-services-agreement", "anchor_field": "委托方名称"},
+    {"doc_id": "data-processing-agreement", "anchor_field": "委托方名称"},
+    {"doc_id": "software-license-agreement", "anchor_field": "许可方"},
+    {"doc_id": "partnership-agreement", "anchor_field": "供应商"},
+    {"doc_id": "pilot-agreement", "anchor_field": "服务方"},
+    {"doc_id": "business-associate-agreement", "anchor_field": "医疗机构"},
+    {"doc_id": "ai-addendum", "anchor_field": "客户"}
+  ]
+}

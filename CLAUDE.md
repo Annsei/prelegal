@@ -82,6 +82,10 @@ backend/         FastAPI service (uv project)
                    templates.py (GET /api/templates/{doc_id}),
                    documents.py (per-user CRUD), health.py
   tests/           pytest
+  quality_evals/   deterministic corpus and coverage registry for all 11
+                   manifests; Python tripwires catch accidental network/process
+                   use, while the Linux Docker hard gate supplies authoritative
+                   kernel-isolated download and DOCX/PDF semantic checks
 frontend/        Next.js 15 (static export, output: "export")
   app/page.tsx     Legal-agreement generator with sidebar / editor / preview
                    layout. Auto-saves (debounced 800 ms) the wrapped doc
@@ -196,6 +200,7 @@ cd frontend && NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ### Tests & lint
 
 - Backend: `cd backend && uv run pytest`; lint: `uv run ruff check .`
+- Contract quality tripwires: `cd backend && uv run pytest -m "not contract_quality_gate"`; the authoritative full gate is the `quality-gate` Docker target run with `--network none` (exact command in `.github/workflows/ci.yml`)
 - Frontend unit: `cd frontend && npm test -- --run`
 - Frontend lint / types: `cd frontend && npm run lint && npx tsc --noEmit`
 - Frontend e2e: `cd frontend && npx playwright test` (CI runs `npm run test:e2e:ci` against the production build)
