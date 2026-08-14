@@ -8,12 +8,17 @@ import {
   type DocManifest,
   type ManifestField,
 } from "@/lib/docManifest";
-import type { DraftFieldState } from "@/lib/draftState";
+import {
+  requiredFieldKeys,
+  type DraftFieldState,
+  type DraftStateSnapshot,
+} from "@/lib/draftState";
 
 type Props = {
   locale: Locale;
   manifest: DocManifest;
   values: Record<string, string>;
+  draftState?: DraftStateSnapshot | null;
   fieldStates?: Record<string, DraftFieldState>;
   onConfirm: (key: string, value: string) => void | Promise<void>;
   onReject?: (key: string) => void | Promise<void>;
@@ -31,17 +36,20 @@ export function DocForm({
   locale,
   manifest,
   values,
+  draftState = null,
   fieldStates = EMPTY_FIELD_STATES,
   onConfirm,
   onReject,
 }: Props) {
   const t = useDictionary(locale);
   const [draftValues, setDraftValues] = useState<Record<string, string>>(values);
+  const effectiveFieldStates = draftState?.fields ?? fieldStates;
+  const activeRequiredKeys = new Set(requiredFieldKeys(manifest, draftState));
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const field of manifest.fields) {
-      const state = fieldStates[field.key];
+      const state = effectiveFieldStates[field.key];
       if (state?.status === "conflict" && state.conflict?.proposed_value) {
         next[field.key] = state.conflict.proposed_value;
       } else if (state?.value) {
@@ -51,20 +59,19 @@ export function DocForm({
       }
     }
     setDraftValues(next);
-  }, [fieldStates, manifest.fields, values]);
+  }, [effectiveFieldStates, manifest.fields, values]);
 
   return (
-    <div className="space-y-6">
+    <div className="doc-form space-y-6">
       {manifest.sections.map((section) => {
         const sectionFields = manifest.fields.filter(
           (field) => field.section === section.key,
         );
         if (sectionFields.length === 0) return null;
         return (
-          <fieldset key={section.key}>
+          <fieldset key={section.key} className="doc-form-section">
             <legend
-              className="mb-2 flex w-full items-center gap-2 text-sm font-semibold"
-              style={{ color: "var(--ink)" }}
+              className="doc-form-section-title"
             >
               {localized(section.label, locale)}
             </legend>
@@ -75,7 +82,8 @@ export function DocForm({
                   locale={locale}
                   field={field}
                   value={draftValues[field.key] ?? ""}
-                  fieldState={fieldStates[field.key]}
+                  fieldState={effectiveFieldStates[field.key]}
+                  required={activeRequiredKeys.has(field.key)}
                   requiredLabel={t.docForm.required}
                   labels={t.docForm}
                   onChange={(value) =>
@@ -102,6 +110,7 @@ function Field({
   field,
   value,
   fieldState,
+  required,
   requiredLabel,
   labels,
   onChange,
@@ -112,6 +121,7 @@ function Field({
   field: ManifestField;
   value: string;
   fieldState?: DraftFieldState;
+  required: boolean;
   requiredLabel: string;
   labels: {
     confirm: string;
@@ -119,6 +129,7 @@ function Field({
     pending: string;
     confirmed: string;
     conflict: string;
+    missing: string;
     current: string;
     candidate: string;
     emptyMissingConfirmDisabled: string;
@@ -139,7 +150,8 @@ function Field({
         ? labels.confirmed
         : fieldState?.status === "conflict"
           ? labels.conflict
-          : "";
+          : labels.missing;
+  const status = fieldState?.status ?? "missing";
   const common = {
     id: inputId,
     value,
@@ -151,40 +163,46 @@ function Field({
   } as const;
 
   return (
-    <div>
+    <div className="doc-field" data-field-state={status}>
       <label
         htmlFor={inputId}
         className="mb-1 block text-xs font-medium"
         style={{ color: "var(--ink)" }}
       >
         {localized(field.label, locale)}
-        {field.required && (
-          <span className="ml-1" style={{ color: "#8a1f1f" }}>
+        {required && (
+          <span className="required-mark ml-1">
             {requiredLabel}
           </span>
         )}
-        {statusLabel && (
-          <span
-            className="ml-2 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-            style={{
-              borderColor: "var(--rule)",
-              color:
-                fieldState?.status === "conflict"
-                  ? "#8a1f1f"
-                  : "var(--purple)",
-            }}
-          >
-            {statusLabel}
-          </span>
-        )}
+        <span
+          className="field-status ml-2"
+          data-field-status={status}
+        >
+          {statusLabel}
+        </span>
       </label>
-      {field.type === "text" ? (
+      {(field.enum ?? field.options)?.length ? (
+        <select
+          id={inputId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="input-field"
+        >
+          <option value="">—</option>
+          {(field.enum ?? field.options ?? []).map((choice) => (
+            <option key={choice} value={choice}>
+              {choice}
+            </option>
+          ))}
+        </select>
+      ) : field.type === "text" ? (
         <textarea rows={2} {...common} />
       ) : (
         <input type={field.type === "date" ? "date" : "text"} {...common} />
       )}
       {fieldState?.status === "conflict" && fieldState.conflict && (
-        <div className="mt-1 space-y-0.5 text-xs" style={{ color: "var(--ink-3)" }}>
+        <div className="field-conflict mt-2 space-y-0.5 text-xs">
           <p>
             {labels.current}: {fieldState.conflict.base_value ?? fieldState.value}
           </p>
@@ -194,7 +212,7 @@ function Field({
         </div>
       )}
       {hint && (
-        <p className="mt-1 text-xs" style={{ color: "var(--ink-3)" }}>
+        <p className="field-hint mt-1 text-xs">
           {hint}
         </p>
       )}

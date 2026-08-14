@@ -21,11 +21,22 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from markdown import markdown
 
-from app.draft_state import DraftStateSnapshot, required_field_keys
+from app.draft_state import (
+    CONDITION_OPERATORS,
+    DraftStateSnapshot,
+    confirmed_field_value,
+    required_field_keys,
+    single_condition_matches,
+)
 
-DISCLAIMER = "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。"
+DISCLAIMER = (
+    "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。"
+    "正式签署前请交由执业律师审核。"
+)
 OPTIONAL_DEFAULT = "／（适用标准条款默认约定）"
 TERM_CLASSES = {"coverpage_link", "orderform_link", "keyterms_link"}
+_WHEN_RE = re.compile(r"^\s*<!--\s*when\s+(.+?)\s*-->\s*$")
+_ENDWHEN_RE = re.compile(r"^\s*<!--\s*endwhen\s*-->\s*$")
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _TEMPLATES_DIR = _REPO_ROOT / "templates"
@@ -105,6 +116,16 @@ def build_export_document(
         cover_markdown = _manifest_cover_markdown(title, manifest)
     confirmed = _stable_confirmed_values(snapshot)
     active_required = set(required_field_keys(manifest, snapshot))
+    cover_markdown = apply_conditional_blocks(
+        cover_markdown,
+        manifest=manifest,
+        snapshot=snapshot,
+    )
+    terms_markdown = apply_conditional_blocks(
+        terms_markdown,
+        manifest=manifest,
+        snapshot=snapshot,
+    )
     lookup = _field_lookup(manifest)
     cover_html = _render_markdown_section(
         cover_markdown,
@@ -254,6 +275,115 @@ def _projection_nodes(node: Tag) -> list[Tag]:
         if isinstance(child, Tag):
             projected.extend(_projection_nodes(child))
     return projected or [node]
+
+
+def apply_conditional_blocks(
+    source: str,
+    *,
+    manifest: dict[str, Any],
+    snapshot: DraftStateSnapshot,
+) -> str:
+    """Resolve non-nested markdown condition blocks using kernel semantics."""
+    manifest_keys = {
+        field["key"]
+        for field in manifest.get("fields", [])
+        if isinstance(field, dict) and isinstance(field.get("key"), str)
+    }
+    output: list[str] = []
+    active: tuple[bool, int] | None = None
+
+    for line_number, line in enumerate(source.splitlines(keepends=True), start=1):
+        marker = line.rstrip("\r\n")
+        when_match = _WHEN_RE.fullmatch(marker)
+        if when_match:
+            if active is not None:
+                raise ExportTemplateError(
+                    f"Conditional blocks cannot be nested (line {line_number})."
+                )
+            condition = _parse_conditional_marker(
+                when_match.group(1),
+                manifest_keys=manifest_keys,
+                line_number=line_number,
+            )
+            stable_value = confirmed_field_value(snapshot, condition["field"])
+            include = stable_value is None or single_condition_matches(
+                condition,
+                snapshot,
+            )
+            active = (include, line_number)
+            continue
+
+        if _ENDWHEN_RE.fullmatch(marker):
+            if active is None:
+                raise ExportTemplateError(
+                    "Conditional end marker has no opening marker "
+                    f"(line {line_number})."
+                )
+            active = None
+            continue
+
+        stripped = marker.strip()
+        if stripped.startswith("<!-- when") or stripped.startswith("<!-- endwhen"):
+            raise ExportTemplateError(
+                f"Malformed conditional marker at line {line_number}."
+            )
+        if active is None or active[0]:
+            output.append(line)
+
+    if active is not None:
+        raise ExportTemplateError(
+            f"Conditional block opened at line {active[1]} is not closed."
+        )
+    return "".join(output)
+
+
+def _parse_conditional_marker(
+    payload: str,
+    *,
+    manifest_keys: set[str],
+    line_number: int,
+) -> dict[str, Any]:
+    try:
+        condition = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} contains invalid JSON."
+        ) from exc
+    if not isinstance(condition, dict):
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} must contain an object."
+        )
+    field_key = condition.get("field")
+    if (
+        not isinstance(field_key, str)
+        or not field_key.strip()
+        or field_key not in manifest_keys
+    ):
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} references unknown "
+            "manifest field."
+        )
+    op = condition["op"] if "op" in condition else "equals"
+    if not isinstance(op, str) or op not in CONDITION_OPERATORS:
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} uses unsupported operator."
+        )
+    if op in {"equals", "not_equals"} and not isinstance(
+        condition.get("value"), str
+    ):
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} requires a string value."
+        )
+    values = condition.get("values")
+    if op == "in" and (
+        not isinstance(values, list)
+        or not values
+        or not all(isinstance(value, str) for value in values)
+    ):
+        raise ExportTemplateError(
+            f"Conditional marker at line {line_number} requires string values."
+        )
+    return condition
 
 
 def render_docx(model: ExportDocument) -> bytes:

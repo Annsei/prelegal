@@ -1,7 +1,10 @@
 "use client";
 
 import { marked } from "marked";
-import type { TemplateResponse } from "@/lib/api";
+import {
+  applyConditionalBlocks,
+  ConditionalTemplateError,
+} from "@/lib/conditionalBlocks";
 import type { Locale } from "@/lib/i18n";
 import { useDictionary } from "@/lib/i18n";
 import {
@@ -11,6 +14,7 @@ import {
   type DocManifest,
 } from "@/lib/docManifest";
 import {
+  requiredFieldKeys,
   stableFieldValues,
   type DraftFieldState,
   type DraftStateSnapshot,
@@ -70,16 +74,46 @@ export function GenericDocPreview({
 
   const { template } = load;
   const manifest = template.manifest ?? null;
+  const activeRequiredKeys = manifest
+    ? new Set(requiredFieldKeys(manifest, draftState))
+    : new Set<string>();
   const stableFields = manifest
     ? stableFieldValues(manifest, draftState, fields)
     : fields;
+  let conditionalTerms: string;
+  let conditionalCoverPage: string;
+  try {
+    conditionalTerms = manifest
+      ? applyConditionalBlocks(template.standard_terms, manifest, stableFields)
+      : template.standard_terms;
+    conditionalCoverPage =
+      manifest && template.cover_page
+        ? applyConditionalBlocks(template.cover_page, manifest, stableFields)
+        : template.cover_page ?? "";
+  } catch (error) {
+    if (!(error instanceof ConditionalTemplateError)) throw error;
+    return (
+      <div
+        role="alert"
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+      >
+        {t.templateUnavailable}
+      </div>
+    );
+  }
   const annotated = annotateTermRefs(
-    template.standard_terms,
+    conditionalTerms,
     manifest,
     stableFields,
+    draftState?.fields,
   );
-  const annotatedCoverPage = template.cover_page
-    ? annotateTermRefs(template.cover_page, manifest, stableFields)
+  const annotatedCoverPage = conditionalCoverPage
+    ? annotateTermRefs(
+        conditionalCoverPage,
+        manifest,
+        stableFields,
+        draftState?.fields,
+      )
     : "";
   // marked is sync when called without async-only extensions; the result is
   // typed as `string | Promise<string>` so we narrow.
@@ -91,16 +125,17 @@ export function GenericDocPreview({
   return (
     <article
       data-print-root
-      className="card p-8 leading-relaxed lg:p-10"
-      style={{ borderTop: "3px solid var(--ink)" }}
+      className="document-paper leading-relaxed"
     >
-      <header className="mb-6">
-        <h1 className="display text-2xl" style={{ color: "var(--ink)" }}>
+      <header className="document-header">
+        <h1 className="display text-2xl">
           {template.title}
         </h1>
-        <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
-          {manifest ? t.manifestNote : t.comingSoon}
-        </p>
+        {!manifest && (
+          <p className="no-print mt-2 text-sm" style={{ color: "var(--ink-3)" }}>
+            {t.comingSoon}
+          </p>
+        )}
       </header>
 
       {manifest ? (
@@ -108,8 +143,8 @@ export function GenericDocPreview({
           manifest={manifest}
           fields={fields}
           draftState={draftState}
+          activeRequiredKeys={activeRequiredKeys}
           locale={locale}
-          template={template}
         />
       ) : (
         <SummaryCard fields={fields} />
@@ -117,15 +152,13 @@ export function GenericDocPreview({
 
       {coverPageHtml && (
         <div
-          className="prose prose-sm mb-8 max-w-none border-b pb-6"
-          style={{ borderColor: "var(--rule)", color: "var(--ink)" }}
+          className="document-prose document-cover-markdown mb-8"
           dangerouslySetInnerHTML={{ __html: coverPageHtml }}
         />
       )}
 
       <div
-        className="prose prose-sm max-w-none"
-        style={{ color: "var(--ink)" }}
+        className="document-prose"
         dangerouslySetInnerHTML={{ __html: standardTermsHtml }}
       />
     </article>
@@ -136,14 +169,14 @@ function CoverPage({
   manifest,
   fields,
   draftState,
+  activeRequiredKeys,
   locale,
-  template,
 }: {
   manifest: DocManifest;
   fields: Record<string, string>;
   draftState: DraftStateSnapshot | null;
+  activeRequiredKeys: ReadonlySet<string>;
   locale: Locale;
-  template: TemplateResponse;
 }) {
   const t = useDictionary(locale);
   const extras = extraFields(manifest, fields);
@@ -151,19 +184,11 @@ function CoverPage({
   return (
     <section
       aria-label={t.coverPage.title}
-      className="mb-8 rounded-md border p-5"
-      style={{
-        background: "rgba(236, 173, 10, 0.05)",
-        borderColor: "var(--rule)",
-        boxShadow: "inset 0 3px 0 var(--gold)",
-      }}
+      className="cover-page-sheet mb-8"
     >
-      <h2 className="display mb-1 text-xl" style={{ color: "var(--ink)" }}>
+      <h2 className="display mb-4 text-xl">
         {t.coverPage.title}
       </h2>
-      <p className="mb-4 text-xs" style={{ color: "var(--ink-3)" }}>
-        {template.title}
-      </p>
 
       {manifest.sections.map((section) => {
         const sectionFields = manifest.fields.filter(
@@ -171,26 +196,25 @@ function CoverPage({
         );
         if (sectionFields.length === 0) return null;
         return (
-          <div key={section.key} className="mb-4 last:mb-0">
+          <div key={section.key} className="cover-page-section">
             <h3
-              className="mb-2 text-xs font-semibold uppercase tracking-wide"
-              style={{ color: "var(--purple)" }}
+              className="cover-page-section-title"
             >
               {localized(section.label, locale)}
             </h3>
-            <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dl className="cover-page-grid">
               {sectionFields.map((field) => {
                 const fieldState = draftState?.fields[field.key];
                 const value = displayValue(fieldState, fields[field.key]);
                 return (
                   <div key={field.key} className="contents">
-                    <dt className="font-medium" style={{ color: "var(--ink)" }}>
+                    <dt>
                       {localized(field.label, locale)}
                     </dt>
-                    <dd style={{ color: "var(--ink)" }}>
+                    <dd>
                       <CoverPageValue
                         value={value}
-                        required={field.required}
+                        required={activeRequiredKeys.has(field.key)}
                         fieldState={fieldState}
                         missingLabel={t.coverPage.missing}
                         labels={t.docForm}
@@ -205,20 +229,17 @@ function CoverPage({
       })}
 
       {extras.length > 0 && (
-        <div className="mt-4 border-t border-neutral-200 pt-3">
+        <div className="cover-page-section mt-4">
           <h3
-            className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "var(--purple)" }}
+            className="cover-page-section-title"
           >
             {t.coverPage.otherTerms}
           </h3>
-          <dl className="grid grid-cols-[minmax(10rem,max-content)_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dl className="cover-page-grid">
             {extras.map(([key, value]) => (
               <div key={key} className="contents">
-                <dt className="font-medium" style={{ color: "var(--ink)" }}>
-                  {key}
-                </dt>
-                <dd style={{ color: "var(--ink)" }}>{value}</dd>
+                <dt>{key}</dt>
+                <dd>{value}</dd>
               </div>
             ))}
           </dl>
@@ -257,8 +278,8 @@ function CoverPageValue({
 }) {
   if (fieldState?.status === "conflict" && fieldState.conflict) {
     return (
-      <span className="space-y-0.5">
-        <span className="block text-xs font-semibold" style={{ color: "#8a1f1f" }}>
+      <span className="field-value space-y-0.5" data-state="conflict">
+        <span className="block text-xs font-semibold">
           {labels.conflict}
         </span>
         <span className="block">
@@ -271,24 +292,31 @@ function CoverPageValue({
     );
   }
   if (value) {
+    const state = fieldState?.status ?? "confirmed";
     return (
-      <span className="filled">
+      <span className="field-value" data-state={state}>
         {value}
         {fieldState?.status === "pending_confirmation" && (
-          <span className="ml-2 text-xs" style={{ color: "#8a1f1f" }}>
+          <span className="value-chip" data-kind="pending">
             {labels.pending}
           </span>
         )}
         {fieldState?.status === "confirmed" && (
-          <span className="ml-2 text-xs" style={{ color: "var(--purple)" }}>
+          <span className="value-chip" data-kind="confirmed">
             {labels.confirmed}
           </span>
         )}
       </span>
     );
   }
-  if (required) return <span className="missing">{missingLabel}</span>;
-  return <span style={{ color: "var(--ink-3)" }}>—</span>;
+  if (required) {
+    return (
+      <span className="field-value" data-state="missing">
+        {missingLabel}
+      </span>
+    );
+  }
+  return <span className="field-value" data-state="optional">—</span>;
 }
 
 /** Pre-manifest fallback: flat list of whatever the chat collected. */
@@ -303,7 +331,7 @@ function SummaryCard({ fields }: { fields: Record<string, string> }) {
       style={{ background: "#fef9e7" }}
     >
       <h2
-        className="mb-3 text-sm font-semibold uppercase tracking-wide"
+        className="mb-3 text-sm font-semibold"
         style={{ color: "var(--ink)" }}
       >
         Cover Page Summary

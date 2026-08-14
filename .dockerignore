@@ -12,6 +12,9 @@ backend/static
 .env.*
 !.env.example
 .claude
+.codex/
+prelegal.code-workspace
+templates/sources/civil-code/
 .DS_Store
 test-results
 playwright-report

@@ -68,7 +68,7 @@ describe("GenericDocPreview with a manifest", () => {
     expect(screen.getByText("Parties")).toBeInTheDocument();
     // Filled value shown; required-missing flagged; optional shows a dash.
     expect(screen.getByText("Acme, Inc.")).toBeInTheDocument();
-    expect(screen.getByText("[Not provided]")).toBeInTheDocument();
+    expect(screen.getByText("＿＿＿＿")).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
@@ -85,6 +85,23 @@ describe("GenericDocPreview with a manifest", () => {
     expect(defined?.getAttribute("title")).toBe("Customer: Acme, Inc.");
     const missing = container.querySelector(".term-missing");
     expect(missing?.textContent).toBe("Governing Law");
+  });
+
+  it("contains malformed conditional templates in a local unavailable state", () => {
+    render(
+      <GenericDocPreview
+        load={readyLoad({
+          standard_terms:
+            '<!-- when {"field":"Customer","op":null,"value":"Acme"} -->\n' +
+            "must not leak\n<!-- endwhen -->",
+        })}
+        fields={{}}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/couldn't load the template/i);
+    expect(screen.queryByText("must not leak")).toBeNull();
   });
 
   it("renders pending and conflict field state from draft_state", () => {
@@ -139,6 +156,79 @@ describe("GenericDocPreview with a manifest", () => {
     expect(container.querySelector(".term-defined")?.textContent).toBe(
       "Customer",
     );
+    expect(container.querySelector(".term-pending")?.textContent).toBe(
+      "Governing Law",
+    );
+  });
+
+  it("uses required_when for conditional missing markers on the cover page", () => {
+    const conditionalManifest: DocManifest = {
+      ...MANIFEST,
+      fields: [
+        ...MANIFEST.fields,
+        {
+          key: "Pilot Pricing",
+          section: "keyterms",
+          type: "string",
+          required: true,
+          label: { zh: "试点收费方式", en: "Pilot pricing" },
+        },
+        {
+          key: "Pilot Fee",
+          section: "keyterms",
+          type: "string",
+          required: false,
+          required_when: {
+            field: "Pilot Pricing",
+            op: "equals",
+            value: "Paid",
+          },
+          label: { zh: "试点费用", en: "Pilot fee" },
+        },
+      ],
+    };
+    const snapshot = (pricing: string): DraftStateSnapshot => ({
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: conditionalManifest.doc_id,
+      revision: 1,
+      applied_patches: {},
+      fields: {
+        "Pilot Pricing": {
+          key: "Pilot Pricing",
+          status: "confirmed",
+          value: pricing,
+          revision: 1,
+          provenance: [],
+          confirmed_at: "2026-08-14T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+        },
+      },
+    });
+    const { rerender } = render(
+      <GenericDocPreview
+        load={readyLoad({ manifest: conditionalManifest })}
+        fields={{}}
+        draftState={snapshot("Paid")}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByText("Pilot fee").nextElementSibling).toHaveTextContent(
+      "＿＿＿＿",
+    );
+
+    rerender(
+      <GenericDocPreview
+        load={readyLoad({ manifest: conditionalManifest })}
+        fields={{}}
+        draftState={snapshot("Free")}
+        locale="en"
+      />,
+    );
+    expect(screen.getByText("Pilot fee").nextElementSibling).toHaveTextContent(
+      "—",
+    );
   });
 
   it("lists chat-collected terms the manifest doesn't declare", () => {
@@ -172,6 +262,67 @@ describe("GenericDocPreview with a manifest", () => {
     ).map((node) => node.textContent);
     expect(coverPageTerms).toContain("Customer");
   });
+
+  it.each([
+    ["confirmed", "Paid", true],
+    ["confirmed", "Free", false],
+    ["pending_confirmation", "Free", true],
+  ] as const)(
+    "renders conditional blocks for %s fields with value %s",
+    (status, value, paidTermsVisible) => {
+      const conditionalManifest: DocManifest = {
+        ...MANIFEST,
+        fields: [
+          ...MANIFEST.fields,
+          {
+            key: "Pilot Pricing",
+            section: "keyterms",
+            type: "string",
+            required: true,
+            label: { zh: "试点收费方式", en: "Pilot pricing" },
+          },
+        ],
+      };
+      const snapshot: DraftStateSnapshot = {
+        schema_version: "draft-state.v1",
+        manifest_version: 1,
+        doc_id: "cloud-service-agreement",
+        revision: 1,
+        applied_patches: {},
+        fields: {
+          "Pilot Pricing": {
+            key: "Pilot Pricing",
+            status,
+            value,
+            revision: 1,
+            provenance: [],
+            confirmed_at:
+              status === "confirmed" ? "2026-08-06T00:00:00+00:00" : null,
+            confirmed_by_user_id: status === "confirmed" ? 1 : null,
+          },
+        },
+      };
+      render(
+        <GenericDocPreview
+          load={readyLoad({
+            manifest: conditionalManifest,
+            standard_terms:
+              '<!-- when {"field":"Pilot Pricing","op":"equals","value":"Paid"} -->\n' +
+              "Paid-only payment and refund terms.\n" +
+              "<!-- endwhen -->\n\nAlways-visible terms.",
+          })}
+          fields={{}}
+          draftState={snapshot}
+          locale="en"
+        />,
+      );
+
+      expect(screen.getByText("Always-visible terms.")).toBeInTheDocument();
+      const paidTerms = screen.queryByText("Paid-only payment and refund terms.");
+      if (paidTermsVisible) expect(paidTerms).toBeInTheDocument();
+      else expect(paidTerms).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe("GenericDocPreview without a manifest", () => {

@@ -14,6 +14,7 @@ type ManifestDoc = {
   title: string;
   firstField: { key: string; label: string; value: string };
   secondField: { key: string; label: string; value: string };
+  conditionalField?: { key: string; label: string; value: string };
 };
 
 const MANIFEST_DOCS: ManifestDoc[] = [
@@ -58,6 +59,7 @@ const MANIFEST_DOCS: ManifestDoc[] = [
     title: "Pilot Agreement",
     firstField: { key: "服务方", label: "Service provider", value: "Globex Pilot Co." },
     secondField: { key: "试点期限", label: "Pilot period", value: "2026-08-01 至 2026-10-31" },
+    conditionalField: { key: "试点收费方式", label: "Pilot pricing model", value: "免费" },
   },
   {
     docId: "design-partner-agreement",
@@ -116,6 +118,21 @@ async function installManifestTemplateBackend(page: Page, doc: ManifestDoc) {
         required: true,
         label: { zh: doc.secondField.key, en: doc.secondField.label },
       },
+      ...(doc.conditionalField
+        ? [
+            {
+              ...doc.conditionalField,
+              section: "parties",
+              type: "string",
+              enum: ["免费", "付费"],
+              required: true,
+              label: {
+                zh: doc.conditionalField.key,
+                en: doc.conditionalField.label,
+              },
+            },
+          ]
+        : []),
     ],
   };
   const fields: Record<string, MockField> = Object.fromEntries(
@@ -170,7 +187,13 @@ async function installManifestTemplateBackend(page: Page, doc: ManifestDoc) {
         doc_id: doc.docId,
         title: doc.title,
         cover_page: '<span class="coverpage_link">委托方名称</span>',
-        standard_terms: '<span class="coverpage_link">受托方名称</span>',
+        standard_terms:
+          '<span class="coverpage_link">受托方名称</span>\n\n' +
+          (doc.conditionalField
+            ? '<!-- when {"field":"试点收费方式","op":"equals","value":"付费"} -->\n' +
+              "付费试点逾期付款条款\n" +
+              "<!-- endwhen -->"
+            : ""),
         manifest,
       }),
     }),
@@ -199,6 +222,9 @@ async function installManifestTemplateBackend(page: Page, doc: ManifestDoc) {
         field_updates: {
           [doc.firstField.key]: doc.firstField.value,
           [doc.secondField.key]: doc.secondField.value,
+          ...(doc.conditionalField
+            ? { [doc.conditionalField.key]: doc.conditionalField.value }
+            : {}),
         },
         done: false,
       }),
@@ -268,7 +294,33 @@ for (const doc of MANIFEST_DOCS) {
       .locator(`[id="docform-${doc.secondField.key}"]`)
       .locator("xpath=..");
     await second.getByRole("button", { name: "Confirm" }).click();
+    if (doc.conditionalField) {
+      const conditional = page
+        .locator(`[id="docform-${doc.conditionalField.key}"]`)
+        .locator("xpath=..");
+      await conditional.getByRole("button", { name: "Confirm" }).click();
+    }
 
     await expect(download).toBeEnabled();
   });
 }
+
+test("confirmed free pilot hides paid-only terms from preview", async ({ page }) => {
+  const pilot = MANIFEST_DOCS.find((doc) => doc.docId === "pilot-agreement");
+  if (!pilot?.conditionalField) throw new Error("pilot fixture is incomplete");
+  await installManifestTemplateBackend(page, pilot);
+  await page.goto("/");
+  await page.getByRole("button", { name: "English" }).click();
+
+  await page.getByLabel(/type a message/i).fill("Draft a free pilot agreement");
+  await page.getByRole("button", { name: /^send$/i }).click();
+  await expect(page.getByText("付费试点逾期付款条款")).toBeVisible();
+  await page.getByRole("tab", { name: /edit fields/i }).click();
+  const pricing = page
+    .locator('[id="docform-试点收费方式"]')
+    .locator("xpath=..");
+  await pricing.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("tab", { name: /chat/i }).click();
+
+  await expect(page.getByText("付费试点逾期付款条款")).toHaveCount(0);
+});

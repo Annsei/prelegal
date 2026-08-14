@@ -46,11 +46,11 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen">
-      <div className="grid min-h-screen items-stretch lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="login-layout grid min-h-screen items-stretch lg:grid-cols-[minmax(0,46fr)_minmax(0,54fr)]">
         {/* Marketing column — hidden on mobile so the form takes the whole
             screen and remains the focus. */}
         <section
-          className="ledger relative hidden flex-col justify-between overflow-hidden p-12 lg:flex"
+          className="login-marketing ledger relative hidden flex-col justify-between overflow-hidden p-12 lg:flex"
           style={{ background: "#032147", color: "#f3ede0" }}
         >
           {/* Oversized watermark glyph — 契, the character for "deed". */}
@@ -64,7 +64,7 @@ export default function LoginPage() {
 
           <div className="reveal reveal-1">
             <p
-              className="display text-base tracking-[0.3em]"
+              className="display text-base"
               style={{ color: "#ecad0a" }}
             >
               Prelegal
@@ -104,11 +104,11 @@ export default function LoginPage() {
           </p>
         </section>
 
-        <section className="flex flex-col items-center justify-center px-6 py-10">
+        <section className="login-form-shell flex flex-col items-center justify-center px-6 py-10">
           <div className="flex w-full max-w-sm flex-col">
             <div className="reveal reveal-1 mb-6 flex items-center justify-between">
               <p
-                className="display text-lg tracking-wide lg:invisible"
+                className="display text-lg lg:invisible"
                 style={{ color: "#032147" }}
               >
                 <span aria-hidden style={{ color: "#ecad0a" }}>
@@ -121,7 +121,7 @@ export default function LoginPage() {
                 onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
               />
             </div>
-            <div className="card reveal reveal-2 p-8">
+            <div className="login-card reveal reveal-2 p-8">
               <h2
                 className="display text-2xl"
                 style={{ color: "#032147" }}

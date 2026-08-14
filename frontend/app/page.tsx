@@ -12,7 +12,9 @@ import {
   displayFieldValues,
   isCompleteForDownload,
   readDraftStateSnapshot,
+  requiredFieldKeys,
   stableFieldValues,
+  unresolvedRequiredKeys,
   type DraftStateSnapshot,
 } from "@/lib/draftState";
 import { localized } from "@/lib/docManifest";
@@ -181,6 +183,7 @@ export default function Home() {
   const [downloadBlockedKeys, setDownloadBlockedKeys] = useState<string[]>([]);
   const [downloadFormat, setDownloadFormat] =
     useState<DownloadFormat>("docx");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   // The DB row id of whichever draft is currently being edited. null means
@@ -633,6 +636,14 @@ export default function Home() {
 
   const manifestComplete =
     manifest !== null && isCompleteForDownload(manifest, draftState);
+  // Required-field meter for the header hairline: how many of the fields
+  // that gate the download are already confirmed.
+  const requiredTotal = manifest
+    ? requiredFieldKeys(manifest, draftState).length
+    : 0;
+  const requiredDone = manifest
+    ? requiredTotal - unresolvedRequiredKeys(manifest, draftState).length
+    : 0;
   // Manifest docs unlock download once every required cover-page field has
   // a confirmed value; docs without a manifest can't download at all — the
   // output would be a raw unpopulated template.
@@ -673,6 +684,26 @@ export default function Home() {
     }
   }, [activeDocId, downloadFormat, handleAuthError, manifest]);
 
+  // The account popover dismisses on Escape or on a click outside its root.
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeMenu = () => setAccountMenuOpen(false);
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-menu-root]")) return;
+      closeMenu();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountMenuOpen]);
+
   if (!user || !token) {
     // Don't render the platform until we've confirmed a session exists.
     // The effect above will redirect to /login if not.
@@ -681,90 +712,122 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header
-        className="no-print sticky top-0 z-40 border-b backdrop-blur"
-        style={{
-          borderColor: "var(--rule)",
-          background: "rgba(245, 240, 228, 0.85)",
-        }}
-      >
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3">
-          <div className="flex items-baseline gap-3">
-            <span
-              aria-hidden
-              className="display self-center text-lg leading-none"
-              style={{ color: "var(--gold)" }}
-            >
+      <header className="app-header no-print sticky top-0 z-40 border-b backdrop-blur">
+        <div className="app-global-row mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span aria-hidden className="brand-mark">
               契
             </span>
-            <h1
-              className="display text-lg tracking-wide"
-              style={{ color: "var(--ink)" }}
-            >
+            <h1 className="display truncate text-lg" style={{ color: "var(--ink)" }}>
               {t.appTitle}
             </h1>
-            <span
-              className="hidden items-baseline gap-1 rounded-full border px-3 py-0.5 text-xs md:inline-flex"
-              style={{ borderColor: "var(--rule)", color: "var(--ink-3)" }}
-            >
-              {t.drafting}:{" "}
-              <span className="font-medium" style={{ color: "var(--purple)" }}>
-                {docTitle}
-              </span>
-            </span>
-            <SaveStatus locale={locale} state={saveState} />
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="hidden text-xs sm:inline"
-              style={{ color: "var(--ink-3)" }}
-              title={user.email}
-            >
-              {user.email}
-            </span>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="btn btn-ghost"
-            >
-              {t.signOut}
-            </button>
+          <div className="global-actions flex items-center justify-end gap-2">
             <LanguageToggle
               locale={locale}
               onToggle={() => setLocale(locale === "zh" ? "en" : "zh")}
             />
-            <div className="flex items-stretch">
-              <label className="sr-only" htmlFor="download-format">
-                {t.downloadFormat}
-              </label>
-              <select
-                id="download-format"
-                value={downloadFormat}
-                onChange={(event) =>
-                  setDownloadFormat(event.target.value as DownloadFormat)
-                }
-                className="rounded-l border border-r-0 px-2 text-xs"
-                style={{ borderColor: "var(--ink)", color: "var(--ink)" }}
-                title={t.downloadFormat}
+            <div className="account-menu" data-menu-root>
+              <button
+                type="button"
+                className="account-avatar"
+                aria-label={t.accountMenu}
+                aria-haspopup="menu"
+                aria-expanded={accountMenuOpen}
+                title={user.email}
+                onClick={() => setAccountMenuOpen((open) => !open)}
               >
-                <option value="docx">DOCX</option>
-                <option value="pdf">PDF</option>
-              </select>
+                <span aria-hidden="true">
+                  {(user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase()}
+                </span>
+              </button>
+              {accountMenuOpen && (
+                <div className="account-menu-panel" role="menu">
+                  <div className="account-email" title={user.email}>
+                    {user.email}
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={onSignOut}
+                    className="btn btn-ghost w-full justify-start"
+                  >
+                    {t.signOut}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="document-action-row border-t">
+          <div className="document-action-inner mx-auto flex max-w-[1480px] items-center justify-between gap-4 px-6">
+            <div className="document-context min-w-0">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <span className="document-context-label">{t.drafting}</span>
+                <h2
+                  className="truncate text-sm font-semibold"
+                  title={`${t.drafting}: ${docTitle}`}
+                >
+                  {docTitle}
+                </h2>
+              </div>
+              <div className="document-meta flex items-center gap-3">
+                {manifest !== null && requiredTotal > 0 && (
+                  <span className="required-meter-label">
+                    {t.requiredProgress} {requiredDone} / {requiredTotal}
+                  </span>
+                )}
+                <SaveStatus locale={locale} state={saveState} />
+              </div>
+            </div>
+
+            <div className="export-cluster">
+              <div
+                className="format-segment"
+                role="group"
+                aria-label={t.downloadFormat}
+              >
+                {(["docx", "pdf"] as const).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    className="format-segment-button"
+                    aria-pressed={downloadFormat === format}
+                    title={t.downloadFormatOptions[format]}
+                    onClick={() => setDownloadFormat(format)}
+                  >
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => void handleDownload()}
                 disabled={!canDownload}
-                className="btn btn-ink rounded-l-none"
+                className="download-button"
                 title={downloadTitle}
               >
+                <svg aria-hidden="true" viewBox="0 0 20 20" className="download-icon">
+                  <path
+                    fill="currentColor"
+                    d="M9.25 2.5h1.5v8.05l2.85-2.85 1.05 1.06L10 13.4 5.35 8.76 6.4 7.7l2.85 2.85V2.5ZM3.5 14h1.5v2h10v-2h1.5v3.5h-13V14Z"
+                  />
+                </svg>
                 {t.download} {downloadFormat.toUpperCase()}
               </button>
             </div>
           </div>
         </div>
+        {manifest !== null && requiredTotal > 0 && (
+          <div className="header-progress" aria-hidden="true">
+            <span
+              style={{ width: `${(requiredDone / requiredTotal) * 100}%` }}
+            />
+          </div>
+        )}
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1400px] flex-1 grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[230px_minmax(320px,440px)_1fr]">
+      <main className="workspace-grid mx-auto grid w-full max-w-[1580px] flex-1 grid-cols-1 gap-3 px-3 py-3">
         <DocumentSidebar
           locale={locale}
           documents={documents}
@@ -775,7 +838,7 @@ export default function Home() {
         />
 
         <div className="no-print">
-          <div role="tablist" className="mb-3 flex gap-2">
+          <div role="tablist" className="mode-tabs mb-2 flex">
             <ModeTab
               active={mode === "chat"}
               onClick={() => setMode("chat")}
@@ -805,12 +868,13 @@ export default function Home() {
               onHistoryChange={setChatHistory}
             />
           ) : (
-            <div className="card p-5">
+            <div className="form-panel p-4">
               {manifest !== null ? (
                 <DocForm
                   locale={locale}
                   manifest={manifest}
                   values={displayGenericFields}
+                  draftState={draftState}
                   fieldStates={draftState?.fields}
                   onConfirm={confirmField}
                   onReject={rejectField}
@@ -818,9 +882,6 @@ export default function Home() {
               ) : null}
             </div>
           )}
-          <p className="mt-3 text-xs" style={{ color: "var(--ink-3)" }}>
-            {t.downloadHint}
-          </p>
           {downloadBlockedLabels.length > 0 && (
             <div
               role="alert"
@@ -841,14 +902,21 @@ export default function Home() {
           )}
         </div>
 
-        <div>
-          <Disclaimer locale={locale} variant="banner" />
-          <GenericDocPreview
-            load={templateLoad}
-            fields={genericFields}
-            draftState={draftState}
-            locale={locale}
-          />
+        <div className="preview-column">
+          <div className="preview-toolbar no-print">
+            <p className="preview-toolbar-hint">
+              {manifest ? t.previewToolbarHint : t.comingSoon}
+            </p>
+          </div>
+          <div className="preview-stage">
+            <Disclaimer locale={locale} variant="banner" />
+            <GenericDocPreview
+              load={templateLoad}
+              fields={genericFields}
+              draftState={draftState}
+              locale={locale}
+            />
+          </div>
         </div>
       </main>
 

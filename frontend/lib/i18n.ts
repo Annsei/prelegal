@@ -8,13 +8,19 @@ type Dictionary = {
   langToggle: string;
   download: string;
   downloadFormat: string;
+  downloadFormatOptions: {
+    docx: string;
+    pdf: string;
+  };
   downloadUnavailable: string;
   downloadIncomplete: string;
   downloadBlockedFields: string;
   downloadHint: string;
+  previewToolbarHint: string;
   drafting: string;
   comingSoon: string;
   manifestNote: string;
+  accountMenu: string;
   coverPage: {
     title: string;
     missing: string;
@@ -27,6 +33,7 @@ type Dictionary = {
     pending: string;
     confirmed: string;
     conflict: string;
+    missing: string;
     current: string;
     candidate: string;
     emptyMissingConfirmDisabled: string;
@@ -35,6 +42,7 @@ type Dictionary = {
   pickDocPrompt: string;
   disclaimer: string;
   disclaimerShort: string;
+  requiredProgress: string;
   signOut: string;
   auth: {
     welcome: string;
@@ -129,19 +137,25 @@ const zh: Dictionary = {
   langToggle: "English",
   download: "下载",
   downloadFormat: "下载格式",
+  downloadFormatOptions: {
+    docx: "DOCX · 可编辑",
+    pdf: "PDF · 便于分发",
+  },
   downloadUnavailable:
     "该文档尚无封面页字段清单，暂不支持下载，以免输出未填充的误导性文件。",
   downloadIncomplete:
     "封面页还有必填条款未填写，补齐后即可下载。可继续与 AI 对话或切换到手动编辑。",
   downloadBlockedFields: "请先确认这些必填字段：",
   downloadHint: "默认下载可编辑的 DOCX，也可切换为 PDF。",
+  previewToolbarHint: "用对话或表单填写关键条款，必填齐全后可下载",
   drafting: "正在起草",
   comingSoon: "该文档的完整生成与 DOCX/PDF 下载即将上线。可继续与 AI 对话收集关键条款，下方为中国法范本预览。",
   manifestNote:
     "与 AI 对话或用手动编辑填写封面页关键条款；正文中高亮的术语引用封面页。必填项齐全后可下载 DOCX 或 PDF。",
+  accountMenu: "账户菜单",
   coverPage: {
-    title: "封面页（Cover Page）",
-    missing: "[未填写]",
+    title: "封面页",
+    missing: "＿＿＿＿",
     otherTerms: "其他条款",
   },
   docForm: {
@@ -151,6 +165,7 @@ const zh: Dictionary = {
     pending: "待确认",
     confirmed: "已确认",
     conflict: "冲突",
+    missing: "缺失",
     current: "当前",
     candidate: "候选",
     emptyMissingConfirmDisabled: "请先输入内容，再确认一个缺失字段。",
@@ -158,8 +173,9 @@ const zh: Dictionary = {
   templateUnavailable: "模板未能加载，请稍后重试。",
   pickDocPrompt: "先与 AI 对话，告诉我你想要哪份协议。",
   disclaimer:
-    "本文档由 AI 生成的草稿，仅供讨论使用。签署前请由律师审核。",
-  disclaimerShort: "草稿，请律师审核后再签署。",
+    "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。正式签署前请交由执业律师审核。",
+  disclaimerShort: "AI 草稿，不构成法律意见；正式签署前请执业律师审核。",
+  requiredProgress: "必填",
   signOut: "退出登录",
   auth: {
     welcome: "Prelegal · 法律协议生成器",
@@ -265,19 +281,26 @@ const en: Dictionary = {
   langToggle: "中文",
   download: "Download",
   downloadFormat: "Download format",
+  downloadFormatOptions: {
+    docx: "DOCX · editable",
+    pdf: "PDF · easy to share",
+  },
   downloadUnavailable:
     "Download is disabled for this document — it has no cover-page field manifest yet, so the output would be an unpopulated template.",
   downloadIncomplete:
     "Some required cover-page terms are still missing. Fill them in via chat or the edit tab to enable download.",
   downloadBlockedFields: "Confirm these required fields before downloading:",
   downloadHint: "Downloads an editable DOCX by default; PDF is also available.",
+  previewToolbarHint:
+    "Fill key terms via chat or form; download once required fields are complete.",
   drafting: "Drafting",
   comingSoon: "DOCX/PDF generation for this document is coming soon. The chat keeps collecting key terms; below is the underlying PRC-law template.",
   manifestNote:
     "Fill in the cover-page terms via chat or the edit tab; highlighted terms in the body reference the cover page. Download unlocks once all required terms are set.",
+  accountMenu: "Account menu",
   coverPage: {
     title: "Cover Page",
-    missing: "[Not provided]",
+    missing: "＿＿＿＿",
     otherTerms: "Other terms",
   },
   docForm: {
@@ -287,6 +310,7 @@ const en: Dictionary = {
     pending: "Pending confirmation",
     confirmed: "Confirmed",
     conflict: "Conflict",
+    missing: "Missing",
     current: "Current",
     candidate: "Candidate",
     emptyMissingConfirmDisabled: "Enter a value before confirming a missing field.",
@@ -294,8 +318,10 @@ const en: Dictionary = {
   templateUnavailable: "Couldn't load the template — please try again in a moment.",
   pickDocPrompt: "Start by telling the AI which agreement you'd like to draft.",
   disclaimer:
-    "AI-generated draft for discussion only. Have a lawyer review it before signing.",
-  disclaimerShort: "Draft only — review with counsel before signing.",
+    "This document is an AI-generated draft for reference only and does not constitute legal advice. Have a licensed lawyer review it before formal execution.",
+  disclaimerShort:
+    "AI draft, not legal advice. Have a licensed lawyer review it before signing.",
+  requiredProgress: "Required",
   signOut: "Sign out",
   auth: {
     welcome: "Prelegal · Legal Agreement Generator",

@@ -13,6 +13,34 @@ type Props = {
   onCreate: () => void;
 };
 
+const TIMEZONELESS_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+
+export function parseDocumentTimestamp(value: string): number | null {
+  const normalized = TIMEZONELESS_TIMESTAMP.test(value) ? `${value.replace(" ", "T")}Z` : value;
+  const stamp = Date.parse(normalized);
+  return Number.isFinite(stamp) ? stamp : null;
+}
+
+export function relativeTime(
+  iso: string,
+  locale: Locale,
+  now = Date.now(),
+): string {
+  const stamp = parseDocumentTimestamp(iso);
+  if (stamp === null) return "";
+  const deltaSec = Math.round((stamp - now) / 1000);
+  const abs = Math.abs(deltaSec);
+  const rtf = new Intl.RelativeTimeFormat(locale === "zh" ? "zh-CN" : "en", {
+    numeric: "auto",
+  });
+  if (abs < 60) return rtf.format(Math.round(deltaSec / 1), "second");
+  if (abs < 3600) return rtf.format(Math.round(deltaSec / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.round(deltaSec / 3600), "hour");
+  if (abs < 86400 * 30) return rtf.format(Math.round(deltaSec / 86400), "day");
+  return rtf.format(Math.round(deltaSec / (86400 * 30)), "month");
+}
+
 export function DocumentSidebar({
   locale,
   documents,
@@ -23,17 +51,17 @@ export function DocumentSidebar({
 }: Props) {
   const t = useDictionary(locale);
   return (
-    <aside className="no-print flex h-[calc(100vh-9.5rem)] flex-col">
+    <aside className="sidebar-panel no-print flex flex-col">
       <button
         type="button"
         onClick={onCreate}
-        className="btn btn-primary w-full"
+        className="btn btn-sidebar-create w-full"
       >
         {t.sidebar.newDraft}
       </button>
       <div className="mt-5 flex items-center gap-2 px-1 pb-2">
         <h2
-          className="text-xs font-semibold uppercase tracking-[0.14em]"
+          className="text-xs font-semibold"
           style={{ color: "var(--ink-3)" }}
         >
           {t.sidebar.title}
@@ -42,15 +70,14 @@ export function DocumentSidebar({
       </div>
       <ul className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 pb-2">
         {documents.length === 0 ? (
-          <li
-            className="px-2 py-3 text-xs leading-relaxed"
-            style={{ color: "var(--ink-3)" }}
-          >
+          <li className="sidebar-empty px-3 py-5 text-xs leading-relaxed">
             {t.sidebar.empty}
           </li>
         ) : (
           documents.map((doc) => {
             const isActive = doc.id === activeId;
+            const when = relativeTime(doc.updated_at, locale);
+            const catalogTitle = catalogTitleFor(doc.doc_id);
             return (
               <li key={doc.id}>
                 <button
@@ -67,7 +94,7 @@ export function DocumentSidebar({
                     className="truncate text-xs"
                     style={{ color: "var(--ink-3)" }}
                   >
-                    {catalogTitleFor(doc.doc_id)}
+                    {when ? `${catalogTitle} · ${when}` : catalogTitle}
                   </div>
                 </button>
               </li>

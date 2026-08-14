@@ -3,8 +3,8 @@ import { useDictionary } from "@/lib/i18n";
 
 type Props = {
   locale: Locale;
-  // "banner" sits above the preview; "footer" runs along the bottom of
-  // the page; "compact" is a single small line e.g. under the login form.
+  // "banner" sits above the preview paper; "footer" runs along the bottom
+  // of the page; "compact" is a single small line under the login form.
   variant: "banner" | "footer" | "compact";
 };
 
@@ -12,25 +12,19 @@ type Props = {
  * Legal-review disclaimer surfaced wherever a user might mistake the
  * generated document for a finished, lawyer-approved agreement.
  *
- * Banner uses the accent yellow to draw the eye next to the preview;
- * footer is muted so it doesn't compete with the editor; compact is the
- * smallest single-line form for tight spaces (login page, modals).
+ * The banner stays visible without covering agreement text. Footer is muted
+ * so it does not compete with the editor; compact is the smallest single-line
+ * form for tight spaces.
  */
 export function Disclaimer({ locale, variant }: Props) {
   const t = useDictionary(locale);
   if (variant === "banner") {
     return (
-      <div
-        role="note"
-        className="no-print mb-3 rounded-md px-3.5 py-2 text-xs leading-relaxed"
-        style={{
-          background: "var(--gold-soft)",
-          color: "var(--ink)",
-          borderLeft: "3px solid var(--gold)",
-          boxShadow: "0 1px 4px -2px rgba(3, 33, 71, 0.25)",
-        }}
-      >
-        ⚠ {t.disclaimer}
+      <div role="note" className="no-print draft-notice">
+        <span aria-hidden="true" className="draft-notice-icon">
+          !
+        </span>
+        <span>{t.disclaimerShort}</span>
       </div>
     );
   }

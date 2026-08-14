@@ -1,13 +1,8 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Prelegal design system — "法律书房 / the legal atelier".
-
-   A contract-drafting desk rendered in warm paper and navy ink: cream
-   surfaces, hairline rules, a highlighter-gold accent (echoing the
-   filled-value highlights in the document previews), Fraunces for display
-   type over IBM Plex Sans for the working UI. Print output stays pure
-   white — the atmosphere is for the screen, the document is for paper.
+   Prelegal design system: a restrained legal workspace using navy ink,
+   neutral work surfaces, and the product's blue, gold, and purple accents.
 --------------------------------------------------------------------------- */
 
 @theme {
@@ -21,8 +16,9 @@
 }
 
 :root {
-  --paper: #f5f0e4;
-  --card: #fffdf7;
+  --paper: #f3f5f7;
+  --card: #ffffff;
+  --surface: #f8fafc;
   --ink: #032147;
   --ink-2: #40536d;
   --ink-3: #7e8a9b;
@@ -31,8 +27,16 @@
   --blue: #209dd7;
   --purple: #753991;
   --purple-deep: #5e2d75;
+  --green: #237a4b;
+  --green-soft: #edf8f1;
+  --red: #a73a46;
+  --red-soft: #fff1f2;
   --rule: rgba(3, 33, 71, 0.16);
   --rule-soft: rgba(3, 33, 71, 0.08);
+  --contract-serif: "Songti SC", "STSong", "Noto Serif CJK SC",
+    "Source Han Serif SC", SimSun, serif;
+  /* One height for sidebar, chat, and form so the three columns line up. */
+  --workspace-h: calc(100dvh - 12.5rem);
 }
 
 html,
@@ -41,31 +45,9 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(
-      1100px 520px at 88% -8%,
-      rgba(236, 173, 10, 0.09),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 520px at -8% 108%,
-      rgba(32, 157, 215, 0.07),
-      transparent 55%
-    ),
-    var(--paper);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
-}
-
-/* Paper grain — a barely-there film over everything on screen. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
 }
 
 ::selection {
@@ -73,8 +55,8 @@ body::after {
 }
 
 :focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
 }
 
 /* Slim, ink-toned scrollbars keep the desk tidy. */
@@ -92,10 +74,10 @@ body::after {
 .card {
   background: var(--card);
   border: 1px solid var(--rule);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow:
     0 1px 2px rgba(3, 33, 71, 0.05),
-    0 14px 36px -20px rgba(3, 33, 71, 0.28);
+    0 12px 28px -22px rgba(3, 33, 71, 0.35);
 }
 
 .btn {
@@ -103,7 +85,8 @@ body::after {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border-radius: 9px;
+  min-height: 36px;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 550;
   padding: 0.45rem 1rem;
@@ -119,7 +102,8 @@ body::after {
 }
 .btn:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.5;
+  box-shadow: none;
 }
 
 .btn-primary {
@@ -140,6 +124,18 @@ body::after {
   background: #0a3260;
 }
 
+.btn-sidebar-create {
+  color: var(--ink);
+  background: var(--card);
+  border-color: rgba(32, 157, 215, 0.34);
+  box-shadow: 0 5px 14px -12px rgba(3, 33, 71, 0.7);
+}
+.btn-sidebar-create:hover:not(:disabled) {
+  color: #075a85;
+  background: rgba(32, 157, 215, 0.07);
+  border-color: rgba(32, 157, 215, 0.58);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: var(--rule);
@@ -154,7 +150,7 @@ body::after {
   width: 100%;
   background: var(--card);
   border: 1px solid var(--rule);
-  border-radius: 9px;
+  border-radius: 6px;
   padding: 0.45rem 0.75rem;
   font-size: 0.875rem;
   color: var(--ink);
@@ -172,40 +168,50 @@ body::after {
   box-shadow: 0 0 0 3px rgba(32, 157, 215, 0.18);
 }
 
-/* Segmented mode switch (chat / manual edit). */
-.mode-tab {
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 550;
-  border: 1px solid var(--rule);
-  color: var(--ink-2);
+/* Underline mode switch (chat / manual edit). */
+.mode-tabs {
+  width: fit-content;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--rule-soft);
   background: transparent;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-.mode-tab:hover {
-  background: rgba(3, 33, 71, 0.05);
-}
-.mode-tab[aria-selected="true"] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fdf6e3;
-  box-shadow: 0 4px 12px -6px rgba(3, 33, 71, 0.55);
+  padding: 0;
 }
 
-/* Sidebar draft entries — file cards with a gold spine when open. */
+.mode-tab {
+  min-height: 34px;
+  padding: 0.35rem 0.85rem 0.55rem;
+  border-radius: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--ink-3);
+  background: transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.mode-tab:hover {
+  color: var(--ink);
+  background: transparent;
+}
+.mode-tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--blue);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Sidebar draft entries stay quiet; the blue spine is the sole active cue. */
 .file-item {
   display: block;
   width: 100%;
   text-align: left;
-  border-radius: 9px;
+  border-radius: 5px;
   border: 1px solid transparent;
   border-left: 3px solid transparent;
-  padding: 0.5rem 0.7rem;
+  padding: 0.44rem 0.62rem;
   transition:
     background-color 0.14s ease,
     border-color 0.14s ease,
@@ -216,10 +222,10 @@ body::after {
   transform: translateX(1px);
 }
 .file-item[data-active="true"] {
-  background: var(--card);
-  border-color: var(--rule);
-  border-left-color: var(--gold);
-  box-shadow: 0 2px 10px -6px rgba(3, 33, 71, 0.35);
+  background: rgba(32, 157, 215, 0.08);
+  border-color: rgba(32, 157, 215, 0.18);
+  border-left-color: var(--blue);
+  box-shadow: none;
 }
 
 /* Chat bubbles rise in like turned pages. */
@@ -234,6 +240,14 @@ body::after {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble,
+  .reveal,
+  .typing-dots i {
+    animation: none !important;
   }
 }
 
@@ -266,6 +280,552 @@ body::after {
     opacity: 1;
     transform: translateY(-3px);
   }
+}
+
+/* -------------------------------------------------------- app workspace */
+
+.app-header {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.app-global-row {
+  min-height: 48px;
+}
+
+.document-action-row {
+  border-color: var(--rule-soft);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.document-action-inner {
+  min-height: 52px;
+  padding-block: 0.42rem;
+}
+
+.document-context-label {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 550;
+}
+
+.document-meta {
+  min-height: 1.1rem;
+  margin-top: 0.18rem;
+}
+
+/* Cyan required-fields meter along the header's bottom edge: download
+   readiness readable at a glance instead of buried in a button tooltip. */
+.header-progress {
+  position: relative;
+  height: 2px;
+  background: rgba(3, 33, 71, 0.08);
+  overflow: hidden;
+}
+.header-progress span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  background: var(--blue);
+  transition: width 0.4s ease;
+}
+
+.required-meter-label {
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-grid {
+  align-items: start;
+}
+
+@media (min-width: 72rem) {
+  .workspace-grid {
+    grid-template-columns: 210px minmax(320px, 390px) minmax(560px, 1fr);
+  }
+}
+
+.sidebar-panel {
+  height: var(--workspace-h);
+  padding: 0.15rem 0.65rem 0 0.15rem;
+  border-right: 1px solid var(--rule-soft);
+}
+
+.sidebar-empty {
+  color: var(--ink-3);
+  text-align: center;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.sidebar-empty::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 34px;
+  margin: 0 auto 0.75rem;
+  border: 1.5px solid rgba(32, 157, 215, 0.55);
+  border-top: 5px solid rgba(32, 157, 215, 0.22);
+  border-radius: 3px;
+  box-shadow: inset 0 -12px 0 rgba(3, 33, 71, 0.025);
+}
+
+.chat-panel,
+.form-panel {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px -18px rgba(3, 33, 71, 0.45);
+}
+
+.chat-panel {
+  height: var(--workspace-h);
+}
+
+.chat-scroll {
+  background: #f5f8fa;
+}
+
+.chat-composer {
+  border-color: var(--rule-soft) !important;
+  background: var(--card) !important;
+}
+
+.chat-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 0.45rem;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 157, 215, 0.28);
+  background: rgba(32, 157, 215, 0.1);
+  color: #08799e;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.chat-bubble {
+  border-radius: 6px;
+}
+
+.chat-bubble-user {
+  color: var(--ink);
+  background: #e8f5fb;
+  border: 1px solid rgba(32, 157, 215, 0.22);
+  border-bottom-right-radius: 2px;
+}
+
+.chat-bubble-assistant {
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--rule-soft);
+  border-bottom-left-radius: 2px;
+  box-shadow: 0 4px 12px -10px rgba(3, 33, 71, 0.38);
+}
+
+.chat-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.chat-composer-input {
+  border-radius: 6px !important;
+  min-height: 46px;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.chat-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(32, 157, 215, 0.9);
+  transition:
+    background-color 0.15s ease,
+    transform 0.08s ease,
+    opacity 0.15s ease;
+}
+.chat-send-btn:hover:not(:disabled) {
+  background: #1a89bd;
+}
+.chat-send-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.chat-send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.chat-send-icon {
+  width: 18px;
+  height: 18px;
+  margin-left: 1px;
+}
+
+.form-panel {
+  max-height: var(--workspace-h);
+  overflow-y: auto;
+}
+
+.doc-form-section {
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.doc-form-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.doc-form-section-title {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  margin-bottom: 0.6rem;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.doc-form-section-title::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  margin-left: 0.65rem;
+  background: var(--rule-soft);
+}
+
+.doc-field {
+  padding: 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.doc-field[data-field-state="conflict"] {
+  border-color: rgba(167, 58, 70, 0.25);
+  background: var(--red-soft);
+}
+
+.field-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.08rem 0.42rem;
+  font-size: 0.625rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink-3);
+  background: #f2f4f6;
+  vertical-align: middle;
+}
+
+.field-status[data-field-status="pending_confirmation"] {
+  border-color: rgba(236, 173, 10, 0.35);
+  color: #795500;
+  background: var(--gold-soft);
+}
+
+.field-status[data-field-status="confirmed"] {
+  border-color: rgba(35, 122, 75, 0.26);
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.field-status[data-field-status="conflict"] {
+  border-color: rgba(167, 58, 70, 0.28);
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.field-hint,
+.field-conflict {
+  color: var(--ink-3);
+}
+
+.required-mark {
+  color: var(--red);
+  font-weight: 700;
+}
+
+/* The selector and command are separate controls with a stable gap. The
+   cluster may wrap as a unit but its children can never occupy the same box. */
+.export-cluster {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.format-segment {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(3.5rem, 1fr));
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: #eef2f5;
+}
+
+.format-segment-button {
+  min-width: 3.5rem;
+  padding: 0.32rem 0.55rem;
+  border: 0;
+  border-radius: 4px;
+  color: var(--ink-3);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.format-segment-button:hover {
+  color: var(--ink);
+}
+.format-segment-button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(3, 33, 71, 0.15);
+}
+
+.download-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  color: #fff;
+  background: var(--ink);
+  box-shadow: 0 7px 16px -11px rgba(3, 33, 71, 0.85);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.download-button:hover:not(:disabled) {
+  border-color: #0a3260;
+  background: #0a3260;
+}
+.download-button:disabled {
+  cursor: not-allowed;
+  color: #65758b;
+  background: #dfe5eb;
+  border-color: #d2d9e0;
+  box-shadow: none;
+}
+.download-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lang-toggle {
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.lang-toggle:hover {
+  color: var(--ink);
+  border-color: rgba(32, 157, 215, 0.45);
+}
+
+.account-menu {
+  position: relative;
+}
+.account-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: #eef3f7;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.account-avatar:hover {
+  border-color: rgba(32, 157, 215, 0.45);
+}
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 50;
+  width: 220px;
+  padding: 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 16px 36px -24px rgba(3, 33, 71, 0.55);
+}
+.account-email {
+  margin-bottom: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A neutral document desk keeps attention on the agreement itself. */
+.preview-column {
+  min-width: 0;
+  padding: 0.7rem 0.9rem 1.5rem;
+  border: 1px solid var(--rule-soft);
+  border-top: 2px solid var(--blue);
+  border-radius: 4px;
+  background: #edf1f4;
+}
+
+.preview-toolbar {
+  margin-bottom: 0.65rem;
+}
+
+.preview-toolbar-hint {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.preview-stage {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* Compact legal notice stays visible without covering document content. */
+.draft-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  padding: 0.46rem 0.62rem;
+  border: 1px solid var(--rule-soft);
+  border-left: 2px solid var(--blue);
+  border-radius: 4px;
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.draft-notice-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(32, 157, 215, 0.42);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #08799e;
+}
+
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 18px 45px -34px rgba(3, 33, 71, 0.55);
+}
+
+.login-form-shell {
+  background: #f6f8fa;
+}
+
+@media (max-width: 71.999rem) {
+  .sidebar-panel {
+    height: auto;
+    max-height: 18rem;
+    padding-right: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .workspace-grid {
+    padding-inline: 1rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-global-row,
+  .document-action-inner {
+    padding-inline: 1rem;
+  }
+
+  .document-action-inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .export-cluster {
+    width: 100%;
+  }
+
+  .format-segment,
+  .download-button {
+    flex: 1 1 0;
+  }
+
+  .global-actions {
+    flex: none;
+  }
+
+  .preview-column {
+    padding: 0.75rem 0.75rem 1.5rem;
+  }
+
 }
 
 /* Save indicator — a wax-dot beside the title. */
@@ -328,16 +888,247 @@ body::after {
   border: 1px dashed rgba(236, 173, 10, 0.55);
 }
 
-/* Ledger lines for the login ink panel. */
+/* Flat ink panel keeps the login screen calm and legible. */
 .ledger {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.045) 0 1px,
-    transparent 1px 30px
-  );
+  border-right: 1px solid rgba(236, 173, 10, 0.28);
 }
 
 /* ------------------------------------------------- document preview (.doc) */
+
+.document-paper {
+  min-height: 760px;
+  padding: clamp(2.15rem, 4.5vw, 3.9rem);
+  color: #182233;
+  background: #fffefa;
+  border: 1px solid rgba(3, 33, 71, 0.1);
+  border-top: 2px solid var(--blue);
+  border-radius: 2px;
+  /* Typeset like the exported contract: Songti body, so the on-screen
+     draft and the DOCX/PDF read as the same document. */
+  font-family: var(--contract-serif);
+  box-shadow:
+    0 1px 2px rgba(3, 33, 71, 0.06),
+    0 16px 34px -24px rgba(3, 33, 71, 0.34);
+}
+
+.document-header {
+  margin-bottom: 1.6rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+  text-align: center;
+}
+
+.document-header h1 {
+  color: var(--ink);
+  letter-spacing: 0;
+  font-family: var(--contract-serif);
+  font-weight: 650;
+}
+
+.cover-page-sheet {
+  padding: 1.25rem 0 1.5rem;
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.cover-page-sheet > h2 {
+  color: var(--ink);
+  font-family: var(--contract-serif);
+  font-weight: 650;
+}
+
+.cover-page-section {
+  margin-top: 1.6rem;
+}
+
+/* Cover-page rows mirror the restrained tables in the exported document. */
+.cover-page-section-title {
+  margin: 0;
+  padding: 0.48rem 0.65rem;
+  color: var(--ink);
+  background: #eef1f4;
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.cover-page-grid {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 32%) minmax(0, 1fr);
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+  font-size: 0.82rem;
+}
+
+.cover-page-grid > div {
+  display: contents;
+}
+
+.cover-page-grid dt,
+.cover-page-grid dd {
+  min-width: 0;
+  padding: 0.58rem 0.65rem;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.cover-page-grid dt {
+  color: var(--ink-3);
+  font-weight: 600;
+  background: #f7f8fa;
+}
+
+.field-value {
+  display: inline;
+  padding: 0 0.12rem;
+  border-bottom: 1.5px solid var(--rule);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Confirmed values are ink on paper — blue reads as a hyperlink, and no
+   hyperlinks belong inside a contract sheet. */
+.field-value[data-state="confirmed"] {
+  color: var(--ink);
+  border-bottom-color: rgba(3, 33, 71, 0.55);
+  background: transparent;
+  font-weight: 600;
+}
+
+.field-value[data-state="pending_confirmation"] {
+  color: #6f5208;
+  border-bottom-color: rgba(236, 173, 10, 0.78);
+  background: var(--gold-soft);
+}
+
+.field-value[data-state="conflict"] {
+  display: inline-block;
+  color: var(--red);
+  border-bottom-color: rgba(167, 58, 70, 0.72);
+  background: var(--red-soft);
+}
+
+.field-value[data-state="missing"] {
+  color: #8a7350;
+  letter-spacing: 0;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(236, 173, 10, 0.55);
+  background: rgba(253, 243, 211, 0.55);
+}
+
+.field-value[data-state="optional"] {
+  color: var(--ink-3);
+  border-bottom: 0;
+}
+
+/* Tiny state tags beside cover-page values; utility face so they read as
+   UI chrome laid over the serif sheet, not part of the contract text. */
+.value-chip {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.02rem 0.32rem;
+  border-radius: 3px;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 650;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+}
+.value-chip[data-kind="pending"] {
+  color: #795500;
+  background: var(--gold-soft);
+  border: 1px solid rgba(236, 173, 10, 0.5);
+}
+.value-chip[data-kind="confirmed"] {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+}
+
+.document-prose {
+  color: #182233;
+  font-family: var(--contract-serif);
+  font-size: 0.92rem;
+  line-height: 1.82;
+}
+
+.document-prose h1,
+.document-prose h2,
+.document-prose h3,
+.document-prose .header_2,
+.document-prose .header_3 {
+  color: var(--ink);
+  font-family: var(--contract-serif);
+  letter-spacing: 0;
+}
+
+.document-prose h1 {
+  margin: 1.75rem 0 1rem;
+  font-size: 1.42rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.document-prose h2,
+.document-prose .header_2 {
+  font-weight: 700;
+}
+
+.document-prose h3,
+.document-prose .header_3 {
+  font-weight: 650;
+}
+
+.document-prose p,
+.document-prose ol,
+.document-prose ul {
+  margin: 0.7rem 0;
+}
+
+.document-prose ol,
+.document-prose ul {
+  padding-left: 1.45rem;
+}
+
+.document-prose table {
+  width: 100%;
+  margin: 1rem 0 1.5rem;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.document-prose th,
+.document-prose td {
+  padding: 0.5rem 0.62rem;
+  border: 1px solid rgba(3, 33, 71, 0.19);
+  text-align: left;
+  vertical-align: top;
+}
+
+.document-prose th {
+  color: var(--ink);
+  background: #eef1f4;
+  font-weight: 650;
+}
+
+.document-cover-markdown {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+@media (max-width: 767px) {
+  .document-paper {
+    min-height: 0;
+    padding: 1.25rem;
+  }
+
+  .cover-page-grid {
+    grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr);
+  }
+}
 
 /* Document preview uses a serif face so the filled form reads like a contract. */
 .doc {
@@ -357,8 +1148,7 @@ body::after {
   font-size: 1.1rem;
   font-weight: 700;
   margin: 1.25rem 0 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .doc h3 {
@@ -383,15 +1173,15 @@ body::after {
 /* Value fills — used by the MNDA preview (.doc) and the generic
    cover page; both live under a [data-print-root] article. */
 [data-print-root] .filled {
-  background: #fff3ad;
-  box-shadow: inset 0 -2px 0 rgba(236, 173, 10, 0.55);
+  background: var(--green-soft);
+  box-shadow: inset 0 -1.5px 0 rgba(35, 122, 75, 0.62);
   padding: 0 0.15rem;
   border-radius: 2px;
 }
 
 [data-print-root] .missing {
-  background: #fbe3e3;
-  color: #8a1f1f;
+  background: #f2f4f6;
+  color: #6b7280;
   font-style: italic;
   padding: 0 0.25rem;
   border-radius: 2px;
@@ -401,16 +1191,26 @@ body::after {
    terms by name (coverpage_link / orderform_link / keyterms_link spans).
    Defined terms show their value in a tooltip; missing ones flag the gap. */
 [data-print-root] .term-defined {
-  background: #eaf6fc;
-  border-bottom: 1.5px solid #209dd7;
+  background: transparent;
+  border-bottom: 1px solid rgba(3, 33, 71, 0.5);
+  border-radius: 2px;
+  padding: 0 0.1rem;
+  cursor: help;
+}
+
+[data-print-root] .term-pending {
+  color: #725300;
+  background: rgba(236, 173, 10, 0.13);
+  border-bottom: 1.5px solid rgba(236, 173, 10, 0.9);
   border-radius: 2px;
   padding: 0 0.1rem;
   cursor: help;
 }
 
 [data-print-root] .term-missing {
-  background: #fbe3e3;
-  border-bottom: 1.5px dashed #c46a6a;
+  color: #657080;
+  background: #f2f4f6;
+  border-bottom: 1.5px dashed #929baa;
   border-radius: 2px;
   padding: 0 0.1rem;
 }
@@ -481,6 +1281,10 @@ body::after {
   [data-print-root] .term-defined {
     background: transparent;
     border-bottom: none;
+  }
+
+  [data-print-root] .term-pending {
+    background: transparent;
   }
 
   [data-print-root] .term-missing {

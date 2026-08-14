@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 
@@ -61,6 +63,28 @@ def test_create_then_read(client, alice_token):
 
     fetched = client.get(f"/api/documents/{body['id']}", headers=headers).json()
     assert fetched == body
+
+
+def test_document_timestamps_are_serialized_as_iso_8601_utc(client, alice_token):
+    headers = _bearer(alice_token)
+    created = client.post(
+        "/api/documents",
+        headers=headers,
+        json={"doc_id": "mutual-nda", "title": "UTC timestamps"},
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    utc_shape = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+    assert utc_shape.fullmatch(body["created_at"])
+    assert utc_shape.fullmatch(body["updated_at"])
+
+    listed = client.get("/api/documents", headers=headers).json()[0]
+    fetched = client.get(f"/api/documents/{body['id']}", headers=headers).json()
+    assert listed["created_at"] == body["created_at"]
+    assert listed["updated_at"] == body["updated_at"]
+    assert fetched["created_at"] == body["created_at"]
+    assert fetched["updated_at"] == body["updated_at"]
 
 
 def test_list_orders_most_recent_first(client, alice_token):

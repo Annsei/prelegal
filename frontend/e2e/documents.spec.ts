@@ -88,8 +88,10 @@ test.describe("Documents — sidebar and auto-save", () => {
     // default locale is zh so the rendered string is the Chinese label.
     await expect(page.getByText("双方保密协议（MNDA）").first()).toBeVisible();
 
-    // Disclaimer banner above the preview (note the warning prefix).
-    await expect(page.getByRole("note")).toContainText(/AI 生成的草稿|AI-generated draft/);
+    // Slim disclaimer banner above the preview paper.
+    await expect(page.getByRole("note")).toContainText(
+      /AI 草稿|AI draft|AI 生成的草稿|AI-generated draft/,
+    );
     // Footer disclaimer.
     await expect(
       page.locator("footer").getByText(/草稿|draft/i),

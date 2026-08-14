@@ -661,3 +661,122 @@ def test_chat_complete_constrains_batch_template_updates_to_manifest_keys(
     assert field_schema["additionalProperties"] is False
     assert manifest_key in field_schema["properties"]
     assert result["field_updates"] == {manifest_key: "已提取的值"}
+
+
+def test_pilot_structured_output_uses_manifest_pricing_enum(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    captured: dict = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "试点是免费还是付费？",
+                "selected_doc_id": "pilot-agreement",
+                "field_updates": {},
+                "done": False,
+            }
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    llm.chat_complete(
+        messages=[{"role": "user", "content": "请起草试点协议"}],
+        mnda_state={},
+        doc_id="pilot-agreement",
+    )
+
+    field_schema = captured["response_format"]["json_schema"]["schema"][
+        "properties"
+    ]["field_updates"]
+    assert field_schema["properties"]["试点收费方式"]["enum"] == ["免费", "付费"]
+    assert "Allowed values: 免费, 付费" in captured["messages"][0]["content"]
+
+
+def _conditional_completion_manifest() -> dict:
+    return {
+        "doc_id": "conditional-test",
+        "version": 1,
+        "fields": [
+            {
+                "key": "收费方式",
+                "type": "string",
+                "required": True,
+                "enum": ["免费", "付费"],
+            },
+            {
+                "key": "费用",
+                "type": "string",
+                "required": False,
+                "required_when": {
+                    "field": "收费方式",
+                    "op": "equals",
+                    "value": "付费",
+                },
+            },
+        ],
+    }
+
+
+def test_chat_complete_blocks_model_done_until_conditional_required_is_confirmed(
+    monkeypatch,
+):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    manifest = _conditional_completion_manifest()
+    captured: list[dict] = []
+
+    def fake_completion(**kwargs):
+        captured.append(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "费用还需要您确认，可以吗？",
+                "field_updates": {"费用": "人民币 10,000 元"},
+                "done": True,
+            }
+        )
+
+    monkeypatch.setattr(llm, "load_manifest", lambda _doc_id: manifest)
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "费用是一万元"}],
+        mnda_state={},
+        doc_id="conditional-test",
+        document_state={"fields": {"收费方式": "付费"}},
+    )
+
+    assert result["done"] is False
+    assert result["field_updates"] == {"费用": "人民币 10,000 元"}
+    assert len(captured) == 1
+    assert '"required_when"' in captured[0]["messages"][0]["content"]
+    assert "pending proposal" in captured[0]["messages"][0]["content"]
+
+
+def test_chat_complete_marks_free_conditional_path_done_from_confirmed_state(
+    monkeypatch,
+):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    manifest = _conditional_completion_manifest()
+    calls: list[dict] = []
+
+    def fake_completion(**kwargs):
+        calls.append(kwargs)
+        return _fake_response(
+            {
+                "assistant_message": "收费方式已确认。",
+                "field_updates": {},
+                "done": False,
+            }
+        )
+
+    monkeypatch.setattr(llm, "load_manifest", lambda _doc_id: manifest)
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+
+    result = llm.chat_complete(
+        messages=[{"role": "user", "content": "这是免费项目"}],
+        mnda_state={},
+        doc_id="conditional-test",
+        document_state={"fields": {"收费方式": "免费"}},
+    )
+
+    assert result["done"] is True
+    assert len(calls) == 1

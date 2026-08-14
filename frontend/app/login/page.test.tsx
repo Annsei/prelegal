@@ -52,6 +52,16 @@ async function switchToEnglish(): Promise<void> {
 }
 
 describe("LoginPage", () => {
+  it("shows the complete lawyer-review disclaimer in the marketing panel", () => {
+    render(<LoginPage />);
+
+    expect(
+      screen.getByText(
+        "本文档为 AI 生成的草稿，仅供参考，不构成法律意见。正式签署前请交由执业律师审核。",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("calls /api/auth/login with password and stores the session", async () => {
     const session = {
       user: {

@@ -159,11 +159,13 @@ export function MNDAChat({
     }
   };
 
+  const sendLabel = sending ? t.chat.sending : t.chat.send;
+
   return (
-    <div className="card flex h-[calc(100vh-12.5rem)] flex-col overflow-hidden">
+    <div className="chat-panel flex flex-col overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className="chat-scroll flex-1 space-y-4 overflow-y-auto px-4 py-5"
       >
         {history.length === 0 && (
           <Bubble role="assistant">{t.chat.welcome}</Bubble>
@@ -180,6 +182,7 @@ export function MNDAChat({
               <i />
               <i />
             </span>
+            <span className="sr-only">{t.chat.sending}</span>
           </Bubble>
         )}
       </div>
@@ -207,17 +210,11 @@ export function MNDAChat({
         </div>
       )}
 
-      <div
-        className="border-t p-3"
-        style={{
-          borderColor: "var(--rule-soft)",
-          background: "rgba(3, 33, 71, 0.025)",
-        }}
-      >
-        <div className="flex items-end gap-2">
+      <div className="chat-composer border-t p-3">
+        <div className="chat-composer-row">
           <textarea
             ref={textareaRef}
-            className="input-field min-h-[44px] flex-1 resize-y"
+            className="input-field chat-composer-input min-h-[52px] flex-1 resize-y"
             rows={2}
             placeholder={t.chat.placeholder}
             value={draft}
@@ -229,9 +226,20 @@ export function MNDAChat({
             type="button"
             onClick={() => void send()}
             disabled={sending || !draft.trim()}
-            className="btn btn-primary shrink-0"
+            className="chat-send-btn"
+            aria-label={sendLabel}
           >
-            {sending ? t.chat.sending : t.chat.send}
+            <span className="sr-only">{sendLabel}</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="chat-send-icon"
+            >
+              <path
+                fill="currentColor"
+                d="M3.4 20.6 21 12 3.4 3.4 3 10l11 2-11 2z"
+              />
+            </svg>
           </button>
         </div>
       </div>
@@ -249,25 +257,15 @@ function Bubble({
   const isUser = role === "user";
   return (
     <div className={`bubble flex ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser && (
+        <span className="chat-avatar" aria-hidden="true">
+          契
+        </span>
+      )}
       <div
-        className={`max-w-[85%] whitespace-pre-wrap px-3.5 py-2 text-sm leading-relaxed ${
-          isUser
-            ? "rounded-xl rounded-br-sm"
-            : "rounded-xl rounded-bl-sm border"
+        className={`chat-bubble max-w-[85%] whitespace-pre-wrap px-3.5 py-2.5 text-sm leading-relaxed ${
+          isUser ? "chat-bubble-user" : "chat-bubble-assistant"
         }`}
-        style={
-          isUser
-            ? {
-                background: "var(--ink)",
-                color: "#f6efdd",
-                boxShadow: "0 4px 12px -6px rgba(3, 33, 71, 0.5)",
-              }
-            : {
-                background: "var(--card)",
-                color: "var(--ink)",
-                borderColor: "var(--rule-soft)",
-              }
-        }
       >
         {children}
       </div>

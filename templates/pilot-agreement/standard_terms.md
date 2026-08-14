@@ -17,10 +17,13 @@
     2. <span class="header_3" id="2.2">期限届满。</span>  <span class="orderform_link">试点期限</span>届满且双方未依照第 8 条签署正式协议、亦未书面延长试点的，本协议自动终止，<span class="coverpage_link">客户</span>的产品访问权限同时终止。
 
 3. <span class="header_2" id="3">费用与支付</span>
-    1. <span class="header_3" id="3.1">试点费用。</span>  <span class="coverpage_link">客户</span>应当按照封面页约定的<span class="orderform_link">试点收费方式</span>、<span class="orderform_link">试点费用</span>及<span class="orderform_link">付款安排</span>向<span class="coverpage_link">服务方</span>付款；<span class="orderform_link">试点收费方式</span>约定为免费或者<span class="orderform_link">试点费用</span>约定为零的，试点期间<span class="coverpage_link">客户</span>无须付款，本条其余款项不适用。
-    2. <span class="header_3" id="3.2">发票与税费。</span>  <span class="coverpage_link">服务方</span>应当在收到款项后按照法律规定向<span class="coverpage_link">客户</span>开具合法有效的发票；各方依法各自承担因履行本协议产生的税费。
-    3. <span class="header_3" id="3.3">逾期付款。</span>  <span class="coverpage_link">客户</span>逾期支付<span class="orderform_link">试点费用</span>的，每逾期一日，应按逾期金额的万分之五向<span class="coverpage_link">服务方</span>支付违约金；逾期超过三十（30）日的，<span class="coverpage_link">服务方</span>有权中止试点服务直至款项付清。
-    4. <span class="header_3" id="3.4">退费。</span>  因<span class="coverpage_link">服务方</span>原因致使本协议在<span class="orderform_link">试点期限</span>届满前解除的，<span class="coverpage_link">服务方</span>应当按照剩余试点天数占总天数的比例退还已预付的<span class="orderform_link">试点费用</span>。
+    1. <span class="header_3" id="3.1">收费方式。</span>  <span class="orderform_link">试点收费方式</span>以封面页约定为准；约定为免费的，试点期间<span class="coverpage_link">客户</span>无须支付试点费用。
+<!-- when {"field": "试点收费方式", "op": "equals", "value": "付费"} -->
+    2. <span class="header_3" id="3.2">试点费用支付。</span>  <span class="coverpage_link">客户</span>应当按照封面页约定的<span class="orderform_link">试点费用</span>及<span class="orderform_link">付款安排</span>向<span class="coverpage_link">服务方</span>付款。
+    3. <span class="header_3" id="3.3">发票与税费。</span>  <span class="coverpage_link">服务方</span>应当在收到款项后按照法律规定向<span class="coverpage_link">客户</span>开具合法有效的发票；各方依法各自承担因履行本协议产生的税费。
+    4. <span class="header_3" id="3.4">逾期付款。</span>  <span class="coverpage_link">客户</span>逾期支付<span class="orderform_link">试点费用</span>的，每逾期一日，应按逾期金额的万分之五向<span class="coverpage_link">服务方</span>支付违约金；逾期超过三十（30）日的，<span class="coverpage_link">服务方</span>有权中止试点服务直至款项付清。
+    5. <span class="header_3" id="3.5">退费。</span>  因<span class="coverpage_link">服务方</span>原因致使本协议在<span class="orderform_link">试点期限</span>届满前解除的，<span class="coverpage_link">服务方</span>应当按照剩余试点天数占总天数的比例退还已预付的<span class="orderform_link">试点费用</span>。
+<!-- endwhen -->
 
 4. <span class="header_2" id="4">双方权利义务</span>
     1. <span class="header_3" id="4.1">服务方义务。</span>  <span class="coverpage_link">服务方</span>应当：(a) 按照<span class="orderform_link">试点范围</span>开通产品并提供必要的开通指引和使用文档；(b) 在试点期间提供合理的技术支持，对<span class="coverpage_link">客户</span>反馈的问题及时处理；(c) 尽合理努力保障试点环境正常运行，重大变更或者计划内停机提前通知<span class="coverpage_link">客户</span>。

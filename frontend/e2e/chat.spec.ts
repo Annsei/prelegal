@@ -240,10 +240,10 @@ test.describe("Document chat", () => {
     await page.getByLabel(/Type a message/i).fill("Draft a CSA for me.");
     await page.getByRole("button", { name: /^Send$/ }).click();
 
-    // Header now reflects the new doc.
-    await expect(page.getByText(/Drafting:/)).toContainText(
-      "unmanaged-test-document",
-    );
+    // Header title reflects the new unmanaged document id.
+    await expect(
+      page.getByTitle(/Drafting:.*unmanaged-test-document|正在起草:.*unmanaged-test-document/),
+    ).toBeVisible();
     // The generic preview rendered the fetched template title and the
     // AI-collected Cover Page Summary.
     await expect(
