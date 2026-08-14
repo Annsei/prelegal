@@ -8,12 +8,17 @@ import {
   type DocManifest,
   type ManifestField,
 } from "@/lib/docManifest";
-import type { DraftFieldState } from "@/lib/draftState";
+import {
+  requiredFieldKeys,
+  type DraftFieldState,
+  type DraftStateSnapshot,
+} from "@/lib/draftState";
 
 type Props = {
   locale: Locale;
   manifest: DocManifest;
   values: Record<string, string>;
+  draftState?: DraftStateSnapshot | null;
   fieldStates?: Record<string, DraftFieldState>;
   onConfirm: (key: string, value: string) => void | Promise<void>;
   onReject?: (key: string) => void | Promise<void>;
@@ -31,17 +36,20 @@ export function DocForm({
   locale,
   manifest,
   values,
+  draftState = null,
   fieldStates = EMPTY_FIELD_STATES,
   onConfirm,
   onReject,
 }: Props) {
   const t = useDictionary(locale);
   const [draftValues, setDraftValues] = useState<Record<string, string>>(values);
+  const effectiveFieldStates = draftState?.fields ?? fieldStates;
+  const activeRequiredKeys = new Set(requiredFieldKeys(manifest, draftState));
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const field of manifest.fields) {
-      const state = fieldStates[field.key];
+      const state = effectiveFieldStates[field.key];
       if (state?.status === "conflict" && state.conflict?.proposed_value) {
         next[field.key] = state.conflict.proposed_value;
       } else if (state?.value) {
@@ -51,7 +59,7 @@ export function DocForm({
       }
     }
     setDraftValues(next);
-  }, [fieldStates, manifest.fields, values]);
+  }, [effectiveFieldStates, manifest.fields, values]);
 
   return (
     <div className="doc-form space-y-6">
@@ -74,7 +82,8 @@ export function DocForm({
                   locale={locale}
                   field={field}
                   value={draftValues[field.key] ?? ""}
-                  fieldState={fieldStates[field.key]}
+                  fieldState={effectiveFieldStates[field.key]}
+                  required={activeRequiredKeys.has(field.key)}
                   requiredLabel={t.docForm.required}
                   labels={t.docForm}
                   onChange={(value) =>
@@ -101,6 +110,7 @@ function Field({
   field,
   value,
   fieldState,
+  required,
   requiredLabel,
   labels,
   onChange,
@@ -111,6 +121,7 @@ function Field({
   field: ManifestField;
   value: string;
   fieldState?: DraftFieldState;
+  required: boolean;
   requiredLabel: string;
   labels: {
     confirm: string;
@@ -159,7 +170,7 @@ function Field({
         style={{ color: "var(--ink)" }}
       >
         {localized(field.label, locale)}
-        {field.required && (
+        {required && (
           <span className="required-mark ml-1">
             {requiredLabel}
           </span>

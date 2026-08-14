@@ -36,6 +36,9 @@ EXCLUDED_PATHS=(
   "templates/sources/civil-code/sample.txt"
   ".claude/canary.txt"
   ".env"
+  ".env.local"
+  ".env.production"
+  ".env.test"
 )
 
 REQUIRED_PATHS=(

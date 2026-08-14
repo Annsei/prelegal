@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { DocForm } from "./DocForm";
 import type { DocManifest } from "@/lib/docManifest";
-import type { DraftFieldState } from "@/lib/draftState";
+import type {
+  DraftFieldState,
+  DraftStateSnapshot,
+} from "@/lib/draftState";
 
 const MANIFEST: DocManifest = {
   doc_id: "cloud-service-agreement",
@@ -34,6 +37,11 @@ const MANIFEST: DocManifest = {
       section: "order",
       type: "text",
       required: false,
+      required_when: {
+        field: "Pricing Model",
+        op: "equals",
+        value: "付费",
+      },
       label: { zh: "费用", en: "Fees" },
     },
     {
@@ -67,6 +75,51 @@ describe("DocForm", () => {
     expect(screen.getByLabelText(/Fees/).tagName).toBe("TEXTAREA");
     // Required mark on required fields only.
     expect(screen.getAllByText("*required")).toHaveLength(3);
+  });
+
+  it("marks conditionally required fields from confirmed stable values", () => {
+    const snapshot = (pricing: string): DraftStateSnapshot => ({
+      schema_version: "draft-state.v1",
+      manifest_version: 1,
+      doc_id: MANIFEST.doc_id,
+      revision: 1,
+      applied_patches: {},
+      fields: {
+        "Pricing Model": {
+          key: "Pricing Model",
+          status: "confirmed",
+          value: pricing,
+          revision: 1,
+          provenance: [],
+          confirmed_at: "2026-08-14T00:00:00+00:00",
+          confirmed_by_user_id: 1,
+        },
+      },
+    });
+    const { rerender } = render(
+      <DocForm
+        locale="en"
+        manifest={MANIFEST}
+        values={{}}
+        draftState={snapshot("付费")}
+        onConfirm={() => {}}
+      />,
+    );
+
+    const paidFees = screen.getByLabelText(/Fees/);
+    expect(paidFees.labels?.[0]).toHaveTextContent("*required");
+
+    rerender(
+      <DocForm
+        locale="en"
+        manifest={MANIFEST}
+        values={{}}
+        draftState={snapshot("免费")}
+        onConfirm={() => {}}
+      />,
+    );
+    const freeFees = screen.getByLabelText(/Fees/);
+    expect(freeFees.labels?.[0]).not.toHaveTextContent("*required");
   });
 
   it("shows current values and confirms only after an explicit action", async () => {

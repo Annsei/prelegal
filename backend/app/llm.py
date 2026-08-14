@@ -21,6 +21,11 @@ from typing import Any
 
 import litellm
 
+from app.draft_state import (
+    DraftStateSnapshot,
+    FieldState,
+    unresolved_required_field_keys,
+)
 from app.manifests import load_manifest, manifest_field_keys
 
 MODEL = "openrouter/openai/gpt-oss-120b"
@@ -129,7 +134,18 @@ def _manifest_prompt_section(manifest: dict[str, Any]) -> str:
     ]
     for field in manifest.get("fields", []):
         key = field.get("key", "")
-        requirement = "required" if field.get("required") else "optional"
+        required_when = field.get("required_when")
+        if field.get("required"):
+            requirement = "required"
+        elif required_when is not None:
+            condition = json.dumps(
+                {"required_when": required_when},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            requirement = f"conditionally required: {condition}"
+        else:
+            requirement = "optional"
         hint = (field.get("hint") or {}).get("en", "")
         example = field.get("example", "")
         parts = [f'- "{key}" ({requirement})']
@@ -143,11 +159,41 @@ def _manifest_prompt_section(manifest: dict[str, Any]) -> str:
         lines.append("".join(parts))
     lines.append("")
     lines.append(
-        "When every required field has a value, set `done: true` and tell "
-        "the user the cover page is complete — they can review the "
-        "preview and download the PDF."
+        "Treat `required_when` with the same equals/not_equals/in/exists "
+        "semantics shown in the checklist. Set `done: true` only when every "
+        "currently active required field already has a confirmed value in "
+        "Current document state. A field_update from this turn is a pending "
+        "proposal and does not count until the user explicitly confirms it."
     )
     return "\n".join(lines)
+
+
+def _manifest_completion_is_done(
+    manifest: dict[str, Any],
+    document_state: dict[str, Any],
+) -> bool:
+    """Apply the kernel's required-field semantics to confirmed chat context."""
+    raw_fields = document_state.get("fields")
+    if not isinstance(raw_fields, dict):
+        raw_fields = {}
+    snapshot = DraftStateSnapshot(
+        doc_id=str(manifest.get("doc_id") or ""),
+        manifest_version=manifest.get("version"),
+    )
+    for field in manifest.get("fields", []):
+        if not isinstance(field, dict) or not isinstance(field.get("key"), str):
+            continue
+        key = field["key"]
+        raw_value = raw_fields.get(key)
+        if isinstance(raw_value, str) and raw_value.strip():
+            snapshot.fields[key] = FieldState(
+                key=key,
+                status="confirmed",
+                value=raw_value,
+            )
+        else:
+            snapshot.fields[key] = FieldState(key=key)
+    return not unresolved_required_field_keys(manifest, snapshot)
 
 
 # The structured-output schema. `field_updates` is intentionally partial:
@@ -481,6 +527,8 @@ def chat_complete(
     system += f"\n\nCurrent document state:\n{state_summary}"
 
     result = _call_llm(messages, system, api_key, schema, manifest)
+    if manifest:
+        result["done"] = _manifest_completion_is_done(manifest, current_state)
 
     needs_followup = (
         not result.get("done")
@@ -499,6 +547,8 @@ def chat_complete(
             "While `done` is false, `assistant_message` MUST end with a question."
         )
         result = _call_llm(messages, retry_system, api_key, schema, manifest)
+        if manifest:
+            result["done"] = _manifest_completion_is_done(manifest, current_state)
         result["field_updates"] = {
             **first_fields,
             **(result.get("field_updates") or {}),

@@ -14,6 +14,7 @@ import {
   type DocManifest,
 } from "@/lib/docManifest";
 import {
+  requiredFieldKeys,
   stableFieldValues,
   type DraftFieldState,
   type DraftStateSnapshot,
@@ -73,6 +74,9 @@ export function GenericDocPreview({
 
   const { template } = load;
   const manifest = template.manifest ?? null;
+  const activeRequiredKeys = manifest
+    ? new Set(requiredFieldKeys(manifest, draftState))
+    : new Set<string>();
   const stableFields = manifest
     ? stableFieldValues(manifest, draftState, fields)
     : fields;
@@ -139,6 +143,7 @@ export function GenericDocPreview({
           manifest={manifest}
           fields={fields}
           draftState={draftState}
+          activeRequiredKeys={activeRequiredKeys}
           locale={locale}
         />
       ) : (
@@ -164,11 +169,13 @@ function CoverPage({
   manifest,
   fields,
   draftState,
+  activeRequiredKeys,
   locale,
 }: {
   manifest: DocManifest;
   fields: Record<string, string>;
   draftState: DraftStateSnapshot | null;
+  activeRequiredKeys: ReadonlySet<string>;
   locale: Locale;
 }) {
   const t = useDictionary(locale);
@@ -207,7 +214,7 @@ function CoverPage({
                     <dd>
                       <CoverPageValue
                         value={value}
-                        required={field.required}
+                        required={activeRequiredKeys.has(field.key)}
                         fieldState={fieldState}
                         missingLabel={t.coverPage.missing}
                         labels={t.docForm}

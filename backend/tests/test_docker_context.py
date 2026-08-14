@@ -54,6 +54,9 @@ def test_effective_context_check_preserves_all_required_product_sources():
         "templates/sources/civil-code/sample.txt",
         ".claude/canary.txt",
         ".env",
+        ".env.local",
+        ".env.production",
+        ".env.test",
     ):
         assert excluded_path in script
 

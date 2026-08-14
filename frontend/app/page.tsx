@@ -874,6 +874,7 @@ export default function Home() {
                   locale={locale}
                   manifest={manifest}
                   values={displayGenericFields}
+                  draftState={draftState}
                   fieldStates={draftState?.fields}
                   onConfirm={confirmField}
                   onReject={rejectField}
